@@ -1,0 +1,25 @@
+{
+  "name": "skyhost",
+  "private": true,
+  "version": "0.1.0",
+  "description": "SKYHOST by SYRIX VISION COMPANY - intelligent PaaS",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm -r --filter=./apps/* run build",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r --filter=!./apps/web run test",
+    "test:e2e": "pnpm --filter @skyhost/api run test:e2e",
+    "test:web": "pnpm --filter @skyhost/web run test:e2e",
+    "lint": "pnpm -r run typecheck",
+    "db:generate": "pnpm --filter @skyhost/db run generate",
+    "db:migrate": "pnpm --filter @skyhost/db run migrate",
+    "db:seed": "pnpm --filter @skyhost/db run seed",
+    "dev:api": "pnpm --filter @skyhost/api run dev",
+    "dev:web": "pnpm --filter @skyhost/web run dev",
+    "dev:worker": "pnpm --filter @skyhost/worker run dev"
+  }
+}

@@ -1216,3 +1216,37 @@ export const deployHooks = pgTable(
   },
   (t) => [index("deploy_hooks_service_idx").on(t.serviceId)],
 );
+
+// ---------------------------------------------------------------------------
+// Support tickets: users write to the platform team from the dashboard
+// ---------------------------------------------------------------------------
+
+export const supportTickets = pgTable(
+  "support_tickets",
+  {
+    id: id(),
+    userId: uuid("user_id").notNull().references(() => users.id),
+    teamId: uuid("team_id").references(() => teams.id),
+    subject: text("subject").notNull(),
+    category: text("category").notNull().default("technical"), // technical | billing | account | abuse | other
+    status: text("status").notNull().default("open"), // open (waiting for support) | answered (waiting for the user) | closed
+    lastMessageAt: ts("last_message_at").notNull().defaultNow(),
+    closedAt: ts("closed_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("support_tickets_user_idx").on(t.userId), index("support_tickets_status_idx").on(t.status, t.lastMessageAt)],
+);
+
+export const supportMessages = pgTable(
+  "support_messages",
+  {
+    id: id(),
+    ticketId: uuid("ticket_id").notNull().references(() => supportTickets.id, { onDelete: "cascade" }),
+    authorId: uuid("author_id").references(() => users.id),
+    /** Written by a platform administrator. */
+    fromStaff: boolean("from_staff").notNull().default(false),
+    body: text("body").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("support_messages_ticket_idx").on(t.ticketId, t.createdAt)],
+);

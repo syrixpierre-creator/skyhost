@@ -243,3 +243,21 @@ test("visitors get the public home page with pricing; signed-in users get their 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Push your code. Get a live URL." })).toHaveCount(0);
 });
+
+test("a user opens a support ticket and follows the thread", async ({ page }) => {
+  await login(page);
+  await page.getByRole("link", { name: "Support" }).first().click();
+  await expect(page.getByText("No tickets yet")).toBeVisible();
+  await page.getByRole("button", { name: "New ticket" }).first().click();
+  await page.getByLabel("Subject").fill("My app returns 502");
+  await page.getByLabel("Message").fill("The web service of my project shows Bad Gateway.");
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await expect(page).toHaveURL(/\/support\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole("heading", { name: "My app returns 502" })).toBeVisible();
+  await expect(page.getByText("Waiting for support")).toBeVisible();
+  await page.getByLabel("Reply").fill("Extra detail: it started after the last deploy.");
+  await page.getByRole("button", { name: "Send reply" }).click();
+  await expect(page.getByText("Extra detail: it started after the last deploy.")).toBeVisible();
+  await page.getByRole("button", { name: "Close ticket" }).click();
+  await expect(page.getByText("Closed", { exact: true })).toBeVisible();
+});

@@ -419,3 +419,40 @@ describe("pay as you go", () => {
     }
   });
 });
+
+describe("support tickets", () => {
+  it("a user opens a ticket, staff replies anonymously and the user is emailed; others cannot read it", async () => {
+    const u = await newUser();
+    const other = await newUser();
+    const admin = await adminUser();
+    const open = await u.client.post("/api/v1/support/tickets", { subject: "Deploy stuck", category: "technical", body: "My build never finishes.", teamId: u.teamId });
+    expect(open.status, open.raw).toBe(201);
+    const id = open.body.ticket.id as string;
+    expect(open.body.ticket).toMatchObject({ status: "open", teamId: u.teamId });
+    expect((await other.client.get(`/api/v1/support/tickets/${id}`)).status).toBe(404);
+    expect((await other.client.post(`/api/v1/support/tickets/${id}/messages`, { body: "hi" })).status).toBe(404);
+    expect((await u.client.get("/api/v1/admin/support")).status).not.toBe(200);
+
+    const queue = getQueue(QUEUES.notify);
+    const before = new Set((await queue.getJobs(["waiting", "delayed", "prioritized"])).map((j) => j.id));
+    const list = await admin.client.get("/api/v1/admin/support");
+    expect(list.body.tickets.find((t: { id: string }) => t.id === id)).toMatchObject({ userEmail: u.email });
+    expect((await admin.client.post(`/api/v1/support/tickets/${id}/messages`, { body: "Fixed, please retry." })).status).toBe(201);
+    const mails = (await queue.getJobs(["waiting", "delayed", "prioritized"])).filter((j) => !before.has(j.id) && (j.data as { email?: string }).email === u.email);
+    expect(mails).toHaveLength(1);
+    expect((mails[0]!.data as { text: string }).text).toContain("Fixed, please retry.");
+    for (const j of mails) await j.remove();
+
+    const thread = await u.client.get(`/api/v1/support/tickets/${id}`);
+    expect(thread.body.ticket.status).toBe("answered");
+    expect(thread.body.owner).toBeNull();
+    expect(thread.body.messages.map((m: { author: string }) => m.author)).toEqual([u.user.name, "SKYHOST support"]);
+    expect((await admin.client.get(`/api/v1/support/tickets/${id}`)).body.owner).toMatchObject({ email: u.email });
+
+    expect((await u.client.post(`/api/v1/support/tickets/${id}/close`)).status).toBe(200);
+    expect((await u.client.get("/api/v1/support/tickets")).body.tickets[0]).toMatchObject({ id, status: "closed" });
+    // A reply reopens it.
+    await u.client.post(`/api/v1/support/tickets/${id}/messages`, { body: "Still broken." });
+    expect((await u.client.get(`/api/v1/support/tickets/${id}`)).body.ticket.status).toBe("open");
+  });
+});

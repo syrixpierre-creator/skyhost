@@ -23,6 +23,7 @@ const Referrals = lazy(() => import("./pages/Referrals"));
 const Templates = lazy(() => import("./pages/Templates"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Public = lazy(() => import("./pages/Public"));
+const Support = lazy(() => import("./pages/Support"));
 
 function Loading() {
   return (
@@ -89,6 +90,8 @@ export function App() {
         <Route path="/account" element={<Protected><Account /></Protected>} />
         <Route path="/billing" element={<Protected><Billing /></Protected>} />
         <Route path="/referrals" element={<Protected><Referrals /></Protected>} />
+        <Route path="/support" element={<Protected><Support /></Protected>} />
+        <Route path="/support/:ticketId" element={<Protected><Support /></Protected>} />
         <Route path="/admin/*" element={<Protected><Admin /></Protected>} />
         <Route path="*" element={<Public page="404" />} />
       </Routes>

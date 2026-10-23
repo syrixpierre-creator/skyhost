@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Bell, Boxes, ChevronDown, CreditCard, Database, Gift, LayoutGrid, Menu, Moon, Plus, Search, Settings, Shield, Sun, User, Languages, FileCode2, X } from "lucide-react";
+import { Bell, Boxes, ChevronDown, CreditCard, Database, Gift, LayoutGrid, Menu, Moon, Plus, Search, Settings, Shield, Sun, User, Languages, FileCode2, LifeBuoy, X } from "lucide-react";
 import { get, post } from "../lib/api";
 import { setLanguage } from "../lib/i18n";
 import { useRealtimeInvalidate, useSession } from "../lib/session";
@@ -258,6 +258,7 @@ export function Layout({ children }: { children: ReactNode }) {
             {item("/billing", <CreditCard className="size-4" />, t("nav.billing"))}
             {item("/referrals", <Gift className="size-4" />, t("nav.referrals"))}
             {item("/settings", <Settings className="size-4" />, t("nav.settings"))}
+            {item("/support", <LifeBuoy className="size-4" />, t("Support"))}
             {me?.user.isAdmin && !me.impersonating && item("/admin", <Shield className="size-4" />, t("nav.admin"))}
             <a href="/api/docs" target="_blank" rel="noreferrer" className="flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm text-muted hover:bg-panel-2 hover:text-fg">
               <FileCode2 className="size-4" /> {t("nav.docs")}

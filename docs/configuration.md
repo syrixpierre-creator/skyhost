@@ -77,3 +77,9 @@ email delivery nobody could verify); `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET`, 
    data stays readable with `k1`.
 3. Keep `k1` until every value has been rewritten (for example after rotating database credentials and
    re-saving variables). Never remove a key that still protects data.
+
+## Support tickets
+
+Users open tickets from **Support** in the sidebar (`/support`). Every new ticket and every user reply is emailed to the
+administrators (`SKYHOST_SUPPORT_EMAIL` and admin accounts); staff replies are emailed to the user and signed
+"SKYHOST support". Administrators answer from **Admin → Support**. Requires SMTP for the email part; tickets work without it.

@@ -6,6 +6,7 @@ import { del, get, patch, post, put } from "../lib/api";
 import { useSession } from "../lib/session";
 import { Alert, Badge, Button, Card, cx, EmptyState, ErrorState, Field, Input, LoadingRows, Modal, PageHeader, Select, Meter, StatusBadge, Textarea, Toggle, timeAgo, Unavailable, useToast } from "../components/ui";
 import { t } from "../lib/i18n";
+import { TicketRows, type Ticket } from "./Support";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -443,6 +444,23 @@ function ReferralReview() {
   );
 }
 
+function SupportQueue() {
+  const [status, setStatus] = useState("");
+  const q = useQuery({ queryKey: ["admin-support", status], queryFn: () => get<{ tickets: Ticket[] }>(`/admin/support${status ? `?status=${status}` : ""}`) });
+  return (
+    <Card padded={false} title={t("Support tickets")} actions={
+      <Select aria-label={t("Status")} value={status} onChange={(e) => setStatus(e.target.value)} className="w-auto">
+        <option value="">{t("Open and answered")}</option>
+        <option value="open">{t("Waiting for support")}</option>
+        <option value="answered">{t("Answered")}</option>
+        <option value="closed">{t("Closed")}</option>
+      </Select>
+    }>
+      {q.isLoading ? <LoadingRows /> : q.error ? <ErrorState error={q.error} /> : q.data!.tickets.length === 0 ? <EmptyState title={t("No tickets")} /> : <TicketRows tickets={q.data!.tickets} admin />}
+    </Card>
+  );
+}
+
 function Payments() {
   const q = useQuery({ queryKey: ["admin", "payments"], queryFn: () => get("/admin/payments") });
   const toast = useToast();
@@ -521,6 +539,7 @@ const SECTIONS = [
   ["abuse", "Abuse"],
   ["referrals", "Referrals"],
   ["payments", "Payments"],
+  ["support", "Support"],
   ["flags", "Flags & announcements"],
 ] as const;
 
@@ -544,6 +563,7 @@ export default function Admin() {
         <Route path="abuse" element={<Abuse />} />
         <Route path="referrals" element={<ReferralReview />} />
         <Route path="payments" element={<Payments />} />
+        <Route path="support" element={<SupportQueue />} />
         <Route path="flags" element={<Flags />} />
       </Routes>
     </>

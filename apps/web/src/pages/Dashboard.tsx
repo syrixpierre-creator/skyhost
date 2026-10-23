@@ -6,15 +6,16 @@ import { get } from "../lib/api";
 import { useRealtimeInvalidate, useSession } from "../lib/session";
 import { Button, EmptyState, ErrorState, LoadingRows, PageHeader, StatusBadge, timeAgo, Meter, Card } from "../components/ui";
 import { t } from "../lib/i18n";
-import { limitLabel } from "../lib/labels";
+import { serviceStatus } from "../lib/status";
+import { limitLabel, limitValue } from "../lib/labels";
 
 interface ProjectRow {
   id: string;
   name: string;
   description: string | null;
   createdAt: string;
-  services: Array<{ id: string; name: string; type: string; status: string }>;
-  databases: Array<{ id: string; engine: string; status: string }>;
+  services: Array<{ id: string; name: string; type: string; status: string; latestDeploymentStatus: string | null }>;
+  databases: Array<{ id: string; name: string; engine: string; status: string }>;
 }
 
 export default function Dashboard() {
@@ -64,13 +65,13 @@ export default function Dashboard() {
                   {p.services.slice(0, 5).map((s) => (
                     <li key={s.id} className="flex items-center justify-between text-sm">
                       <span className="truncate">{s.name}</span>
-                      <StatusBadge status={s.status} />
+                      <StatusBadge status={serviceStatus(s.status, s.latestDeploymentStatus)} />
                     </li>
                   ))}
                   {p.databases.map((d) => (
                     <li key={d.id} className="flex items-center justify-between text-sm">
                       <span className="flex items-center gap-1.5 text-muted">
-                        <Database className="size-3.5" /> {d.engine}
+                        <Database className="size-3.5" /> {d.name} <span className="text-xs text-faint">{d.engine}</span>
                       </span>
                       <StatusBadge status={d.status} />
                     </li>
@@ -88,7 +89,7 @@ export default function Dashboard() {
             <div className="space-y-3">
               {usage.data?.items
                 .filter((i) => ["projects", "services", "databases", "buildMinutes", "deploysPerDay", "customDomains"].includes(i.key))
-                .map((i) => <Meter key={i.key} value={i.current} max={i.limit} label={limitLabel(i.key)} />)}
+                .map((i) => <Meter key={i.key} value={i.current} max={i.limit} label={limitLabel(i.key)} format={(v) => limitValue(i.key, v)} />)}
             </div>
           )}
         </Card>

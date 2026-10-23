@@ -7,7 +7,7 @@ import { assertPublicUrl, decrypt, encrypt, randomToken } from "@skyhost/shared/
 import { audit, badRequest, decryptChannelConfig, encryptChannelConfig, enqueue, notFound } from "@skyhost/core";
 import { actorOf } from "../lib/auth";
 import { serviceAccess, teamAccess } from "../lib/authz";
-import { idParam, route } from "../lib/http";
+import { idParam, queryBool, route } from "../lib/http";
 
 const teamParam = z.object({ teamId: z.string().uuid() });
 const quiet = z.object({ start: z.string().regex(/^\d{2}:\d{2}$/), end: z.string().regex(/^\d{2}:\d{2}$/), timezone: z.string().max(64) }).nullable().default(null);
@@ -21,7 +21,7 @@ const channelBody = z.discriminatedUnion("kind", [
 
 export default async function notificationRoutes(app: FastifyInstance) {
   // ---------------------------------------------------------------------------------- In-app
-  route(app, { method: "GET", url: "/notifications", tags: ["notifications"], query: z.object({ unread: z.coerce.boolean().default(false), limit: z.coerce.number().int().min(1).max(100).default(30) }) }, async (req, _r, { query }) => {
+  route(app, { method: "GET", url: "/notifications", tags: ["notifications"], query: z.object({ unread: queryBool(), limit: z.coerce.number().int().min(1).max(100).default(30) }) }, async (req, _r, { query }) => {
     const rows = await getDb()
       .select()
       .from(notifications)

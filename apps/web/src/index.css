@@ -69,3 +69,29 @@ body {
 .react-flow__attribution {
   display: none;
 }
+
+/* Canvas zoom controls follow the theme (React Flow v12 reads these variables). */
+.react-flow {
+  --xy-controls-button-background-color: var(--sh-panel);
+  --xy-controls-button-background-color-hover: var(--sh-panel-2);
+  --xy-controls-button-color: var(--sh-fg);
+  --xy-controls-button-color-hover: var(--sh-fg);
+  --xy-controls-button-border-color: var(--sh-line);
+}
+.react-flow__controls {
+  box-shadow: none;
+  border: 1px solid var(--sh-line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.react-flow__controls-button {
+  background: var(--sh-panel);
+  border-bottom: 1px solid var(--sh-line);
+  color: var(--sh-fg);
+}
+.react-flow__controls-button:hover {
+  background: var(--sh-panel-2);
+}
+.react-flow__controls-button svg {
+  fill: currentColor;
+}

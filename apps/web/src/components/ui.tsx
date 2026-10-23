@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { clsx } from "clsx";
 import { AlertTriangle, Check, Copy, Inbox, Loader2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import i18n from "../lib/i18n";
 import { t } from "../lib/i18n";
 
 export const cx = clsx;
@@ -29,19 +30,22 @@ export function Button({ variant = "secondary", size = "md", loading, className,
   );
 }
 
-const fieldCls = "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm text-fg placeholder:text-faint focus:border-accent focus:outline-none disabled:opacity-60";
+const fieldBase = "rounded-md border border-line bg-bg px-3 py-2 text-sm text-fg placeholder:text-faint focus:border-accent focus:outline-none disabled:opacity-60";
+/** Full width unless the caller sets a width (clsx does not resolve conflicting Tailwind classes). */
+const fieldCls = (className?: string) => cx(fieldBase, !/(^|\s)(w-|flex-1)/.test(className ?? "") && "w-full");
+const fieldHeight = (className?: string) => (/(^|\s)h-/.test(className ?? "") ? "" : "h-9");
 
 export function Input({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...rest} className={cx(fieldCls, "h-9", className)} />;
+  return <input {...rest} className={cx(fieldCls(className), fieldHeight(className), className)} />;
 }
 
 export function Textarea({ className, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea {...rest} className={cx(fieldCls, className)} />;
+  return <textarea {...rest} className={cx(fieldCls(className), className)} />;
 }
 
 export function Select({ className, children, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <select {...rest} className={cx(fieldCls, "h-9", className)}>
+    <select {...rest} className={cx(fieldCls(className).replace("py-2", "py-0"), fieldHeight(className), className)}>
       {children}
     </select>
   );
@@ -355,14 +359,14 @@ export function CodeField({ value, secret }: { value: string; secret?: boolean }
   );
 }
 
-export function Meter({ value, max, label }: { value: number; max: number; label: ReactNode }) {
+export function Meter({ value, max, label, format = String }: { value: number; max: number; label: ReactNode; format?: (v: number) => string }) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   return (
     <div>
       <div className="mb-1 flex justify-between text-xs">
         <span className="text-muted">{label}</span>
         <span>
-          {value} / {max}
+          {format(value)} / {format(max)}
         </span>
       </div>
       <div className="h-1.5 rounded-full bg-panel-2">
@@ -372,11 +376,14 @@ export function Meter({ value, max, label }: { value: number; max: number; label
   );
 }
 
+/** Relative time in the interface language ("2 minutes ago", "il y a 2 minutes"). */
 export function timeAgo(d: string | Date | null | undefined) {
   if (!d) return "–";
-  const s = Math.round((Date.now() - new Date(d).getTime()) / 1000);
-  if (s < 60) return `${s}s ago`;
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
+  const s = Math.round((new Date(d).getTime() - Date.now()) / 1000);
+  const rtf = new Intl.RelativeTimeFormat(i18n.language, { numeric: "auto", style: "short" });
+  const abs = Math.abs(s);
+  if (abs < 60) return rtf.format(s, "second");
+  if (abs < 3600) return rtf.format(Math.trunc(s / 60), "minute");
+  if (abs < 86400) return rtf.format(Math.trunc(s / 3600), "hour");
+  return rtf.format(Math.trunc(s / 86400), "day");
 }

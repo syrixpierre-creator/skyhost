@@ -146,7 +146,7 @@ export default function Billing() {
 
       <Card title={t("Usage this period")} className="mb-6">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {o.usage.items.map((i) => <Meter key={i.key} value={i.current} max={i.limit} label={limitLabel(i.key)} />)}
+          {o.usage.items.map((i) => <Meter key={i.key} value={i.current} max={i.limit} label={limitLabel(i.key)} format={(v) => limitValue(i.key, v)} />)}
         </div>
       </Card>
 

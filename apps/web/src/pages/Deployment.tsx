@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Circle, Loader2, Wrench, X } from "lucide-react";
+import { Check, Circle, Loader2, Minus, Wrench, X } from "lucide-react";
 import { DEPLOYMENT_PHASES } from "@skyhost/shared";
 import { download, get, post, realtime } from "../lib/api";
 import { LogViewer, type LogLine } from "../components/LogViewer";
 import { Alert, Badge, Button, Card, cx, ErrorState, Field, Input, LoadingRows, Modal, PageHeader, StatusBadge, Textarea, timeAgo, useToast } from "../components/ui";
 import { t } from "../lib/i18n";
+import { ProjectCrumb } from "../components/ProjectCrumb";
 
 interface Diagnosis {
   id: string;
@@ -69,9 +70,9 @@ export default function Deployment() {
   return (
     <>
       <PageHeader
-        breadcrumbs={<><Link to={`/projects/${projectId}`}>{t("Project")}</Link> / <Link to={`/projects/${projectId}/services/${q.data!.service.id}?tab=deployments`}>{q.data!.service.name}</Link></>}
-        title={<span className="flex items-center gap-3">{d.commitMessage?.split("\n")[0] ?? t("Deployment")} <StatusBadge status={d.status} /></span>}
-        subtitle={<span className="font-mono text-xs">{d.commitSha?.slice(0, 7)} {d.branch && `· ${d.branch}`} · {d.trigger} · {timeAgo(d.createdAt)}{d.buildSeconds ? ` · built in ${d.buildSeconds}s` : ""}</span>}
+        breadcrumbs={<><ProjectCrumb projectId={projectId!} /> / <Link to={`/projects/${projectId}/services/${q.data!.service.id}?tab=deployments`}>{q.data!.service.name}</Link></>}
+        title={<span className="flex items-center gap-3">{d.commitMessage?.split("\n")[0] ?? t("Deployment {{id}}", { id: d.id.slice(0, 8) })} <StatusBadge status={d.status} /></span>}
+        subtitle={<span className="font-mono text-xs">{[d.commitSha?.slice(0, 7), d.branch, d.trigger, timeAgo(d.createdAt), d.buildSeconds ? t("built in {{s}}s", { s: d.buildSeconds }) : null].filter(Boolean).join(" · ")}</span>}
         actions={
           <>
             {["queued", "building", "deploying"].includes(d.status) && <Button onClick={() => post(`/deployments/${d.id}/cancel`).then(() => toast("info", t("Cancelling")))}>{t("Cancel")}</Button>}
@@ -81,13 +82,16 @@ export default function Deployment() {
       />
       <ol className="mb-6 flex flex-wrap gap-2">
         {DEPLOYMENT_PHASES.map((p, i) => {
-          const started = !!phases[p] || (p === "live" && d.status === "live");
-          const done = d.status === "live" || (started && i < currentIdx);
+          // A phase is done only if it ran; phases a release did not need (e.g. build for an image) are skipped.
+          const reachedLive = d.phase === "live" && ["live", "superseded", "stopped"].includes(d.status);
+          const started = !!phases[p] || (p === "live" && reachedLive);
           const failed = d.status === "failed" && p === d.phase;
+          const done = started && !failed && (reachedLive || i < currentIdx);
           const active = !done && !failed && p === d.phase && ["building", "deploying"].includes(d.status);
+          const skipped = !started && !failed && (reachedLive || i < currentIdx);
           return (
-            <li key={p} className={cx("flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs", done ? "border-green-500/40 text-green-500" : failed ? "border-red-500/40 text-red-500" : active ? "border-accent text-accent" : "border-line text-faint")}>
-              {done ? <Check className="size-3" /> : failed ? <X className="size-3" /> : active ? <Loader2 className="size-3 animate-spin" /> : <Circle className="size-3" />}
+            <li key={p} title={skipped ? t("Skipped") : undefined} className={cx("flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs", done ? "border-green-500/40 text-green-500" : failed ? "border-red-500/40 text-red-500" : active ? "border-accent text-accent" : skipped ? "border-dashed border-line text-faint" : "border-line text-faint")}>
+              {done ? <Check className="size-3" /> : failed ? <X className="size-3" /> : active ? <Loader2 className="size-3 animate-spin" /> : skipped ? <Minus className="size-3" /> : <Circle className="size-3" />}
               {t(PHASE_LABELS[p]!)}
             </li>
           );

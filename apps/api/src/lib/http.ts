@@ -3,6 +3,13 @@ import { z, type ZodTypeAny } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { badRequest } from "@skyhost/core";
 
+/** Query-string boolean: only "true"/"1" are true (z.coerce.boolean() would turn "false" into true). */
+export const queryBool = (d = false) =>
+  z
+    .enum(["true", "false", "1", "0"])
+    .optional()
+    .transform((v) => (v === undefined ? d : v === "true" || v === "1"));
+
 export function parse<T extends ZodTypeAny>(schema: T, data: unknown): z.infer<T> {
   const r = schema.safeParse(data ?? {});
   if (!r.success) {

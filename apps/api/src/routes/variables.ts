@@ -7,12 +7,12 @@ import { decrypt, encrypt } from "@skyhost/shared/node";
 import { audit, badRequest, copyVariables, groupItemAad, listVariables, notFound, resolveServiceEnv, upsertVariables } from "@skyhost/core";
 import { actorOf } from "../lib/auth";
 import { environmentAccess, serviceAccess, teamAccess } from "../lib/authz";
-import { idParam, route } from "../lib/http";
+import { idParam, queryBool, route } from "../lib/http";
 
 export default async function variableRoutes(app: FastifyInstance) {
   route(
     app,
-    { method: "GET", url: "/environments/:id/variables", tags: ["variables"], params: idParam, query: z.object({ serviceId: z.string().uuid().optional(), reveal: z.coerce.boolean().default(false) }) },
+    { method: "GET", url: "/environments/:id/variables", tags: ["variables"], params: idParam, query: z.object({ serviceId: z.string().uuid().optional(), reveal: queryBool() }) },
     async (req, _r, { params, query }) => {
       const a = await environmentAccess(req, params.id, "env:read");
       if (query.serviceId) {

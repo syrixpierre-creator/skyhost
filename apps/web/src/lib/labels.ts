@@ -40,10 +40,16 @@ const FEATURES: Record<PlanFeatureKey, string> = {
 export const limitLabel = (k: string) => t(LIMITS[k as PlanLimitKey] ?? k);
 export const featureLabel = (k: string) => t(FEATURES[k as PlanFeatureKey] ?? k);
 
+/** Limits at or above this value mean "no limit" (1 TB expressed in MB is still a real limit). */
+const UNLIMITED = 1_000_000_000;
+
 /** "2 GB", "Unlimited", "4 vCPU"… for a plan limit value. */
 export function limitValue(k: string, v: number) {
-  if (v >= 1_000_000) return t("Unlimited");
-  if (k.endsWith("Mb")) return v >= 1024 ? `${Math.round((v / 1024) * 10) / 10} ${t("GB")}` : `${v} ${t("MB")}`;
+  if (v >= UNLIMITED) return t("Unlimited");
+  if (k.endsWith("Mb")) {
+    if (v >= 1024 * 1024) return `${Math.round((v / 1024 / 1024) * 10) / 10} ${t("TB")}`;
+    return v >= 1024 ? `${Math.round((v / 1024) * 10) / 10} ${t("GB")}` : `${v} ${t("MB")}`;
+  }
   if (k.endsWith("Gb")) return `${v} ${t("GB")}`;
   return String(v);
 }

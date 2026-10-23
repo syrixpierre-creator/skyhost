@@ -205,6 +205,9 @@ describe("variables", () => {
     const masked = await u.client.get(`/api/v1/environments/${env}/variables?serviceId=${svcId}`);
     const byKey = Object.fromEntries(masked.body.variables.map((v: { key: string; value: string | null }) => [v.key, v.value]));
     expect(byKey).toEqual({ API_TOKEN: null, PLAIN: "hello", SEALED_KEY: null });
+    // "reveal=false" must mask too (a coerced boolean would read the string "false" as true).
+    const explicit = await u.client.get(`/api/v1/environments/${env}/variables?serviceId=${svcId}&reveal=false`);
+    expect(JSON.stringify(explicit.body)).not.toContain("tok_super_secret_value");
     const revealed = await u.client.get(`/api/v1/environments/${env}/variables?serviceId=${svcId}&reveal=true`);
     const rv = Object.fromEntries(revealed.body.variables.map((v: { key: string; value: string | null }) => [v.key, v.value]));
     expect(rv.API_TOKEN).toBe("tok_super_secret_value");

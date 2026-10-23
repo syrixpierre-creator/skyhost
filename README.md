@@ -14,6 +14,27 @@ SmartDeploy analysis ──► BuildKit build (secrets mounted, never baked) ─
 Smart Error Analyzer ◄── failure                  blue/green release ── health check ── Traefik ── https://app-xxxx.apps.example.com
 ```
 
+## Screenshots
+
+Captured from a real installation (the Docker Compose stack of this repository), with real deployments.
+
+![Project canvas: services, managed databases and their connections](docs/screenshots/03-project-canvas.png)
+
+| | |
+| --- | --- |
+| ![Projects dashboard](docs/screenshots/02-dashboard.png) | ![SmartDeploy analysis of a Next.js + Prisma repository](docs/screenshots/09-smartdeploy-analysis.png) |
+| **Dashboard**: projects, live status, plan usage | **SmartDeploy**: stack, port, variables and database detected |
+| ![Live build and deploy logs](docs/screenshots/05-deployment-logs.png) | ![Smart Error Analyzer with an Auto Fix proposal](docs/screenshots/06-smart-error-analyzer.png) |
+| **Deployment**: phases and live logs | **Smart Error Analyzer**: cause, fix and evidence; the previous version stays live |
+| ![Service overview with release history and rollback](docs/screenshots/04-service-overview.png) | ![Encrypted variables with secrets masked](docs/screenshots/07-variables.png) |
+| **Service**: status, releases, one-click rollback | **Variables**: encrypted, secrets masked until revealed |
+| ![Managed PostgreSQL database](docs/screenshots/08-database.png) | ![Plans, usage and payment options](docs/screenshots/10-billing-plans.png) |
+| **Databases**: PostgreSQL, MariaDB, MongoDB, Redis | **Billing**: plans, quotas, credits, spend cap |
+| ![Administration console](docs/screenshots/11-admin-console.png) | ![Light mode](docs/screenshots/12-light-mode.png) |
+| **Administration**: users, teams, plans, abuse, payments | **Light mode** (dark by default) |
+| ![Sign in](docs/screenshots/01-sign-in.png) | ![Dashboard in French](docs/screenshots/13-french.png) |
+| **Sign in**: password and 2FA; GitHub and GitLab buttons appear once configured | **English and French** |
+
 ## Features
 
 - **SmartDeploy**: detects Node.js (Next.js, Nuxt, Remix, Astro, NestJS, Express, Vite…), Python (Django, FastAPI,

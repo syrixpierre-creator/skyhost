@@ -353,7 +353,7 @@ export default function NewProject() {
           </Card>
 
           {drafts.map((d, i) => (
-            <Card key={i} title={<span className="flex items-center gap-2">{drafts.length > 1 && <input type="checkbox" checked={d.enabled} onChange={(e) => update(i, { enabled: e.target.checked })} />} {t("Service")} <code className="font-mono text-xs text-muted">{d.rootDir}</code></span>}>
+            <Card key={i} title={<span className="flex items-center gap-2">{drafts.length > 1 && <input type="checkbox" checked={d.enabled} onChange={(e) => update(i, { enabled: e.target.checked })} />} {t("Service")} {d.rootDir && d.rootDir !== "." && <code className="font-mono text-xs text-muted">{d.rootDir}</code>}</span>}>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label={t("Name")}><Input value={d.name} onChange={(e) => update(i, { name: e.target.value })} /></Field>
                 <Field label={t("Type")}>
@@ -379,7 +379,7 @@ export default function NewProject() {
                     {d.variables.map((v, j) => (
                       <div key={j} className="flex gap-2">
                         <Input className="w-56 font-mono" value={v.key} onChange={(e) => update(i, { variables: d.variables.map((x, k) => (k === j ? { ...x, key: e.target.value.toUpperCase() } : x)) })} />
-                        <Input className={cx("flex-1 font-mono", v.required && !v.value && "border-amber-500")} type={v.secret ? "password" : "text"} placeholder={v.required ? "required" : ""} value={v.value} onChange={(e) => update(i, { variables: d.variables.map((x, k) => (k === j ? { ...x, value: e.target.value } : x)) })} />
+                        <Input className={cx("flex-1 font-mono", v.required && !v.value && "border-amber-500")} type={v.secret ? "password" : "text"} placeholder={v.required ? t("required") : ""} value={v.value} onChange={(e) => update(i, { variables: d.variables.map((x, k) => (k === j ? { ...x, value: e.target.value } : x)) })} />
                       </div>
                     ))}
                     <Button size="sm" variant="ghost" onClick={() => update(i, { variables: [...d.variables, { key: "", value: "", secret: false, required: false }] })}>{t("+ Add variable")}</Button>

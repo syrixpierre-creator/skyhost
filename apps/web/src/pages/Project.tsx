@@ -10,6 +10,7 @@ import { del, download, get, patch, post, put } from "../lib/api";
 import { useRealtimeInvalidate, useSession } from "../lib/session";
 import { Alert, Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, Field, Input, LoadingRows, Modal, PageHeader, Select, StatusBadge, Tabs, Toggle, timeAgo, useToast } from "../components/ui";
 import { t } from "../lib/i18n";
+import { serviceStatus } from "../lib/status";
 
 export interface ProjectDetail {
   project: { id: string; name: string; teamId: string; description: string | null; canvas: Record<string, { x: number; y: number }>; statusPageEnabled: boolean; statusPageSlug: string | null };
@@ -58,7 +59,7 @@ function Canvas({ data, envId }: { data: ProjectDetail; envId: string }) {
     const out: Node[] = [];
     data.services.forEach((s, i) => {
       const inst = s.instances.find((x) => x.environmentId === envId);
-      out.push({ id: s.id, type: "item", position: pos[s.id] ?? { x: 320, y: 40 + i * 140 }, data: { kind: "service", name: s.name, type: s.type, status: inst?.latestDeployment && inst.latestDeployment.status !== "live" && inst.latestDeployment.status !== "superseded" ? inst.latestDeployment.status : (inst?.status ?? "idle"), url: inst?.url, subtitle: inst?.url?.replace(/^https?:\/\//, "") ?? s.type } });
+      out.push({ id: s.id, type: "item", position: pos[s.id] ?? { x: 320, y: 40 + i * 140 }, data: { kind: "service", name: s.name, type: s.type, status: serviceStatus(inst?.status, inst?.latestDeployment?.status), url: inst?.url, subtitle: inst?.url?.replace(/^https?:\/\//, "") ?? s.type } });
     });
     data.databases.filter((d) => !d.environmentId || d.environmentId === envId).forEach((d, i) => {
       out.push({ id: d.id, type: "item", position: pos[d.id] ?? { x: 20, y: 40 + i * 140 }, data: { kind: "database", name: d.name, type: d.engine, status: d.status, subtitle: `${d.engine} ${d.version}` } });
@@ -355,7 +356,7 @@ export default function Project() {
               const inst = s.instances.find((i) => i.environmentId === envId);
               return (
                 <Link key={s.id} to={`/projects/${data.project.id}/services/${s.id}?env=${envId}`} className="rounded-lg border border-line bg-panel p-3 hover:border-faint">
-                  <div className="flex items-center justify-between"><span className="font-medium">{s.name}</span><StatusBadge status={inst?.status ?? "idle"} /></div>
+                  <div className="flex items-center justify-between"><span className="font-medium">{s.name}</span><StatusBadge status={serviceStatus(inst?.status, inst?.latestDeployment?.status)} /></div>
                   <div className="mt-1 truncate text-xs text-muted">{inst?.url ?? s.type}</div>
                   {inst?.latestDeployment && <div className="mt-2 flex items-center gap-2 text-xs text-muted"><StatusBadge status={inst.latestDeployment.status} /> {inst.latestDeployment.commitMessage?.slice(0, 50)} · {timeAgo(inst.latestDeployment.createdAt)}</div>}
                 </Link>

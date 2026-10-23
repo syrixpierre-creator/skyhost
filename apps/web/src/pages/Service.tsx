@@ -11,6 +11,7 @@ import { VariablesEditor } from "../components/VariablesEditor";
 import { MetricChart, bytesFmt } from "../components/Charts";
 import { Alert, Badge, Button, Card, CodeField, ConfirmDialog, EmptyState, ErrorState, Field, Input, LoadingRows, Modal, PageHeader, Select, StatusBadge, Tabs, Textarea, Toggle, timeAgo, useToast } from "../components/ui";
 import { t } from "../lib/i18n";
+import { ProjectCrumb } from "../components/ProjectCrumb";
 
 interface ServiceDetail {
   service: { id: string; projectId: string; name: string; slug: string; type: string; source: Record<string, string>; config: any; analysis: any; createdAt: string }; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -56,7 +57,7 @@ function DeploymentsTab({ s, envId }: { s: ServiceDetail; envId: string }) {
           <StatusBadge status={d.id === live ? "live" : d.status} />
           <div className="min-w-0 flex-1">
             <Link to={`/projects/${s.service.projectId}/deployments/${d.id}`} className="block truncate font-medium hover:text-accent">
-              {d.commitMessage?.split("\n")[0] ?? (d.trigger === "rollback" ? t("Rollback") : d.trigger === "redeploy" ? t("Redeploy") : t("Deployment"))}
+              {d.commitMessage?.split("\n")[0] ?? t("Deployment {{id}}", { id: d.id.slice(0, 8) })}
             </Link>
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
               {d.commitSha && <span className="flex items-center gap-1 font-mono"><GitCommit className="size-3" />{d.commitSha.slice(0, 7)}</span>}
@@ -565,7 +566,7 @@ export default function Service() {
   return (
     <>
       <PageHeader
-        breadcrumbs={<><Link to="/">{t("nav.projects")}</Link> / <Link to={`/projects/${projectId}`}>{t("Project")}</Link></>}
+        breadcrumbs={<ProjectCrumb projectId={projectId!} />}
         title={<span className="flex items-center gap-3">{s.service.name} <StatusBadge status={env?.instance?.status ?? "idle"} /></span>}
         subtitle={env?.url ? <a href={env.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-accent">{env.url.replace(/^https?:\/\//, "")} <ExternalLink className="size-3" /></a> : `${s.service.type} service`}
         actions={

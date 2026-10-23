@@ -911,5 +911,10 @@
   "Verified": "Vérifié",
   "node --version": "node --version",
   "the end of the period": "la fin de la période",
-  "••••••••  (unchanged)": "••••••••  (inchangé)"
+  "••••••••  (unchanged)": "••••••••  (inchangé)",
+  "Skipped": "Ignorée",
+  "Deployment {{id}}": "Déploiement {{id}}",
+  "built in {{s}}s": "build en {{s}} s",
+  "required": "requis",
+  "TB": "To"
 }

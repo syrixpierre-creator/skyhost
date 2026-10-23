@@ -94,11 +94,19 @@ export default async function projectRoutes(app: FastifyInstance) {
     const ids = list.map((p) => p.id);
     const svc = ids.length ? await db.select({ projectId: services.projectId, id: services.id, name: services.name, type: services.type }).from(services).where(and(inArray(services.projectId, ids), isNull(services.deletedAt))) : [];
     const insts = svc.length ? await db.select().from(serviceInstances).where(inArray(serviceInstances.serviceId, svc.map((s) => s.id))) : [];
-    const dbs = ids.length ? await db.select({ projectId: databases.projectId, id: databases.id, engine: databases.engine, status: databases.status }).from(databases).where(and(inArray(databases.projectId, ids), isNull(databases.deletedAt))) : [];
+    const dbs = ids.length ? await db.select({ projectId: databases.projectId, id: databases.id, name: databases.name, engine: databases.engine, status: databases.status }).from(databases).where(and(inArray(databases.projectId, ids), isNull(databases.deletedAt))) : [];
+    // Latest deployment per service (any environment), for the status shown on project cards.
+    const latest = svc.length
+      ? await db
+          .selectDistinctOn([deployments.serviceId], { serviceId: deployments.serviceId, status: deployments.status })
+          .from(deployments)
+          .where(inArray(deployments.serviceId, svc.map((s) => s.id)))
+          .orderBy(deployments.serviceId, desc(deployments.createdAt))
+      : [];
     return {
       projects: list.map((p) => ({
         ...projectView(p),
-        services: svc.filter((s) => s.projectId === p.id).map((s) => ({ ...s, status: insts.find((i) => i.serviceId === s.id)?.status ?? "idle" })),
+        services: svc.filter((s) => s.projectId === p.id).map((s) => ({ ...s, status: insts.find((i) => i.serviceId === s.id)?.status ?? "idle", latestDeploymentStatus: latest.find((d) => d.serviceId === s.id)?.status ?? null })),
         databases: dbs.filter((d) => d.projectId === p.id),
       })),
     };

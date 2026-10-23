@@ -7,7 +7,7 @@ import { listManagedContainers, LABEL, streamLogs, type LogLine } from "@skyhost
 import { assertFeature, audit, badRequest, notFound, resolveServiceEnv } from "@skyhost/core";
 import { actorOf } from "../lib/auth";
 import { projectAccess, serviceAccess } from "../lib/authz";
-import { idParam, route } from "../lib/http";
+import { idParam, queryBool, route } from "../lib/http";
 
 const LEVEL_RE: Record<string, RegExp> = {
   error: /\b(error|err|fatal|exception|panic|traceback)\b/i,
@@ -35,7 +35,7 @@ export default async function observabilityRoutes(app: FastifyInstance) {
         sinceMinutes: z.coerce.number().int().min(1).max(60 * 24 * 90).optional(),
         search: z.string().max(200).optional(),
         level: z.enum(["error", "warn", "info", "debug"]).optional(),
-        download: z.coerce.boolean().default(false),
+        download: queryBool(),
       }),
     },
     async (req, reply, { params, query }) => {

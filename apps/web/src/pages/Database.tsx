@@ -9,6 +9,7 @@ import { useRealtimeInvalidate } from "../lib/session";
 import { MetricChart, bytesFmt } from "../components/Charts";
 import { Alert, Badge, Button, Card, CodeField, ConfirmDialog, EmptyState, ErrorState, Field, Input, LoadingRows, PageHeader, Select, StatusBadge, Tabs, Textarea, Toggle, timeAgo, useToast } from "../components/ui";
 import { t } from "../lib/i18n";
+import { ProjectCrumb } from "../components/ProjectCrumb";
 
 interface Db {
   id: string;
@@ -164,7 +165,7 @@ export default function Database() {
   const s = settings ?? db;
   return (
     <>
-      <PageHeader breadcrumbs={<Link to={`/projects/${projectId}`}>{t("Project")}</Link>} title={<span className="flex items-center gap-3">{db.name} <StatusBadge status={db.status} /></span>} subtitle={`${db.engine} ${db.version} · ${db.regionId} · ${db.internalHost}:${db.port}`} />
+      <PageHeader breadcrumbs={<ProjectCrumb projectId={projectId!} />} title={<span className="flex items-center gap-3">{db.name} <StatusBadge status={db.status} /></span>} subtitle={`${db.engine} ${db.version} · ${db.regionId} · ${db.internalHost}:${db.port}`} />
       {db.error && <div className="mb-4"><Alert kind="error">{db.error}</Alert></div>}
       <Tabs
         tabs={[

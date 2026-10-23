@@ -21,5 +21,7 @@ export * from "./billing/stripe";
 export * from "./billing/paypal";
 export * from "./billing/flutterwave";
 export * from "./billing/invoice-pdf";
+export * from "./billing/promo";
 export * from "./git/providers";
 export * from "./dns";
+export * from "./capabilities";

@@ -41,6 +41,8 @@ const schema = z.object({
   GITHUB_WEBHOOK_SECRET: z.string().default(""),
   GITHUB_CLIENT_ID: z.string().default(""),
   GITHUB_CLIENT_SECRET: z.string().default(""),
+  GOOGLE_CLIENT_ID: z.string().default(""),
+  GOOGLE_CLIENT_SECRET: z.string().default(""),
   GITLAB_URL: z.string().default("https://gitlab.com"),
   GITLAB_CLIENT_ID: z.string().default(""),
   GITLAB_CLIENT_SECRET: z.string().default(""),

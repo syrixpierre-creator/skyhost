@@ -26,10 +26,19 @@ export interface SignupSettings {
   maxAccountsPerIpPerDay: number;
 }
 
+export interface MaintenanceSettings {
+  enabled: boolean;
+  message: string;
+  blockDeploys: boolean;
+  /** ISO date shown to users as the expected end. */
+  endsAt: string | null;
+}
+
 interface Settings {
   referral: ReferralSettings;
   billing: BillingSettings;
   signup: SignupSettings;
+  maintenance: MaintenanceSettings;
 }
 
 export async function getSetting<K extends keyof Settings>(key: K): Promise<Settings[K]> {

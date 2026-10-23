@@ -114,6 +114,17 @@ describe("proxy config", () => {
     expect(cfg.http.services["a-svc"]!.weighted!.services.map((s) => s.weight)).toEqual([90, 10]);
     expect(cfg.http.routers.b!.service).toBe("sh-api");
   });
+  it("sends a service in maintenance to the API maintenance page, even with live backends", () => {
+    const cfg = buildTraefikConfig(
+      [{ id: "m", hosts: ["m.x"], backends: [{ deploymentId: "d", weight: 100, servers: ["http://c:1"] }], tls: false, kind: "maintenance", headers: { "X-Skyhost-Service-Id": "s1" } }],
+      { ...opts, tlsEnabled: false },
+    ) as { http: { routers: Record<string, { service: string; middlewares: string[] }>; middlewares: Record<string, { addPrefix?: { prefix: string }; headers?: { customRequestHeaders: Record<string, string> } }> } };
+    const r = cfg.http.routers.m!;
+    expect(r.service).toBe("sh-api");
+    expect(r.middlewares).toEqual(["sh-security-headers", "m-hdr", "m-route", "sh-maintenance-prefix"]);
+    expect(cfg.http.middlewares["sh-maintenance-prefix"]!.addPrefix!.prefix).toBe("/internal/maintenance");
+    expect(cfg.http.middlewares["m-route"]!.headers!.customRequestHeaders["X-Skyhost-Token"]).toBe("t");
+  });
 });
 
 describe("object store", () => {

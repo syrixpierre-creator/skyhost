@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { getDb, serviceInstances, services, variables } from "@skyhost/db";
-import { outbox, resolveServiceEnv } from "@skyhost/core";
+import { emailVerificationRequired, outbox, resetServerConfig, resolveServiceEnv } from "@skyhost/core";
 import { Client, newUser, setPlan } from "./helpers";
 
 type U = Awaited<ReturnType<typeof newUser>>;
@@ -270,13 +270,23 @@ describe("quotas", () => {
     expect(svc).toMatchObject({ current: 2, limit: 2, remaining: 0 });
   });
 
-  it("refuses deployments for unverified emails", async () => {
+  it("refuses deployments for unverified emails when emails can be delivered", async () => {
     const u = await newUser({ verify: false });
     const p = await project(u);
     const s = await imageService(u, p.project.id);
-    const r = await u.client.post(`/api/v1/services/${s.id}/deploy`, {});
-    expect(r.status).toBe(403);
-    expect(r.body.error.message).toMatch(/Verify your email/);
+    // Without SMTP nobody could ever verify, so verification is not required.
+    expect(emailVerificationRequired()).toBe(false);
+    process.env.SMTP_URL = "smtp://mail.invalid:25";
+    resetServerConfig();
+    try {
+      const r = await u.client.post(`/api/v1/services/${s.id}/deploy`, {});
+      expect(r.status).toBe(403);
+      expect(r.body.error.message).toMatch(/Verify your email/);
+    } finally {
+      delete process.env.SMTP_URL;
+      resetServerConfig();
+    }
+    expect((await u.client.post(`/api/v1/services/${s.id}/deploy`, {})).status).toBe(201);
   });
 
   it("deploy freeze windows block deployments but never rollbacks", async () => {

@@ -27,6 +27,7 @@ import screenshotRoutes from "./routes/screenshots";
 import notificationRoutes from "./routes/notifications";
 import adminRoutes from "./routes/admin";
 import internalRoutes from "./routes/internal";
+import hookRoutes from "./routes/hooks";
 import publicRoutes from "./routes/public";
 import realtimeRoutes from "./routes/realtime";
 import observabilityRoutes from "./routes/observability";
@@ -149,6 +150,7 @@ export async function buildApp(): Promise<FastifyInstance> {
       await v1.register(publicRoutes);
       await v1.register(realtimeRoutes);
       await v1.register(observabilityRoutes);
+      await v1.register(hookRoutes);
     },
     { prefix: "/api/v1" },
   );

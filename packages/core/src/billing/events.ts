@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb, payments, plans, subscriptions, teams } from "@skyhost/db";
 import { activateSubscription, addCredits, markBillingEventProcessed, paymentFailed, paymentRefunded, recordBillingEvent, recordPayment, subscriptionEnded, upsertPaymentMethod } from "./service";
 import { recheckRewardCard } from "../referral-card";
+import { consumePendingDiscount } from "./promo";
 
 type Any = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -52,6 +53,7 @@ export async function handleStripeEvent(event: { id: string; type: string; data:
         }
         if (obj.mode === "subscription" && obj.customer && obj.metadata?.teamId) {
           await getDb().update(teams).set({ stripeCustomerId: String(obj.customer) }).where(eq(teams.id, obj.metadata.teamId));
+          if (obj.metadata.promoRedemptionId) await consumePendingDiscount(obj.metadata.teamId, obj.metadata.promoRedemptionId);
         }
         break;
       }

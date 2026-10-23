@@ -160,13 +160,14 @@ export default async function adminRoutes(app: FastifyInstance) {
     return { plan: p };
   });
 
-  route(app, { method: "GET", url: "/admin/settings", tags: ["admin"] }, async () => ({ referral: await getSetting("referral"), billing: await getSetting("billing"), signup: await getSetting("signup") }));
+  route(app, { method: "GET", url: "/admin/settings", tags: ["admin"] }, async () => ({ referral: await getSetting("referral"), billing: await getSetting("billing"), signup: await getSetting("signup"), maintenance: await getSetting("maintenance") }));
 
-  route(app, { method: "PUT", url: "/admin/settings/:key", tags: ["admin"], params: z.object({ key: z.enum(["referral", "billing", "signup"]) }), body: z.record(z.unknown()) }, async (req, _r, { params, body }) => {
+  route(app, { method: "PUT", url: "/admin/settings/:key", tags: ["admin"], params: z.object({ key: z.enum(["referral", "billing", "signup", "maintenance"]) }), body: z.record(z.unknown()) }, async (req, _r, { params, body }) => {
     const schemas = {
       referral: z.object({ enabled: z.boolean(), rewardType: z.enum(["percent", "fixed"]), percent: z.number().min(0).max(100), recurringMonths: z.number().int().min(1).max(120), fixedCents: z.number().int().min(0), refereeBonusCents: z.number().int().min(0), refundWindowDays: z.number().int().min(0).max(180), minPayoutCents: z.number().int().min(0), maxRewardsPerReferrerPerMonth: z.number().int().min(1), payoutMethods: z.array(z.enum(["credit", "stripe_connect", "paypal"])) }).partial(),
       billing: z.object({ graceDays: z.number().int().min(0).max(60), dunningDays: z.array(z.number().int().min(0).max(60)).max(10), defaultTaxPercent: z.number().min(0).max(50), trialPlan: z.string().max(32) }).partial(),
       signup: z.object({ enabled: z.boolean(), maxAccountsPerIpPerDay: z.number().int().min(1).max(1000) }).partial(),
+      maintenance: z.object({ enabled: z.boolean(), message: z.string().max(500), blockDeploys: z.boolean(), endsAt: z.string().datetime().nullable() }).partial(),
     };
     const parsed = schemas[params.key].parse(body);
     const value = await setSetting(params.key, parsed as never);

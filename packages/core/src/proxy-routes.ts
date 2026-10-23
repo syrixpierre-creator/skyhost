@@ -67,7 +67,8 @@ export async function buildProxyConfig() {
       tls: cfg.SKYHOST_TLS,
       sleeping: inst.sleeping,
       rateLimitPerMinute: svc.config.waf?.enabled ? svc.config.waf.rateLimitPerMinute : 0,
-      headers: { "X-Skyhost-Service": svc.slug },
+      headers: { "X-Skyhost-Service": svc.slug, "X-Skyhost-Service-Id": svc.id },
+      ...(svc.config.maintenance?.enabled ? { kind: "maintenance" as const } : {}),
     };
     if (protect && prot.mode === "basic" && prot.basicUser && prot.basicPassword) {
       base.basicAuthUsers = [htpasswd(prot.basicUser, safeDecrypt(prot.basicPassword, svc.id))];

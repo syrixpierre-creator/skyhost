@@ -109,6 +109,8 @@ export const serviceConfigSchema = z.object({
   sleepAfterMinutes: z.number().int().min(0).max(10080).default(0),
   gracefulShutdownSeconds: z.number().int().min(0).max(600).default(30),
   protection: protectionSchema.default({}),
+  /** Maintenance page: traffic gets a 503 page with this message while the deployment keeps running. */
+  maintenance: z.object({ enabled: z.boolean().default(false), message: z.string().max(500).default("") }).default({}),
   waf: wafSchema.default({}),
   screenshotPaths: z.array(z.string().startsWith("/").max(256)).max(10).default(["/"]),
   autoScreenshots: z.boolean().default(true),

@@ -5,7 +5,7 @@ import { authenticator } from "otplib";
 import { apiKeys, cliAuthRequests, emailTokens, getDb, oauthAccounts, plans, recoveryCodes, sessions, teamMembers, teams, users } from "@skyhost/db";
 import { emailSchema, loginSchema, passwordSchema, signupSchema, slugify } from "@skyhost/shared";
 import { decrypt, encrypt, randomId, randomToken, sha256 } from "@skyhost/shared/node";
-import { attachReferral, audit, badRequest, conflict, forbidden, getSetting, redis, renderEmail, sendMail, serverConfig, tooMany, unauthorized } from "@skyhost/core";
+import { attachReferral, audit, badRequest, conflict, forbidden, getSetting, redis, renderEmail, sendMail, serverConfig, tooMany, unauthorized, capabilities } from "@skyhost/core";
 import { actorOf, clearSessionCookies, clientIp, createSession, generateApiKey, secureCookies, type User } from "../lib/auth";
 import { route } from "../lib/http";
 import { hashPassword, verifyPassword } from "../lib/password";
@@ -247,8 +247,26 @@ export default async function authRoutes(app: FastifyInstance) {
   // ------------------------------------------------------------------------------------------- OAuth login
 
   const OAUTH = {
+    google: {
+      enabled: () => !!(serverConfig().GOOGLE_CLIENT_ID && serverConfig().GOOGLE_CLIENT_SECRET),
+      authorize: (state: string, redirect: string) =>
+        `https://accounts.google.com/o/oauth2/v2/auth?${new URLSearchParams({ client_id: serverConfig().GOOGLE_CLIENT_ID, redirect_uri: redirect, response_type: "code", scope: "openid email profile", state, prompt: "select_account" })}`,
+      async exchange(code: string, redirect: string) {
+        const c = serverConfig();
+        const res = await fetch("https://oauth2.googleapis.com/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ code, client_id: c.GOOGLE_CLIENT_ID, client_secret: c.GOOGLE_CLIENT_SECRET, redirect_uri: redirect, grant_type: "authorization_code" }),
+        });
+        const tok = (await res.json()) as { access_token?: string; error_description?: string };
+        if (!tok.access_token) throw badRequest(tok.error_description ?? "Google authorization failed");
+        const me = (await (await fetch("https://openidconnect.googleapis.com/v1/userinfo", { headers: { Authorization: `Bearer ${tok.access_token}` } })).json()) as { sub: string; email?: string; email_verified?: boolean; name?: string; picture?: string };
+        if (!me.sub) throw badRequest("Google did not return a profile");
+        return { id: me.sub, username: me.email ?? me.sub, name: me.name || me.email || "Google user", avatarUrl: me.picture ?? null, email: me.email?.toLowerCase() ?? null, emailVerified: me.email_verified === true, token: tok.access_token };
+      },
+    },
     github: {
-      enabled: () => !!serverConfig().GITHUB_CLIENT_ID,
+      enabled: () => !!(serverConfig().GITHUB_CLIENT_ID && serverConfig().GITHUB_CLIENT_SECRET),
       authorize: (state: string, redirect: string) =>
         `https://github.com/login/oauth/authorize?${new URLSearchParams({ client_id: serverConfig().GITHUB_CLIENT_ID, redirect_uri: redirect, scope: "read:user user:email", state, allow_signup: "true" })}`,
       async exchange(code: string, redirect: string) {
@@ -268,7 +286,7 @@ export default async function authRoutes(app: FastifyInstance) {
       },
     },
     gitlab: {
-      enabled: () => !!serverConfig().GITLAB_CLIENT_ID,
+      enabled: () => !!(serverConfig().GITLAB_CLIENT_ID && serverConfig().GITLAB_CLIENT_SECRET),
       authorize: (state: string, redirect: string) =>
         `${serverConfig().GITLAB_URL}/oauth/authorize?${new URLSearchParams({ client_id: serverConfig().GITLAB_CLIENT_ID, redirect_uri: redirect, response_type: "code", scope: "read_user", state })}`,
       async exchange(code: string, redirect: string) {
@@ -291,7 +309,8 @@ export default async function authRoutes(app: FastifyInstance) {
   app.get("/auth/oauth/:provider/start", { config: { public: true, rateLimit: AUTH_RL } }, async (req, reply) => {
     const provider = (req.params as { provider: string }).provider as keyof typeof OAUTH;
     const p = OAUTH[provider];
-    if (!p?.enabled()) return reply.code(404).send({ error: { code: "not_found", message: "This login provider is not configured" } });
+    // Not configured: back to the sign-in page with a clear message instead of an API error.
+    if (!p?.enabled()) return reply.redirect(`${serverConfig().SKYHOST_DASHBOARD_URL}/login?error=${encodeURIComponent("This sign-in method is not available yet on this SKYHOST installation.")}`);
     const state = randomToken(24);
     const ref = (req.query as { ref?: string }).ref;
     await redis().set(`sh:oauth:${state}`, JSON.stringify({ provider, ref: ref?.slice(0, 32) }), "EX", 600);
@@ -347,10 +366,14 @@ export default async function authRoutes(app: FastifyInstance) {
   });
 
   route(app, { method: "GET", url: "/auth/providers", public: true, tags: ["auth"] }, async () => ({
+    google: OAUTH.google.enabled(),
     github: OAUTH.github.enabled(),
     gitlab: OAUTH.gitlab.enabled(),
     saml: serverConfig().SAML_ENABLED,
   }));
+
+  /** What this installation can do; the dashboard shows "not available yet" for anything not configured. */
+  route(app, { method: "GET", url: "/capabilities", public: true, tags: ["public"] }, async () => capabilities());
 
   // ------------------------------------------------------------------------------------------- CLI device flow
 

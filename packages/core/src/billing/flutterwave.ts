@@ -13,8 +13,8 @@ export function flutterwaveConfigured() {
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
   const c = serverConfig();
-  if (!c.FLUTTERWAVE_SECRET_KEY) throw unavailable("Mobile Money payments are not configured");
-  if (!c.SKYHOST_PAYMENTS_ENABLED) throw unavailable("Payments are disabled in this environment");
+  if (!c.FLUTTERWAVE_SECRET_KEY) throw unavailable("Mobile Money is not available yet on this SKYHOST installation.");
+  if (!c.SKYHOST_PAYMENTS_ENABLED) throw unavailable("Online payments are not available yet on this SKYHOST installation.");
   const res = await fetch(`${c.FLUTTERWAVE_API_URL}${path}`, {
     method,
     headers: { Authorization: `Bearer ${c.FLUTTERWAVE_SECRET_KEY}`, "Content-Type": "application/json" },

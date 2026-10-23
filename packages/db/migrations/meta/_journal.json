@@ -8,6 +8,13 @@
       "when": 1792713359631,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792761648590,
+      "tag": "0001_promo_codes_deploy_hooks",
+      "breakpoints": true
     }
   ]
 }

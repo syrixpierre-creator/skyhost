@@ -8,6 +8,7 @@ import {
   activateSubscription, audit, badRequest, billingPortalUrl, cancelPaypalSubscription, cancelStripeSubscription, capturePaypalOrder, changeStripePlan, conflict, createCreditsCheckout,
   createMobileMoneyPayment, createPaypalOrder, createPaypalSubscription, createSubscriptionCheckout, ensureStripeCustomer, flutterwaveConfigured, getUsage, notFound, paypalConfigured,
   recordPayment, renderInvoicePdf, serverConfig, stripeConfigured, teamBillingOverview, usageSummary, labelOf,
+  consumePendingDiscount, discountedCents, listRedemptions, pendingDiscount, redeemPromoCode, getTeamPlan,
 } from "@skyhost/core";
 import { actorOf } from "../lib/auth";
 import { teamAccess } from "../lib/authz";
@@ -35,7 +36,7 @@ export default async function billingRoutes(app: FastifyInstance) {
 
   route(app, { method: "GET", url: "/teams/:teamId/billing", tags: ["billing"], params: teamParam }, async (req, _r, { params }) => {
     await teamAccess(req, params.teamId, "billing:read");
-    return { ...(await teamBillingOverview(params.teamId)), usage: await usageSummary(params.teamId) };
+    return { ...(await teamBillingOverview(params.teamId)), usage: await usageSummary(params.teamId), pendingDiscount: await pendingDiscount(params.teamId), promoCodes: await listRedemptions(params.teamId) };
   });
 
   route(
@@ -61,7 +62,7 @@ export default async function billingRoutes(app: FastifyInstance) {
         if (!plan.stripePriceId) throw badRequest("This plan is not available with card payments yet");
         const customer = await ensureStripeCustomer(a.team, req.auth.user!.email);
         if (customer !== a.team.stripeCustomerId) await db.update(teams).set({ stripeCustomerId: customer }).where(eq(teams.id, params.teamId));
-        const url = await createSubscriptionCheckout({ customerId: customer, teamId: params.teamId, userId: req.auth.user!.id, priceId: plan.stripePriceId, planId: plan.id, successUrl: `${dash}/billing?checkout=success`, cancelUrl: `${dash}/billing?checkout=cancelled`, trialDays: plan.trialDays || undefined });
+        const url = await createSubscriptionCheckout({ customerId: customer, teamId: params.teamId, userId: req.auth.user!.id, priceId: plan.stripePriceId, planId: plan.id, successUrl: `${dash}/billing?checkout=success`, cancelUrl: `${dash}/billing?checkout=cancelled`, trialDays: plan.trialDays || undefined, promo: await pendingDiscount(params.teamId) });
         await audit(actorOf(req), params.teamId, "billing.checkout_started", { type: "plan", id: plan.id }, { provider: "stripe" });
         return { url };
       }
@@ -144,16 +145,85 @@ export default async function billingRoutes(app: FastifyInstance) {
     const [plan] = await db.select().from(plans).where(eq(plans.id, body.planId));
     if (!plan || plan.isFree || plan.isContactSales) throw badRequest("Choose a paid plan");
     await assertFits(params.teamId, plan);
-    const debited = await db.update(teams).set({ creditBalanceCents: sql`${teams.creditBalanceCents} - ${plan.priceCents}` }).where(and(eq(teams.id, params.teamId), sql`${teams.creditBalanceCents} >= ${plan.priceCents}`)).returning();
+    const promo = await pendingDiscount(params.teamId);
+    const price = discountedCents(plan.priceCents, promo);
+    const debited = await db.update(teams).set({ creditBalanceCents: sql`${teams.creditBalanceCents} - ${price}` }).where(and(eq(teams.id, params.teamId), sql`${teams.creditBalanceCents} >= ${price}`)).returning();
     if (!debited.length) throw badRequest("Not enough credits");
     const ref = `credits-${randomToken(10)}`;
-    await db.insert(creditTransactions).values({ teamId: params.teamId, amountCents: -plan.priceCents, reason: "subscription", reference: ref });
+    if (promo) await consumePendingDiscount(params.teamId, promo.redemptionId);
+    await db.insert(creditTransactions).values({ teamId: params.teamId, amountCents: -price, reason: "subscription", reference: ref });
     const now = new Date();
     const end = new Date(now);
     end.setUTCMonth(end.getUTCMonth() + 1);
     await activateSubscription({ teamId: params.teamId, planId: plan.id, provider: "credits", providerSubscriptionId: ref, status: "active", currentPeriodStart: now, currentPeriodEnd: end });
-    await recordPayment({ teamId: params.teamId, userId: req.auth.user!.id, provider: "credits", providerPaymentId: ref, kind: "subscription", amountCents: plan.priceCents, currency: plan.currency, description: `${plan.name} plan (paid with credits)`, periodStart: now, periodEnd: end });
+    await recordPayment({ teamId: params.teamId, userId: req.auth.user!.id, provider: "credits", providerPaymentId: ref, kind: "subscription", amountCents: price, currency: plan.currency, description: `${plan.name} plan (paid with credits${promo ? `, promo ${promo.code} -${promo.percentOff}%` : ""})`, periodStart: now, periodEnd: end });
     return { ok: true, currentPeriodEnd: end };
+  });
+
+  // ---------------------------------------------------------------------------------- Promo codes
+  route(app, { method: "POST", url: "/teams/:teamId/billing/promo", tags: ["billing"], params: teamParam, body: z.object({ code: z.string().min(3).max(32) }), rateLimit: { max: 10, timeWindow: "10 minutes" } }, async (req, _r, { params, body }) => {
+    await teamAccess(req, params.teamId, "billing:manage");
+    return { promo: await redeemPromoCode(params.teamId, req.auth.user!.id, body.code) };
+  });
+
+  /**
+   * Usage of the current period (calendar month), from the usage records written by the scheduler every minute,
+   * and the plan cost attributed to each service by its share of CPU and memory.
+   */
+  route(app, { method: "GET", url: "/teams/:teamId/billing/usage", tags: ["billing"], params: teamParam }, async (req, _r, { params }) => {
+    await teamAccess(req, params.teamId, "billing:read");
+    const db = getDb();
+    const now = new Date();
+    const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+    const daily = await db.execute(sql`
+      select to_char(date_trunc('day', period_start), 'YYYY-MM-DD') as day, metric, sum(quantity)::float as q
+      from usage_records where team_id = ${params.teamId} and period_start >= ${start.toISOString()}::timestamptz
+      group by 1, 2 order by 1`);
+    const perService = await db.execute(sql`
+      select u.service_id, s.name as service, p.name as project, p.id as project_id, u.metric, sum(u.quantity)::float as q
+      from usage_records u join services s on s.id = u.service_id join projects p on p.id = s.project_id
+      where u.team_id = ${params.teamId} and u.period_start >= ${start.toISOString()}::timestamptz
+      group by 1, 2, 3, 4, 5`);
+    const builds = await db.execute(sql`
+      select to_char(date_trunc('day', d.created_at), 'YYYY-MM-DD') as day, d.service_id, sum(coalesce(d.build_seconds, 0))::float as q
+      from deployments d join services s on s.id = d.service_id join projects p on p.id = s.project_id
+      where p.team_id = ${params.teamId} and d.created_at >= ${start.toISOString()}::timestamptz group by 1, 2`);
+    type Row = Record<string, unknown>;
+    const rows = (r: unknown) => ((r as { rows?: Row[] }).rows ?? (r as Row[]));
+    const days = new Map<string, { day: string; cpuHours: number; memoryGbHours: number; egressGb: number; buildMinutes: number }>();
+    for (let d = new Date(start); d < end && d <= now; d = new Date(d.getTime() + 86400_000)) {
+      const k = d.toISOString().slice(0, 10);
+      days.set(k, { day: k, cpuHours: 0, memoryGbHours: 0, egressGb: 0, buildMinutes: 0 });
+    }
+    const add = (o: { cpuHours: number; memoryGbHours: number; egressGb: number; buildMinutes: number }, metric: string, q: number) => {
+      if (metric === "cpu_seconds") o.cpuHours += q / 3600;
+      else if (metric === "memory_mb_seconds") o.memoryGbHours += q / 1024 / 3600;
+      else if (metric === "bandwidth_bytes") o.egressGb += q / 1024 ** 3;
+    };
+    for (const r of rows(daily)) { const d = days.get(String(r.day)); if (d) add(d, String(r.metric), Number(r.q)); }
+    for (const r of rows(builds)) { const d = days.get(String(r.day)); if (d) d.buildMinutes += Number(r.q) / 60; }
+    const services = new Map<string, { serviceId: string; service: string; project: string; projectId: string; cpuHours: number; memoryGbHours: number; egressGb: number; buildMinutes: number }>();
+    for (const r of rows(perService)) {
+      const id = String(r.service_id);
+      const s = services.get(id) ?? { serviceId: id, service: String(r.service), project: String(r.project), projectId: String(r.project_id), cpuHours: 0, memoryGbHours: 0, egressGb: 0, buildMinutes: 0 };
+      add(s, String(r.metric), Number(r.q));
+      services.set(id, s);
+    }
+    for (const r of rows(builds)) { const s = services.get(String(r.service_id)); if (s) s.buildMinutes += Number(r.q) / 60; }
+    const plan = await getTeamPlan(params.teamId);
+    const promo = await pendingDiscount(params.teamId);
+    const list = [...services.values()];
+    // Attribution weight: CPU hours and memory GB-hours, each normalised by the team total.
+    const tot = list.reduce((a, s) => ({ cpu: a.cpu + s.cpuHours, mem: a.mem + s.memoryGbHours }), { cpu: 0, mem: 0 });
+    const weighted = list.map((s) => ({ ...s, share: (tot.cpu ? s.cpuHours / tot.cpu : 0) / 2 + (tot.mem ? s.memoryGbHours / tot.mem : 0) / 2 }));
+    return {
+      period: { start, end },
+      plan: { slug: plan.slug, name: plan.name, priceCents: plan.priceCents, currency: plan.currency },
+      estimate: { planCents: plan.priceCents, discountCents: plan.priceCents - discountedCents(plan.priceCents, promo), totalCents: discountedCents(plan.priceCents, promo), promo },
+      daily: [...days.values()],
+      services: weighted.sort((a, b) => b.share - a.share).map((s) => ({ ...s, share: Math.round(s.share * 1000) / 10, attributedCents: Math.round(plan.priceCents * s.share) })),
+    };
   });
 
   route(app, { method: "GET", url: "/invoices/:id/pdf", tags: ["billing"], params: idParam }, async (req, reply, { params }) => {

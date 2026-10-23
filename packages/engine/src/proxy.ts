@@ -27,8 +27,8 @@ export interface Route {
   /** Block writes (used for buckets above quota). */
   blockMethods?: string[];
   headers?: Record<string, string>;
-  /** "status": a project status page on a custom domain, served by the API. */
-  kind?: "app" | "status";
+  /** "status": a project status page on a custom domain; "maintenance": the service's maintenance page. Both served by the API. */
+  kind?: "app" | "status" | "maintenance";
 }
 
 export interface ProxyOptions {
@@ -66,6 +66,7 @@ export function buildTraefikConfig(routes: Route[], opts: ProxyOptions): Obj {
   middlewares["sh-wake-prefix"] = { addPrefix: { prefix: "/internal/wake" } };
   middlewares["sh-blocked-prefix"] = { addPrefix: { prefix: "/internal/blocked" } };
   middlewares["sh-status-prefix"] = { addPrefix: { prefix: "/internal/status-page" } };
+  middlewares["sh-maintenance-prefix"] = { addPrefix: { prefix: "/internal/maintenance" } };
 
   for (const r of routes) {
     const k = key(r.id);
@@ -100,7 +101,11 @@ export function buildTraefikConfig(routes: Route[], opts: ProxyOptions): Obj {
     }
 
     let serviceName: string;
-    if (r.kind === "status") {
+    if (r.kind === "maintenance") {
+      middlewares[`${k}-route`] = { headers: { customRequestHeaders: { "X-Skyhost-Route": r.id, "X-Skyhost-Token": opts.internalToken } } };
+      mws.push(`${k}-route`, "sh-maintenance-prefix");
+      serviceName = "sh-api";
+    } else if (r.kind === "status") {
       middlewares[`${k}-route`] = { headers: { customRequestHeaders: { "X-Skyhost-Route": r.id, "X-Skyhost-Token": opts.internalToken } } };
       mws.push(`${k}-route`, "sh-status-prefix");
       serviceName = "sh-api";

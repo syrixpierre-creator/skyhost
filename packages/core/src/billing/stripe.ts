@@ -11,8 +11,8 @@ export function stripeConfigured() {
 
 export function stripe(): Stripe {
   const c = serverConfig();
-  if (!c.STRIPE_SECRET_KEY) throw unavailable("Stripe is not configured (set STRIPE_SECRET_KEY)");
-  if (!c.SKYHOST_PAYMENTS_ENABLED) throw unavailable("Payments are disabled in this environment (SKYHOST_PAYMENTS_ENABLED=false)");
+  if (!c.STRIPE_SECRET_KEY) throw unavailable("Card payments are not available yet on this SKYHOST installation.");
+  if (!c.SKYHOST_PAYMENTS_ENABLED) throw unavailable("Online payments are not available yet on this SKYHOST installation.");
   client ??= new Stripe(c.STRIPE_SECRET_KEY, { maxNetworkRetries: 2, appInfo: { name: "SKYHOST" } });
   return client;
 }
@@ -34,7 +34,10 @@ export async function ensureStripeCustomer(team: { id: string; name: string; bil
   return customer.id;
 }
 
-export async function createSubscriptionCheckout(o: { customerId: string; teamId: string; userId: string; priceId: string; planId: string; successUrl: string; cancelUrl: string; trialDays?: number }) {
+export async function createSubscriptionCheckout(o: { customerId: string; teamId: string; userId: string; priceId: string; planId: string; successUrl: string; cancelUrl: string; trialDays?: number; promo?: { redemptionId: string; code: string; percentOff: number } | null }) {
+  // A SKYHOST promo code becomes a single-use Stripe coupon on the first invoice (Stripe codes are then disabled).
+  const coupon = o.promo ? await stripe().coupons.create({ percent_off: o.promo.percentOff, duration: "once", max_redemptions: 1, name: `SKYHOST ${o.promo.code}`, metadata: { teamId: o.teamId, redemptionId: o.promo.redemptionId } }) : null;
+  const promoMeta: Record<string, string> = o.promo ? { promoRedemptionId: o.promo.redemptionId } : {};
   const session = await stripe().checkout.sessions.create({
     mode: "subscription",
     customer: o.customerId,
@@ -42,10 +45,10 @@ export async function createSubscriptionCheckout(o: { customerId: string; teamId
     success_url: o.successUrl,
     cancel_url: o.cancelUrl,
     client_reference_id: o.teamId,
-    allow_promotion_codes: true,
+    ...(coupon ? { discounts: [{ coupon: coupon.id }] } : { allow_promotion_codes: true }),
     automatic_tax: { enabled: false },
     subscription_data: { metadata: { teamId: o.teamId, planId: o.planId, userId: o.userId }, ...(o.trialDays ? { trial_period_days: o.trialDays } : {}) },
-    metadata: { teamId: o.teamId, planId: o.planId, userId: o.userId, kind: "subscription" },
+    metadata: { teamId: o.teamId, planId: o.planId, userId: o.userId, kind: "subscription", ...promoMeta },
   });
   return session.url!;
 }

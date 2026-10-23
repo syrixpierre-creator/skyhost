@@ -74,7 +74,7 @@ export default async function gitRoutes(app: FastifyInstance) {
   route(app, { method: "GET", url: "/git/github/install", tags: ["git"], query: z.object({ teamId: z.string().uuid() }) }, async (req, reply, { query }) => {
     await teamAccess(req, query.teamId, "project:create");
     const slug = serverConfig().GITHUB_APP_SLUG;
-    if (!slug) throw unavailable("The GitHub App is not configured on this SKYHOST installation");
+    if (!slug) throw unavailable("GitHub repositories are not available yet on this SKYHOST installation.");
     const state = signState({ teamId: query.teamId, userId: req.auth.user!.id });
     return reply.redirect(`https://github.com/apps/${slug}/installations/new?state=${encodeURIComponent(state)}`);
   });
@@ -104,7 +104,7 @@ export default async function gitRoutes(app: FastifyInstance) {
   route(app, { method: "GET", url: "/git/:provider/connect", tags: ["git"], params: z.object({ provider: z.enum(["gitlab", "bitbucket"]) }), query: z.object({ teamId: z.string().uuid() }) }, async (req, reply, { params, query }) => {
     await teamAccess(req, query.teamId, "project:create");
     const p = OAUTH_GIT[params.provider];
-    if (!p.configured()) throw unavailable(`${params.provider} is not configured on this SKYHOST installation`);
+    if (!p.configured()) throw unavailable(`${params.provider === "gitlab" ? "GitLab" : "Bitbucket"} repositories are not available yet on this SKYHOST installation.`);
     const state = signState({ teamId: query.teamId, userId: req.auth.user!.id, provider: params.provider });
     await redis().set(`sh:gitstate:${state.slice(-20)}`, "1", "EX", 900);
     const redirect = `${serverConfig().SKYHOST_API_URL}/api/v1/git/${params.provider}/callback`;

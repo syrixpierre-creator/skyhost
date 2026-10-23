@@ -222,6 +222,8 @@ export const teams = pgTable("teams", {
   billingCountry: text("billing_country"),
   taxId: text("tax_id"),
   creditBalanceCents: integer("credit_balance_cents").notNull().default(0),
+  /** Percentage promo code redeemed by the team, applied once to its next plan payment. */
+  pendingDiscountId: uuid("pending_discount_id"),
   stripeCustomerId: text("stripe_customer_id"),
   spendCapCents: integer("spend_cap_cents"),
   spendCapAction: text("spend_cap_action").notNull().default("block_deploys"), // alert | block_deploys | pause_services
@@ -1068,6 +1070,23 @@ export const discounts = pgTable("discounts", {
   createdAt: createdAt(),
 });
 
+/** One redemption of a promo code per team. */
+export const discountRedemptions = pgTable(
+  "discount_redemptions",
+  {
+    id: id(),
+    discountId: uuid("discount_id").notNull().references(() => discounts.id),
+    teamId: uuid("team_id").notNull().references(() => teams.id),
+    userId: uuid("user_id").notNull().references(() => users.id),
+    /** credits: amount added to the balance; pending: waiting for the next payment; applied: used on a payment. */
+    status: text("status").notNull(),
+    amountCents: integer("amount_cents").notNull().default(0),
+    appliedAt: ts("applied_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("discount_redemptions_team_uq").on(t.discountId, t.teamId)],
+);
+
 // ---------------------------------------------------------------------------
 // Referral
 // ---------------------------------------------------------------------------
@@ -1173,3 +1192,25 @@ export const statusIncidents = pgTable("status_incidents", {
   resolvedAt: ts("resolved_at"),
   createdAt: createdAt(),
 });
+
+// ---------------------------------------------------------------------------
+// Deploy hooks: secret URLs that trigger a deployment (CI, CMS, cron outside SKYHOST)
+// ---------------------------------------------------------------------------
+
+export const deployHooks = pgTable(
+  "deploy_hooks",
+  {
+    id: id(),
+    serviceId: uuid("service_id").notNull().references(() => services.id),
+    environmentId: uuid("environment_id").notNull().references(() => environments.id),
+    name: text("name").notNull(),
+    /** sha256 of the secret token; the URL is shown once. */
+    tokenHash: text("token_hash").notNull().unique(),
+    tokenPrefix: text("token_prefix").notNull(),
+    createdBy: uuid("created_by").references(() => users.id),
+    lastUsedAt: ts("last_used_at"),
+    revokedAt: ts("revoked_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("deploy_hooks_service_idx").on(t.serviceId)],
+);

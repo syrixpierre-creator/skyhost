@@ -132,6 +132,13 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
     enabled: true,
     maxAccountsPerIpPerDay: 3,
   },
+  // Platform maintenance: a banner for everyone and, optionally, new deployments paused.
+  maintenance: {
+    enabled: false,
+    message: "",
+    blockDeploys: true,
+    endsAt: null,
+  },
 };
 
 /** Idempotent: inserts defaults, never overwrites admin-edited values. */

@@ -62,7 +62,7 @@ const ghTokens = new Map<string, { token: string; expiresAt: number }>();
 
 export async function githubAppJwt(): Promise<string> {
   const c = serverConfig();
-  if (!c.GITHUB_APP_ID || !c.GITHUB_APP_PRIVATE_KEY) throw unavailable("The GitHub App is not configured (GITHUB_APP_ID / GITHUB_APP_PRIVATE_KEY)");
+  if (!c.GITHUB_APP_ID || !c.GITHUB_APP_PRIVATE_KEY) throw unavailable("GitHub repositories are not available yet on this SKYHOST installation.");
   const pem = c.GITHUB_APP_PRIVATE_KEY.replace(/\\n/g, "\n");
   // GitHub issues PKCS#1 keys; convert to PKCS#8 for jose.
   const pkcs8 = createPrivateKey(pem).export({ type: "pkcs8", format: "pem" }).toString();

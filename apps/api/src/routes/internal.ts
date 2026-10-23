@@ -124,6 +124,16 @@ export default async function internalRoutes(app: FastifyInstance) {
     reply.code(507).type("application/xml").send('<?xml version="1.0" encoding="UTF-8"?><Error><Code>QuotaExceeded</Code><Message>The storage quota of this bucket is exceeded. Upgrade the plan or delete objects.</Message></Error>'),
   );
 
+  /** Maintenance page of a service (its deployment keeps running; traffic is held while the owner works). */
+  app.get("/maintenance/*", { config: { public: true } }, async (req, reply) => {
+    const serviceId = String(req.headers["x-skyhost-service-id"] ?? "");
+    const [svc] = /^[0-9a-f-]{36}$/.test(serviceId) ? await getDb().select().from(services).where(eq(services.id, serviceId)) : [];
+    const message = svc?.config.maintenance?.message || "This site is temporarily down for maintenance. Please check back soon.";
+    const escape = (x: string) => x.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+    reply.code(503).header("Retry-After", "300").header("Cache-Control", "no-store").type("text/html");
+    return page("Maintenance", `<h1>Under maintenance</h1><p>${escape(message)}</p>`);
+  });
+
   /** Project status pages served on custom domains. */
   app.get("/status-page/*", { config: { public: true } }, async (req, reply) => {
     if (!internalAuth(req)) return reply.code(404).send("Not found");

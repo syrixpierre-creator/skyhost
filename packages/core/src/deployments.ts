@@ -2,7 +2,9 @@ import { and, desc, eq, inArray } from "drizzle-orm";
 import { deployments, environments, getDb, projects, serviceInstances, services, teams, users, type DeployFreeze } from "@skyhost/db";
 import { TERMINAL_DEPLOYMENT_STATUSES } from "@skyhost/shared";
 import { audit, type Actor } from "./audit";
-import { badRequest, conflict, forbidden, notFound } from "./errors";
+import { badRequest, conflict, forbidden, notFound, unavailable } from "./errors";
+import { emailVerificationRequired } from "./capabilities";
+import { getSetting } from "./settings";
 import { enqueue, getQueue } from "./queue";
 import { publish } from "./realtime";
 import { assertQuota } from "./quotas";
@@ -25,7 +27,7 @@ export function isDeployFrozen(freeze: DeployFreeze | null | undefined, now = ne
 export interface CreateDeploymentInput {
   serviceId: string;
   environmentId: string;
-  trigger: "manual" | "git" | "rollback" | "api" | "cli" | "template" | "redeploy" | "preview" | "config";
+  trigger: "manual" | "git" | "rollback" | "api" | "cli" | "template" | "redeploy" | "preview" | "config" | "hook";
   actor?: Actor | null;
   commit?: { sha?: string | null; message?: string | null; author?: string | null; branch?: string | null } | null;
   prNumber?: number | null;
@@ -54,7 +56,11 @@ export async function createDeployment(input: CreateDeploymentInput) {
   const team = row.team;
   if (team.suspendedAt) throw forbidden(`This team is suspended${team.suspendedReason ? `: ${team.suspendedReason}` : ""}. Deployments are disabled.`);
   if (team.billingStatus === "suspended") throw forbidden("Deployments are disabled because of an unpaid invoice. Update your payment method to reactivate.");
-  if (input.actor?.userId && serverConfig().SKYHOST_REQUIRE_EMAIL_VERIFICATION) {
+  if (input.trigger !== "rollback") {
+    const m = await getSetting("maintenance");
+    if (m.enabled && m.blockDeploys) throw unavailable(`SKYHOST is under maintenance${m.message ? `: ${m.message}` : ""}. New deployments resume when it ends; running services are not affected.`);
+  }
+  if (input.actor?.userId && emailVerificationRequired()) {
     const [u] = await db.select({ verified: users.emailVerifiedAt }).from(users).where(eq(users.id, input.actor.userId));
     if (u && !u.verified) throw forbidden("Verify your email address before deploying.");
   }

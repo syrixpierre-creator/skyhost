@@ -10,8 +10,8 @@ export function paypalConfigured() {
 
 async function accessToken(): Promise<string> {
   const c = serverConfig();
-  if (!c.PAYPAL_CLIENT_ID || !c.PAYPAL_CLIENT_SECRET) throw unavailable("PayPal is not configured");
-  if (!c.SKYHOST_PAYMENTS_ENABLED) throw unavailable("Payments are disabled in this environment");
+  if (!c.PAYPAL_CLIENT_ID || !c.PAYPAL_CLIENT_SECRET) throw unavailable("PayPal is not available yet on this SKYHOST installation.");
+  if (!c.SKYHOST_PAYMENTS_ENABLED) throw unavailable("Online payments are not available yet on this SKYHOST installation.");
   if (token && token.expiresAt > Date.now() + 60_000) return token.value;
   const res = await fetch(`${c.PAYPAL_API_URL}/v1/oauth2/token`, {
     method: "POST",

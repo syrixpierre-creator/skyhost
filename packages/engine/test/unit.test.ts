@@ -155,3 +155,13 @@ describe("git environment", () => {
   });
 
 });
+
+describe("wildcard certificate", () => {
+  it("routes can ask for one shared base + *.base certificate", () => {
+    const cfg = buildTraefikConfig(
+      [{ id: "a", hosts: ["web-1.skyhost.tech"], backends: [{ deploymentId: "d", weight: 100, servers: ["http://c:80"] }], tls: true, certResolver: "letsencrypt-dns", tlsDomains: [{ main: "skyhost.tech", sans: ["*.skyhost.tech"] }] }],
+      { apiUrl: "http://api:4000", httpEntryPoint: "web", httpsEntryPoint: "websecure", tlsEnabled: true, internalToken: "t" },
+    );
+    expect(cfg.http.routers.a!.tls).toEqual({ certResolver: "letsencrypt-dns", domains: [{ main: "skyhost.tech", sans: ["*.skyhost.tech"] }] });
+  });
+});

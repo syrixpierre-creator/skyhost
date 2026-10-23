@@ -45,9 +45,16 @@ export async function buildProxyConfig() {
   const allDomains = rows.length ? await db.select().from(domains).where(inArray(domains.serviceId, rows.map((r) => r.svc.id))) : [];
 
   const routes: Route[] = [];
+  // With a DNS-challenge resolver, every host under the platform domain shares one "base + *.base" certificate:
+  // no per-app certificate, so no Let's Encrypt rate limit and HTTPS works the second an app goes live.
+  const platform = cfg.SKYHOST_BASE_DOMAIN;
+  const wildcard = cfg.SKYHOST_WILDCARD_CERT_RESOLVER ? { certResolver: cfg.SKYHOST_WILDCARD_CERT_RESOLVER, tlsDomains: [{ main: platform, sans: [`*.${platform}`] }] } : null;
+  // Covered by the wildcard: the domain itself and single-label subdomains (a wildcard does not match a.b.domain).
+  const covered = (host: string) => host === platform || (host.endsWith(`.${platform}`) && !host.slice(0, -platform.length - 1).includes("."));
+  const platformTls = (host: string) => (wildcard && covered(host) ? wildcard : { certResolver: cfg.SKYHOST_CERT_RESOLVER });
   // The dashboard (and the API under /api on the same origin) when Traefik is also the platform's own edge.
   if (cfg.SKYHOST_DASHBOARD_UPSTREAM) {
-    routes.push({ id: "sh-dashboard", hosts: [new URL(cfg.SKYHOST_DASHBOARD_URL).hostname], backends: [{ deploymentId: "dashboard", weight: 100, servers: [cfg.SKYHOST_DASHBOARD_UPSTREAM] }], tls: cfg.SKYHOST_TLS, certResolver: cfg.SKYHOST_CERT_RESOLVER });
+    routes.push({ id: "sh-dashboard", hosts: [new URL(cfg.SKYHOST_DASHBOARD_URL).hostname], backends: [{ deploymentId: "dashboard", weight: 100, servers: [cfg.SKYHOST_DASHBOARD_UPSTREAM] }], tls: cfg.SKYHOST_TLS, ...platformTls(new URL(cfg.SKYHOST_DASHBOARD_URL).hostname) });
   }
   for (const { inst, svc, env, team } of rows) {
     if (!PUBLIC_TYPES.has(svc.type)) continue;
@@ -77,7 +84,7 @@ export async function buildProxyConfig() {
     const needsGate = (protect && prot.mode === "password") || (svc.config.waf?.enabled && (svc.config.waf.rules.length > 0 || svc.config.waf.blockBots));
     if (needsGate) base.forwardAuthUrl = `${cfg.SKYHOST_API_INTERNAL_URL}/internal/gate?instance=${inst.id}&token=${encodeURIComponent(cfg.SKYHOST_INTERNAL_TOKEN)}`;
 
-    routes.push({ ...base, id: `i-${inst.id}`, hosts: [serviceHostname(svc, env)], certResolver: cfg.SKYHOST_WILDCARD_CERT_RESOLVER || cfg.SKYHOST_CERT_RESOLVER });
+    routes.push({ ...base, id: `i-${inst.id}`, hosts: [serviceHostname(svc, env)], ...platformTls(serviceHostname(svc, env)) });
     for (const d of allDomains) {
       if (d.serviceId !== svc.id || (d.environmentId && d.environmentId !== env.id)) continue;
       if (!d.environmentId && env.type !== "production") continue;
@@ -102,7 +109,7 @@ export async function buildProxyConfig() {
       hosts: [`s3-${b.id.replace(/-/g, "").slice(0, 12)}.${cfg.SKYHOST_BASE_DOMAIN}`],
       backends: [{ deploymentId: b.id, weight: 100, servers: [`http://${names.bucketContainer(b.id)}:9000`] }],
       tls: cfg.SKYHOST_TLS,
-      certResolver: cfg.SKYHOST_WILDCARD_CERT_RESOLVER || cfg.SKYHOST_CERT_RESOLVER,
+      ...platformTls(`s3-${b.id.replace(/-/g, "").slice(0, 12)}.${platform}`),
       blockMethods: over === "1" ? ["PUT", "POST"] : undefined,
     });
   }

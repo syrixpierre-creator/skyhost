@@ -44,6 +44,18 @@ Cookies are marked `Secure` whenever the dashboard URL uses HTTPS.
 | `SKYHOST_DB_PUBLIC_PORT_MIN/MAX` | | Port range for public database access. |
 | `SKYHOST_BUCKET_IMAGE` | `versity/versitygw:v1.0.16` | S3 server image used for customer buckets. |
 
+## Wildcard certificate (recommended)
+
+By default each app gets its own Let's Encrypt certificate, and Let's Encrypt allows about 50 new certificates per
+registered domain per week. With the domain's DNS on Cloudflare (free; the domain can stay at its registrar), one
+certificate for `your-domain` and `*.your-domain` covers the dashboard, every app and every bucket:
+
+1. Cloudflare → add the site, then change the domain's name servers at the registrar to Cloudflare's.
+   Recreate the `A @` and `A *` records (proxy status: **DNS only**, grey cloud).
+2. Cloudflare → My Profile → API Tokens → Create token → template "Edit zone DNS", zone = your domain.
+3. In `.env`: `SKYHOST_WILDCARD_CERT_RESOLVER=letsencrypt-dns` and `CLOUDFLARE_DNS_API_TOKEN=<token>`, then
+   `docker compose up -d`.
+
 ## Storage
 
 `STORAGE_DRIVER=fs` (default) stores encrypted objects under `STORAGE_FS_ROOT` (the `objects` volume).

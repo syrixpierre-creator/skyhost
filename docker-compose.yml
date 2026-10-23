@@ -48,11 +48,19 @@ services:
       - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
       - --certificatesresolvers.letsencrypt.acme.storage=/acme/acme.json
       - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      # One wildcard certificate for the platform domain (DNS challenge through Cloudflare). Used when
+      # SKYHOST_WILDCARD_CERT_RESOLVER=letsencrypt-dns and CLOUDFLARE_DNS_API_TOKEN are set in .env.
+      - --certificatesresolvers.letsencrypt-dns.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.letsencrypt-dns.acme.storage=/acme/acme-dns.json
+      - --certificatesresolvers.letsencrypt-dns.acme.dnschallenge.provider=cloudflare
+      - --certificatesresolvers.letsencrypt-dns.acme.dnschallenge.resolvers=1.1.1.1:53,8.8.8.8:53
       - --ping.entrypoint=metrics
       - --metrics.prometheus.entrypoint=metrics
       - --accesslog.format=json
       - --accesslog.fields.headers.defaultmode=drop
       - --log.level=WARN
+    environment:
+      CF_DNS_API_TOKEN: ${CLOUDFLARE_DNS_API_TOKEN:-}
     ports:
       - "80:80"
       - "443:443"

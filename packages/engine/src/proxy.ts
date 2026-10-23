@@ -16,6 +16,8 @@ export interface Route {
   tls: boolean;
   /** Use the ACME resolver for custom domains (wildcard platform domain uses a pre-issued cert or DNS challenge). */
   certResolver?: string | null;
+  /** Certificate names to request (one wildcard certificate shared by every platform host instead of one per host). */
+  tlsDomains?: Array<{ main: string; sans?: string[] }>;
   basicAuthUsers?: string[];
   ipAllowlist?: string[];
   /** forwardAuth URL for password protection / WAF rules. */
@@ -30,6 +32,8 @@ export interface Route {
   /** "status": a project status page on a custom domain; "maintenance": the service's maintenance page. Both served by the API. */
   kind?: "app" | "status" | "maintenance";
 }
+
+const tlsOf = (r: Route) => (r.certResolver ? { certResolver: r.certResolver, ...(r.tlsDomains?.length ? { domains: r.tlsDomains } : {}) } : {});
 
 export interface ProxyOptions {
   apiUrl: string; // internal URL of the API, e.g. http://api.skyhost-control:4000
@@ -129,7 +133,7 @@ export function buildTraefikConfig(routes: Route[], opts: ProxyOptions): Obj {
 
     if (opts.tlsEnabled && r.tls) {
       routers[`${k}-http`] = { rule, entryPoints: [opts.httpEntryPoint], middlewares: ["sh-https-redirect"], service: serviceName, priority: 10 };
-      routers[k] = { rule, entryPoints: [opts.httpsEntryPoint], middlewares: mws, service: serviceName, tls: r.certResolver ? { certResolver: r.certResolver } : {}, priority: 10 };
+      routers[k] = { rule, entryPoints: [opts.httpsEntryPoint], middlewares: mws, service: serviceName, tls: tlsOf(r), priority: 10 };
     } else {
       routers[k] = { rule, entryPoints: [opts.httpEntryPoint], middlewares: mws, service: serviceName, priority: 10 };
     }
@@ -141,7 +145,7 @@ export function buildTraefikConfig(routes: Route[], opts: ProxyOptions): Obj {
         service: "sh-api",
         middlewares: ["sh-blocked-prefix"],
         priority: 100,
-        ...(opts.tlsEnabled && r.tls ? { tls: r.certResolver ? { certResolver: r.certResolver } : {} } : {}),
+        ...(opts.tlsEnabled && r.tls ? { tls: tlsOf(r) } : {}),
       };
     }
   }

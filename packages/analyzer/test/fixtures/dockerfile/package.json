@@ -1,0 +1,1 @@
+{"name": "dockerized", "scripts": {"start": "node index.js"}, "dependencies": {"fastify": "^5.0.0"}}

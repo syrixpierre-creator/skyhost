@@ -24,7 +24,12 @@ async function ensureVolumes(serviceId: string, environmentId: string, teamId: s
   return vols.map((v) => ({ dockerVolume: v.dockerVolume, mountPath: v.mountPath }));
 }
 
-/** Gives the new containers their internal DNS names only once they are healthy (no traffic to unready replicas). */
+/**
+ * Gives the new containers their internal DNS names only once they are healthy (no traffic to unready replicas).
+ * Only possible with runc: gVisor and Kata sandboxes keep the network interface they started with, so reconnecting a
+ * running container cuts it off (visitors get 502 while the app still listens inside). There, names are set at start.
+ */
+const lateAliases = () => engineConfig().runtime === "runc";
 async function attachAliases(container: string, network: string, aliases: string[]) {
   const net = getDocker().getNetwork(network);
   await net.disconnect({ Container: container, Force: true });
@@ -86,7 +91,7 @@ export async function processRelease(deploymentId: string) {
         command,
         network,
         networkLabels: { [LABEL.team]: teamId },
-        aliases: [],
+        aliases: lateAliases() ? [] : [internalHost(svc.slug, env), `${internalHost(svc.slug, env)}.internal`],
         labels: { [LABEL.kind]: "app", [LABEL.team]: teamId, [LABEL.project]: projectId, [LABEL.service]: svc.id, [LABEL.environment]: env.id, [LABEL.deployment]: dep.id },
         cpu,
         memoryMb,
@@ -114,7 +119,7 @@ export async function processRelease(deploymentId: string) {
       });
     }
     const host = internalHost(svc.slug, env);
-    for (const name of created) await attachAliases(name, network, [host, `${host}.internal`]);
+    if (lateAliases()) for (const name of created) await attachAliases(name, network, [host, `${host}.internal`]);
 
     if (dep.isCanary && previousLiveId) {
       await db.update(serviceInstances).set({ canaryDeploymentId: dep.id, canaryWeight: 10 }).where(eq(serviceInstances.id, inst!.id));

@@ -1183,5 +1183,12 @@
   "Reply": "Répondre",
   "Send reply": "Envoyer la réponse",
   "Technical issue": "Problème technique",
-  "Other": "Autre"
+  "Other": "Autre",
+  "Documentation": "Documentation",
+  "Dashboard": "Tableau de bord",
+  "Did not find your answer?": "Vous n'avez pas trouvé votre réponse ?",
+  "Contact support": "Contacter le support",
+  "Everything you need to deploy and run your apps on SKYHOST.": "Tout ce qu'il faut pour déployer et faire tourner vos apps sur SKYHOST.",
+  "Search the documentation": "Rechercher dans la documentation",
+  "No results.": "Aucun résultat."
 }

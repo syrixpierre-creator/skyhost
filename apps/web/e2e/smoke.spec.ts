@@ -261,3 +261,20 @@ test("a user opens a support ticket and follows the thread", async ({ page }) =>
   await page.getByRole("button", { name: "Close ticket" }).click();
   await expect(page.getByText("Closed", { exact: true })).toBeVisible();
 });
+
+test("public documentation: index, search, articles in English and French", async ({ browser }) => {
+  const visitor = await (await browser.newContext()).newPage();
+  await visitor.goto("/docs");
+  await expect(visitor.getByRole("heading", { name: "Documentation", exact: true })).toBeVisible();
+  await visitor.getByLabel("Search the documentation").fill("Bad Gateway");
+  await expect(visitor.getByRole("main").getByRole("link")).toHaveCount(1);
+  await visitor.getByRole("main").getByRole("link", { name: /Troubleshooting/ }).click();
+  await expect(visitor).toHaveURL(/\/docs\/troubleshooting$/);
+  await expect(visitor.getByRole("heading", { name: "Bad Gateway (502)" })).toBeVisible();
+  await expect(visitor.locator("code", { hasText: "process.env.PORT" }).first()).toBeVisible();
+  await visitor.getByRole("link", { name: "Custom domains" }).first().click();
+  await expect(visitor.getByText("_skyhost-challenge.www.example.com")).toBeVisible();
+  await visitor.evaluate(() => localStorage.setItem("sh-lang", "fr"));
+  await visitor.goto("/docs/custom-domains");
+  await expect(visitor.getByRole("heading", { name: "Domaines personnalisés" })).toBeVisible();
+});

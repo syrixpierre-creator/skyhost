@@ -24,6 +24,7 @@ const Templates = lazy(() => import("./pages/Templates"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Public = lazy(() => import("./pages/Public"));
 const Support = lazy(() => import("./pages/Support"));
+const Docs = lazy(() => import("./pages/Docs"));
 
 function Loading() {
   return (
@@ -75,6 +76,8 @@ export function App() {
         <Route path="/status/:slug" element={<Public page="project-status" />} />
         <Route path="/s/:token" element={<Public page="shared-screenshot" />} />
         <Route path="/report-abuse" element={<Public page="abuse" />} />
+        <Route path="/docs" element={<Docs />} />
+        <Route path="/docs/:slug" element={<Docs />} />
         <Route path="/terms" element={<Public page="terms" />} />
         <Route path="/privacy" element={<Public page="privacy" />} />
         <Route path="/cli" element={<Protected><Public page="cli" /></Protected>} />

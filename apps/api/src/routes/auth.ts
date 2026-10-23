@@ -6,7 +6,7 @@ import { apiKeys, cliAuthRequests, emailTokens, getDb, oauthAccounts, plans, rec
 import { emailSchema, loginSchema, passwordSchema, signupSchema, slugify } from "@skyhost/shared";
 import { decrypt, encrypt, randomId, randomToken, sha256 } from "@skyhost/shared/node";
 import { attachReferral, audit, badRequest, conflict, forbidden, getSetting, redis, renderEmail, sendMail, serverConfig, tooMany, unauthorized } from "@skyhost/core";
-import { actorOf, clearSessionCookies, clientIp, createSession, generateApiKey, type User } from "../lib/auth";
+import { actorOf, clearSessionCookies, clientIp, createSession, generateApiKey, secureCookies, type User } from "../lib/auth";
 import { route } from "../lib/http";
 import { hashPassword, verifyPassword } from "../lib/password";
 
@@ -295,7 +295,7 @@ export default async function authRoutes(app: FastifyInstance) {
     const state = randomToken(24);
     const ref = (req.query as { ref?: string }).ref;
     await redis().set(`sh:oauth:${state}`, JSON.stringify({ provider, ref: ref?.slice(0, 32) }), "EX", 600);
-    reply.setCookie("sh_oauth_state", state, { path: "/", httpOnly: true, sameSite: "lax", secure: serverConfig().isProd, maxAge: 600 });
+    reply.setCookie("sh_oauth_state", state, { path: "/", httpOnly: true, sameSite: "lax", secure: secureCookies(), maxAge: 600 });
     return reply.redirect(p.authorize(state, callbackUrl(provider)));
   });
 

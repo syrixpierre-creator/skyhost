@@ -4,7 +4,9 @@ import yazl from "yazl";
 
 /** Never uploaded: dependencies, VCS data, build caches and local secrets. */
 const ALWAYS_IGNORED = [".git", "node_modules", ".skyhost", ".DS_Store", ".env", ".env.*", "*.pem", "*.key", "__pycache__", ".venv", "venv", ".next/cache", "dist/.cache"];
-const MAX_BYTES = 200 * 1024 * 1024;
+const MAX_BYTES = 500 * 1024 * 1024;
+/** Upload limit of the API (multipart file size). */
+export const MAX_ARCHIVE_BYTES = 100 * 1024 * 1024;
 
 function globToRegex(glob: string): RegExp {
   const g = glob.replace(/\/+$/, "");
@@ -64,7 +66,11 @@ export function zipDirectory(root: string): Promise<{ buffer: Buffer; files: num
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     zip.outputStream.on("data", (c: Buffer) => chunks.push(c));
-    zip.outputStream.on("end", () => resolve({ buffer: Buffer.concat(chunks), files: files.length }));
+    zip.outputStream.on("end", () => {
+      const buffer = Buffer.concat(chunks);
+      if (buffer.length > MAX_ARCHIVE_BYTES) return reject(new Error(`The archive is ${Math.round(buffer.length / 1048576)} MB; the upload limit is ${MAX_ARCHIVE_BYTES / 1048576} MB. Add a .skyhostignore file.`));
+      resolve({ buffer, files: files.length });
+    });
     zip.outputStream.on("error", reject);
   });
 }

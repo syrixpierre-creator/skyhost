@@ -8,7 +8,7 @@ import { analyzeRepository, localFS } from "@skyhost/analyzer";
 import { generateMasterKey, parseKeyring, randomPassword, setKeyring } from "@skyhost/shared/node";
 import {
   backupDatabase, buildImage, cloneRepository, containerIp, createAndStart, deleteDatabase, ensureNetwork, getDocker, HealthcheckError,
-  listTables, names, provisionDatabase, querySql, queryMongo, removeContainer, restoreDatabase, runJob, runShellCommand, setEngineConfig, waitHealthy, redisCommand,
+  listTables, names, provisionDatabase, provisionBucket, setBucketVisibility, bucketUsageBytes, presignUrl, deleteBucket, querySql, queryMongo, removeContainer, restoreDatabase, runJob, runShellCommand, setEngineConfig, waitHealthy, redisCommand,
 } from "../src";
 
 const hasDocker = (() => {
@@ -214,4 +214,24 @@ d("managed databases", () => {
     expect(sh("db.items.countDocuments()")).toBe("2");
     await deleteDatabase(id);
   }, 300_000);
+  it("Object storage bucket: provision, private by default, public toggle, usage, delete", async () => {
+    const spec = { id: "00000000-0000-4000-8000-0000000000b1", teamId: TEAM, network: net, bucketName: "assets", accessKey: "skyhosttestaccess", secretKey: randomPassword(32), isPublic: false };
+    await provisionBucket(spec);
+    const ip = (await containerIp(names.bucketContainer(spec.id), net))!;
+    const { Client } = await import("minio");
+    const c = new Client({ endPoint: ip, port: 9000, useSSL: false, accessKey: spec.accessKey, secretKey: spec.secretKey, region: "us-east-1" });
+    await c.putObject("assets", "hello.txt", Buffer.from("hello bucket"));
+    expect((await get(ip, 9000, "/assets/hello.txt")).status).toBe(403);
+    await setBucketVisibility(spec, true);
+    expect(await get(ip, 9000, "/assets/hello.txt")).toMatchObject({ status: 200, body: "hello bucket" });
+    await setBucketVisibility(spec, false);
+    expect((await get(ip, 9000, "/assets/hello.txt")).status).toBe(403);
+    expect(await bucketUsageBytes(spec)).toBe(12);
+    // A wrong secret is rejected.
+    const bad = new Client({ endPoint: ip, port: 9000, useSSL: false, accessKey: spec.accessKey, secretKey: "wrong-secret-value", region: "us-east-1" });
+    await expect(bad.statObject("assets", "hello.txt")).rejects.toThrow();
+    expect(await presignUrl(spec, "hello.txt", "GET", 60)).toMatch(/X-Amz-Signature=/);
+    await deleteBucket(spec.id);
+    await expect(getDocker().getContainer(names.bucketContainer(spec.id)).inspect()).rejects.toThrow();
+  }, 120_000);
 });

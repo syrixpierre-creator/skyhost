@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { recordReferralClick, referralDashboard, requestPayout, serverConfig } from "@skyhost/core";
+import { secureCookies } from "../lib/auth";
 import { route } from "../lib/http";
 
 export default async function referralRoutes(app: FastifyInstance) {
@@ -18,7 +19,7 @@ export default async function referralRoutes(app: FastifyInstance) {
   route(app, { method: "POST", url: "/public/referrals/:code/click", public: true, tags: ["referrals"], params: z.object({ code: z.string().regex(/^[a-z0-9]{4,32}$/i) }), rateLimit: { max: 30, timeWindow: "1 minute" } }, async (req, reply, { params }) => {
     const ref = await recordReferralClick(params.code, req.ip, req.headers["user-agent"] ?? null);
     if (!ref) return { valid: false };
-    reply.setCookie("sh_ref", params.code.toLowerCase(), { path: "/", httpOnly: true, sameSite: "lax", secure: serverConfig().isProd, maxAge: 30 * 24 * 3600 });
+    reply.setCookie("sh_ref", params.code.toLowerCase(), { path: "/", httpOnly: true, sameSite: "lax", secure: secureCookies(), maxAge: 30 * 24 * 3600 });
     return { valid: true };
   });
 }

@@ -4,8 +4,9 @@ import { containerIp, ensureImage, getDocker, LABEL, names, removeContainer } fr
 import { createAndStart } from "./runtime";
 
 /**
- * S3-compatible object storage for customers. Each bucket runs in its own MinIO container on the team network,
- * with its own credentials, so buckets of different teams never share a server or keys.
+ * S3-compatible object storage for customers. Each bucket runs in its own VersityGW (Apache-2.0 S3 gateway, POSIX
+ * backend) container on the team network, with its own credentials, so buckets of different teams never share a
+ * server or keys. Any S3 server that accepts root credentials through ROOT_ACCESS_KEY/ROOT_SECRET_KEY can be used.
  */
 export interface BucketSpec {
   id: string;
@@ -17,7 +18,7 @@ export interface BucketSpec {
   isPublic: boolean;
 }
 
-export const MINIO_IMAGE = process.env.SKYHOST_MINIO_IMAGE ?? "minio/minio:RELEASE.2025-04-22T22-12-26Z";
+export const BUCKET_IMAGE = process.env.SKYHOST_BUCKET_IMAGE ?? "versity/versitygw:v1.0.16";
 
 export function bucketPublicHost(id: string) {
   return `s3-${id.replace(/-/g, "").slice(0, 12)}.${engineConfig().baseDomain}`;
@@ -37,7 +38,7 @@ function publicPolicy(bucket: string) {
 }
 
 export async function provisionBucket(spec: BucketSpec, onLine: (l: string) => void = () => {}) {
-  await ensureImage(MINIO_IMAGE, onLine);
+  await ensureImage(BUCKET_IMAGE, onLine);
   const volume = names.bucketVolume(spec.id);
   await getDocker()
     .createVolume({ Name: volume, Labels: { [LABEL.managed]: "true", [LABEL.bucket]: spec.id, [LABEL.team]: spec.teamId } })
@@ -46,9 +47,9 @@ export async function provisionBucket(spec: BucketSpec, onLine: (l: string) => v
     });
   await createAndStart({
     name: names.bucketContainer(spec.id),
-    image: MINIO_IMAGE,
-    env: { MINIO_ROOT_USER: spec.accessKey, MINIO_ROOT_PASSWORD: spec.secretKey, MINIO_BROWSER: "off" },
-    args: ["server", "/data", "--address", ":9000"],
+    image: BUCKET_IMAGE,
+    env: { ROOT_ACCESS_KEY: spec.accessKey, ROOT_SECRET_KEY: spec.secretKey },
+    args: ["--port", ":9000", "--quiet", "posix", "/data"],
     network: spec.network,
     networkLabels: { [LABEL.team]: spec.teamId },
     aliases: [`s3-${spec.bucketName}`, `s3-${spec.bucketName}.internal`],
@@ -57,11 +58,11 @@ export async function provisionBucket(spec: BucketSpec, onLine: (l: string) => v
     memoryMb: 512,
     volumes: [{ dockerVolume: volume, mountPath: "/data" }],
     restart: "always",
-    user: "1000:1000",
+    // The image has no shell to chown a fresh volume, so the gateway runs as uid 0 with every capability dropped.
     capAdd: [],
     runtime: process.env.SKYHOST_DATABASE_RUNTIME ?? engineConfig().runtime,
   });
-  // MinIO needs a moment before accepting requests.
+  // The gateway needs a moment before accepting requests.
   const deadline = Date.now() + 60_000;
   let lastErr = "";
   while (Date.now() < deadline) {
@@ -81,7 +82,8 @@ export async function provisionBucket(spec: BucketSpec, onLine: (l: string) => v
 
 export async function setBucketVisibility(spec: Pick<BucketSpec, "id" | "network" | "accessKey" | "secretKey" | "bucketName">, isPublic: boolean) {
   const c = await internalClient(spec);
-  await c.setBucketPolicy(spec.bucketName, isPublic ? publicPolicy(spec.bucketName) : "");
+  // S3 answers 204 (AWS, MinIO) or 200 (VersityGW); the client's setBucketPolicy only accepts 204.
+  await c.makeRequestAsyncOmit({ method: isPublic ? "PUT" : "DELETE", bucketName: spec.bucketName, query: "policy" }, isPublic ? publicPolicy(spec.bucketName) : "", [200, 204], "");
 }
 
 export async function bucketUsageBytes(spec: Pick<BucketSpec, "id" | "network" | "accessKey" | "secretKey" | "bucketName">): Promise<number> {

@@ -44,12 +44,17 @@ export function actorOf(req: FastifyRequest): Actor {
   };
 }
 
+/** Cookies are Secure whenever the dashboard is served over HTTPS (always, except explicit plain-HTTP private installs). */
+export function secureCookies() {
+  return serverConfig().SKYHOST_DASHBOARD_URL.startsWith("https://");
+}
+
 function cookieOpts(httpOnly: boolean, maxAgeSeconds: number) {
   const cfg = serverConfig();
   return {
     path: "/",
     httpOnly,
-    secure: cfg.isProd || cfg.SKYHOST_DASHBOARD_URL.startsWith("https://"),
+    secure: secureCookies(),
     sameSite: "lax" as const,
     maxAge: maxAgeSeconds,
     ...(cfg.SKYHOST_COOKIE_DOMAIN ? { domain: cfg.SKYHOST_COOKIE_DOMAIN } : {}),

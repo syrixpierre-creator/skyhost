@@ -109,10 +109,11 @@ let store: ObjectStore | null = null;
 export function getObjectStore(): ObjectStore {
   if (store) return store;
   const env = process.env;
-  if ((env.STORAGE_DRIVER ?? "fs") === "s3") {
-    store = new S3ObjectStore(env.S3_ENDPOINT ?? "http://minio:9000", env.S3_ACCESS_KEY ?? "", env.S3_SECRET_KEY ?? "", env.S3_BUCKET ?? "skyhost", env.S3_REGION);
+  if ((env.STORAGE_DRIVER || "fs") === "s3") {
+    if (!env.S3_ENDPOINT || !env.S3_ACCESS_KEY || !env.S3_SECRET_KEY) throw new Error("STORAGE_DRIVER=s3 requires S3_ENDPOINT, S3_ACCESS_KEY and S3_SECRET_KEY");
+    store = new S3ObjectStore(env.S3_ENDPOINT, env.S3_ACCESS_KEY, env.S3_SECRET_KEY, env.S3_BUCKET || "skyhost", env.S3_REGION || undefined);
   } else {
-    store = new FsObjectStore(env.STORAGE_FS_ROOT ?? join(env.SKYHOST_DATA_DIR ?? "/var/lib/skyhost", "objects"));
+    store = new FsObjectStore(env.STORAGE_FS_ROOT || join(env.SKYHOST_DATA_DIR || "/var/lib/skyhost", "objects"));
   }
   return store;
 }

@@ -84,6 +84,44 @@ async function exists(p: string) {
 }
 
 /** Builds an image with BuildKit. Never runs user code on the host: every user command runs inside BuildKit containers. */
+const dockerEnv = () => ({ PATH: process.env.PATH, HOME: process.env.HOME ?? "/tmp", DOCKER_HOST: process.env.DOCKER_HOST ?? "", DOCKER_BUILDKIT: "1", BUILDKIT_PROGRESS: "plain", DOCKER_CONFIG: process.env.DOCKER_CONFIG ?? "" });
+
+function docker(args: string[]): Promise<{ code: number; output: string }> {
+  return new Promise((resolveP) => {
+    const child = spawn("docker", args, { env: dockerEnv(), stdio: ["ignore", "pipe", "pipe"] });
+    let output = "";
+    child.stdout.on("data", (b) => (output += b));
+    child.stderr.on("data", (b) => (output += b));
+    child.on("error", (e) => resolveP({ code: -1, output: e.message }));
+    child.on("close", (code) => resolveP({ code: code ?? -1, output }));
+  });
+}
+
+const builders = new Map<string, Promise<void>>();
+
+/**
+ * A named BuildKit builder (docker-container driver). Used when the Docker API is reached through a socket proxy,
+ * which cannot carry the h2c upgrade the daemon's embedded BuildKit needs. Images are loaded into the daemon.
+ */
+export function ensureBuilder(name: string, log: (l: string) => void = () => {}) {
+  let p = builders.get(name);
+  if (!p) {
+    p = (async () => {
+      if ((await docker(["buildx", "inspect", name])).code === 0) return;
+      log(`Creating the BuildKit builder "${name}"`);
+      // Optional buildkitd.toml: registry mirrors, private CAs (https://docs.docker.com/build/buildkit/toml-configuration/).
+      const config = process.env.SKYHOST_BUILDKITD_CONFIG ? ["--buildkitd-config", process.env.SKYHOST_BUILDKITD_CONFIG] : [];
+      // Pin the BuildKit version (or use an image with a private CA) with SKYHOST_BUILDKIT_IMAGE.
+      if (process.env.SKYHOST_BUILDKIT_IMAGE) config.push("--driver-opt", `image=${process.env.SKYHOST_BUILDKIT_IMAGE}`);
+      const r = await docker(["buildx", "create", "--name", name, "--driver", "docker-container", ...config, "--bootstrap"]);
+      if (r.code !== 0 && !/existing instance/i.test(r.output)) throw new BuildError(`Cannot create the BuildKit builder: ${r.output.trim().slice(-500)}`, "build");
+    })();
+    p.catch(() => builders.delete(name));
+    builders.set(name, p);
+  }
+  return p;
+}
+
 export async function buildImage(req: BuildRequest): Promise<BuildResult> {
   const started = Date.now();
   const cfg = engineConfig();
@@ -142,6 +180,7 @@ export async function buildImage(req: BuildRequest): Promise<BuildResult> {
   const args = ["buildx", "build", "--progress=plain", "-f", dockerfilePath, "-t", req.image, "--secret", `id=${BUILD_ENV_SECRET},src=${secretFile}`];
   for (const [k, v] of Object.entries({ [LABEL.managed]: "true", ...req.labels })) args.push("--label", `${k}=${v}`);
   if (cfg.buildxBuilder) {
+    await ensureBuilder(cfg.buildxBuilder, log);
     args.push("--builder", cfg.buildxBuilder, "--load");
   }
   args.push(contextDir);
@@ -150,7 +189,7 @@ export async function buildImage(req: BuildRequest): Promise<BuildResult> {
   try {
     await new Promise<void>((resolveP, reject) => {
       const child = spawn("docker", args, {
-        env: { PATH: process.env.PATH, HOME: process.env.HOME ?? "/tmp", DOCKER_HOST: process.env.DOCKER_HOST ?? "", DOCKER_BUILDKIT: "1", BUILDKIT_PROGRESS: "plain", DOCKER_CONFIG: process.env.DOCKER_CONFIG ?? "" },
+        env: dockerEnv(),
         stdio: ["ignore", "pipe", "pipe"],
       });
       const timer = setTimeout(() => {

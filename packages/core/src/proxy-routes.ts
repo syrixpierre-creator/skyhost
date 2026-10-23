@@ -45,6 +45,10 @@ export async function buildProxyConfig() {
   const allDomains = rows.length ? await db.select().from(domains).where(inArray(domains.serviceId, rows.map((r) => r.svc.id))) : [];
 
   const routes: Route[] = [];
+  // The dashboard (and the API under /api on the same origin) when Traefik is also the platform's own edge.
+  if (cfg.SKYHOST_DASHBOARD_UPSTREAM) {
+    routes.push({ id: "sh-dashboard", hosts: [new URL(cfg.SKYHOST_DASHBOARD_URL).hostname], backends: [{ deploymentId: "dashboard", weight: 100, servers: [cfg.SKYHOST_DASHBOARD_UPSTREAM] }], tls: cfg.SKYHOST_TLS, certResolver: cfg.SKYHOST_CERT_RESOLVER });
+  }
   for (const { inst, svc, env, team } of rows) {
     if (!PUBLIC_TYPES.has(svc.type)) continue;
     if (team.suspendedAt || inst.status === "paused") continue;

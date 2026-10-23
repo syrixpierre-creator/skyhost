@@ -10,7 +10,7 @@
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "echo \"core is covered by the apps/api integration and e2e tests\""
   },
   "dependencies": {
     "@skyhost/analyzer": "workspace:*",

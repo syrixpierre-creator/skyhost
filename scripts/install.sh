@@ -95,6 +95,7 @@ if [ -n "$DOMAIN" ]; then
 fi
 [ -n "$APPS_DOMAIN" ] && set_env SKYHOST_BASE_DOMAIN "$APPS_DOMAIN" && set_env SKYHOST_DATABASE_PUBLIC_HOST "db.$APPS_DOMAIN"
 [ -n "$EMAIL" ] && set_env ACME_EMAIL "$EMAIL"
+[ -n "$EMAIL" ] && [ -z "$(get_env SKYHOST_SUPPORT_EMAIL)" ] && set_env SKYHOST_SUPPORT_EMAIL "$EMAIL"
 if [ -z "$DOMAIN" ]; then
   prompt_value SKYHOST_DASHBOARD_URL "Dashboard URL (e.g. https://app.mycompany.com)"
   set_env SKYHOST_API_URL "$(get_env SKYHOST_DASHBOARD_URL)"

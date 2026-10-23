@@ -292,7 +292,7 @@ export default function Billing() {
                       <div className="mt-2 text-xl font-semibold tabular-nums">{plan.isContactSales ? t("Custom") : plan.isFree ? t("Free") : <>{formatCents(plan.priceCents, plan.currency.toUpperCase())}<span className="text-xs font-normal text-muted"> /{plan.interval}</span></>}</div>
                       <div className="mt-3">
                         {plan.isContactSales ? (
-                          SALES_EMAIL ? <a href={`mailto:${SALES_EMAIL}`} className="text-sm underline underline-offset-4">{t("Contact sales")}</a> : <span className="text-xs text-muted">{t("Contact the platform administrator")}</span>
+                          SALES_EMAIL || caps.support.email ? <a href={`mailto:${SALES_EMAIL || caps.support.email}`} className="text-sm underline underline-offset-4">{t("Contact sales")}</a> : <span className="text-xs text-muted">{t("Contact the platform administrator")}</span>
                         ) : (
                           <Button size="sm" className="w-full" variant={current ? "secondary" : "primary"} disabled={current || !canManage} onClick={() => (plan.isFree ? subscribe.mutate({ plan, provider: "stripe" }) : setCheckout(plan))}>
                             {current ? t("Current plan") : plan.isFree ? t("Switch to free") : plan.trialDays && !sub ? t("Start {{days}}-day trial", { days: plan.trialDays }) : t("Choose")}

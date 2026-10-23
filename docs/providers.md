@@ -1,13 +1,13 @@
 # Git providers
 
-All callback and webhook URLs below use your dashboard origin, e.g. `https://app.example.com`.
+All callback and webhook URLs below use your dashboard origin, e.g. `https://skyhost.tech`.
 
 ## GitHub (recommended: GitHub App)
 
 1. GitHub → Settings → Developer settings → GitHub Apps → New GitHub App.
-2. Homepage URL: your dashboard. Callback URL: `https://app.example.com/api/v1/git/github/callback`.
+2. Homepage URL: your dashboard. Callback URL: `https://skyhost.tech/api/v1/git/github/callback`.
    Setup URL (optional): same as the callback, "Redirect on update" checked.
-3. Webhook URL: `https://app.example.com/api/v1/webhooks/github`, with a random secret.
+3. Webhook URL: `https://skyhost.tech/api/v1/webhooks/github`, with a random secret.
 4. Repository permissions: Contents (read & write, for Auto Fix pull requests), Metadata (read),
    Pull requests (read & write), Commit statuses (read & write), Deployments (read & write).
    Subscribe to events: Push, Pull request, Installation, Installation repositories.
@@ -21,13 +21,13 @@ GITHUB_WEBHOOK_SECRET=<the webhook secret>
 ```
 
 "Continue with GitHub" sign-in uses an OAuth App (or the App's client credentials):
-`GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, callback `https://app.example.com/api/v1/auth/oauth/github/callback`.
+`GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, callback `https://skyhost.tech/api/v1/auth/oauth/github/callback`.
 
 ## Google sign-in
 
 "Continue with Google" needs an OAuth client (Google Cloud console → APIs & Services → Credentials → OAuth
 client ID, type "Web application") with the authorized redirect URI
-`https://app.example.com/api/v1/auth/oauth/google/callback`. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+`https://skyhost.tech/api/v1/auth/oauth/google/callback`. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
 A Google account is linked to an existing SKYHOST account only when Google reports its email as verified.
 
 ## Unconfigured providers
@@ -42,17 +42,17 @@ and its secret to be considered configured.
 Create an application (User Settings → Applications, or an instance-wide application) with scopes `api`,
 `read_user`, `read_repository` and redirect URIs:
 
-- `https://app.example.com/api/v1/git/gitlab/callback` (repository access)
-- `https://app.example.com/api/v1/auth/oauth/gitlab/callback` (sign-in)
+- `https://skyhost.tech/api/v1/git/gitlab/callback` (repository access)
+- `https://skyhost.tech/api/v1/auth/oauth/gitlab/callback` (sign-in)
 
 Set `GITLAB_URL` (self-managed instances), `GITLAB_CLIENT_ID`, `GITLAB_CLIENT_SECRET` and
 `GITLAB_WEBHOOK_SECRET`. SKYHOST creates the project webhook
-(`https://app.example.com/api/v1/webhooks/gitlab`) when you connect a repository.
+(`https://skyhost.tech/api/v1/webhooks/gitlab`) when you connect a repository.
 
 ## Bitbucket
 
 Create an OAuth consumer (Workspace settings → OAuth consumers) with Repositories: Read/Write, Pull requests:
-Read/Write, Webhooks: Read/Write, callback `https://app.example.com/api/v1/git/bitbucket/callback`. Set
+Read/Write, Webhooks: Read/Write, callback `https://skyhost.tech/api/v1/git/bitbucket/callback`. Set
 `BITBUCKET_CLIENT_ID`, `BITBUCKET_CLIENT_SECRET` and `BITBUCKET_WEBHOOK_SECRET`; the webhook
 (`/api/v1/webhooks/bitbucket`) is created automatically.
 

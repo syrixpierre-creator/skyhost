@@ -1,6 +1,6 @@
 # Referral program
 
-Every user has a referral link `https://app.example.com/r/<code>`. Settings are edited in Admin → Settings
+Every user has a referral link `https://skyhost.tech/r/<code>`. Settings are edited in Admin → Settings
 (`referral`). Defaults:
 
 | Setting | Default |

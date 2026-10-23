@@ -88,6 +88,7 @@ function DeployIllustration() {
 }
 
 function Shell({ title, subtitle, children, footer }: { title: string; subtitle?: ReactNode; children: ReactNode; footer?: ReactNode }) {
+  const support = useCapabilities().support.email;
   return (
     <div className="flex min-h-full bg-bg">
       <aside className="auth-grid relative hidden w-[46%] max-w-[720px] flex-col justify-between overflow-hidden border-r border-line bg-panel p-10 lg:flex xl:p-14">
@@ -126,6 +127,7 @@ function Shell({ title, subtitle, children, footer }: { title: string; subtitle?
         </div>
         <p className="text-xs text-faint">
           {t("SKYHOST by SYRIX VISION COMPANY")} · <Link to="/terms" className="hover:text-fg">{t("Terms of service")}</Link> · <Link to="/privacy" className="hover:text-fg">{t("Privacy")}</Link> · <Link to="/status" className="hover:text-fg">{t("Status")}</Link>
+          {support && <> · <a href={`mailto:${support}`} className="hover:text-fg">{t("Support")}</a></>}
         </p>
       </main>
     </div>

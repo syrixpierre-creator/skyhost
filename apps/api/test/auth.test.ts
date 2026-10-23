@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { authenticator } from "otplib";
-import { outbox } from "@skyhost/core";
+import { outbox, resetServerConfig } from "@skyhost/core";
 import { Client, newUser, PASSWORD, uniqueEmail } from "./helpers";
 
 describe("authentication", () => {
@@ -12,6 +12,34 @@ describe("authentication", () => {
     expect(client.cookies.get("sh_session")).toBeTruthy();
     expect((await client.post("/api/v1/auth/logout")).status).toBe(200);
     expect((await client.get("/api/v1/auth/me")).status).toBe(401);
+  });
+
+  it("over HTTPS, uses __Host- cookies that applications on subdomains cannot overwrite", async () => {
+    const { user } = await newUser();
+    const previous = process.env.SKYHOST_DASHBOARD_URL;
+    process.env.SKYHOST_DASHBOARD_URL = "https://skyhost.tech";
+    resetServerConfig();
+    try {
+      const res = await new Client().post("/api/v1/auth/login", { email: user.email, password: PASSWORD });
+      expect(res.status).toBe(200);
+      const cookies = ([] as string[]).concat(res.headers["set-cookie"] ?? []);
+      const session = cookies.find((c) => c.startsWith("__Host-sh_session="));
+      const csrf = cookies.find((c) => c.startsWith("__Host-sh_csrf="));
+      for (const c of [session, csrf]) {
+        expect(c).toMatch(/; Secure/);
+        expect(c).toMatch(/; Path=\//);
+        expect(c).not.toMatch(/Domain=/i);
+      }
+      expect(session).toMatch(/HttpOnly/);
+      // The session is read back from the prefixed cookie, and a plain cookie planted by a subdomain is ignored.
+      const token = session!.split(";")[0]!.split("=")[1];
+      const me = await new Client().get("/api/v1/auth/me", { cookie: `__Host-sh_session=${token}` });
+      expect(me.status).toBe(200);
+      expect((await new Client().get("/api/v1/auth/me", { cookie: `sh_session=${token}` })).status).toBe(401);
+    } finally {
+      process.env.SKYHOST_DASHBOARD_URL = previous;
+      resetServerConfig();
+    }
   });
 
   it("validates input and refuses duplicates and missing terms", async () => {

@@ -36,6 +36,7 @@ export async function capabilities() {
       mobileMoney: c.SKYHOST_PAYMENTS_ENABLED && flutterwaveConfigured(),
     },
     email: { delivery: !!c.SMTP_URL, verificationRequired: emailVerificationRequired() },
+    support: { email: c.SKYHOST_SUPPORT_EMAIL || null },
     maintenance: maintenance.enabled ? { enabled: true, message: maintenance.message, blockDeploys: maintenance.blockDeploys, endsAt: maintenance.endsAt } : { enabled: false },
   };
 }

@@ -13,8 +13,8 @@ export class ApiError extends Error {
 function csrf(): string | undefined {
   return document.cookie
     .split("; ")
-    .find((c) => c.startsWith("sh_csrf="))
-    ?.slice(8);
+    .find((c) => c.startsWith("__Host-sh_csrf=") || c.startsWith("sh_csrf="))
+    ?.split("=")[1];
 }
 
 export async function api<T = any>(path: string, opts: { method?: string; body?: unknown; form?: FormData; raw?: boolean } = {}): Promise<T> { // eslint-disable-line @typescript-eslint/no-explicit-any

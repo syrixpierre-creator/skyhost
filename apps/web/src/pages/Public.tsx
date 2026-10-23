@@ -7,16 +7,18 @@ import { useSession } from "../lib/session";
 import { Alert, Button, Card, cx, ErrorState, Field, Input, LoadingRows, Select, StatusBadge, Textarea, timeAgo } from "../components/ui";
 import { t } from "../lib/i18n";
 import { Logo } from "../components/Logo";
+import { useCapabilities } from "../lib/capabilities";
 
 type Page = "invite" | "status" | "project-status" | "shared-screenshot" | "abuse" | "terms" | "privacy" | "cli" | "404";
 
 function Shell({ children, narrow }: { children: ReactNode; narrow?: boolean }) {
+  const support = useCapabilities().support.email;
   return (
     <div className="min-h-screen bg-bg text-fg">
       <header className="border-b border-line">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <Link to="/" className="flex items-center"><Logo size="sm" /></Link>
-          <nav className="flex gap-4 text-sm text-muted"><Link to="/status">{t("Status")}</Link><Link to="/report-abuse">{t("Report abuse")}</Link></nav>
+          <nav className="flex gap-4 text-sm text-muted"><Link to="/status">{t("Status")}</Link><Link to="/report-abuse">{t("Report abuse")}</Link>{support && <a href={`mailto:${support}`}>{t("Support")}</a>}</nav>
         </div>
       </header>
       <main className={cx("mx-auto px-4 py-10", narrow ? "max-w-lg" : "max-w-3xl")}>{children}</main>

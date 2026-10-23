@@ -3,7 +3,7 @@
 ```
                  ┌────────────── Internet ──────────────┐
                  ▼                                      ▼
-        app.example.com                    *.apps.example.com, custom domains
+        skyhost.tech                       *.skyhost.tech, custom domains
                  │                                      │
                  └──────────► Traefik (80/443, ACME) ◄──┘
                                │   ▲  dynamic config every 2 s (HTTP provider, internal token)

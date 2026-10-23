@@ -5,8 +5,8 @@
 - Linux x86_64 or arm64 server, 4 GB RAM minimum (8 GB recommended), 40 GB disk.
 - Docker Engine 25+ with the Compose and Buildx plugins.
 - Ports 80 and 443 reachable from the Internet (Let's Encrypt HTTP challenge).
-- DNS: an `A`/`AAAA` record for the dashboard (`app.example.com`) and a wildcard record for applications
-  (`*.apps.example.com`) pointing to the server.
+- DNS: an `A`/`AAAA` record for the dashboard (`skyhost.tech`) and a wildcard record for applications
+  (`*.skyhost.tech`) pointing to the server.
 - gVisor (`runsc`) registered with Docker. The installer can install it on Debian/Ubuntu (`--install-gvisor`).
 
 ## Install
@@ -15,9 +15,9 @@
 git clone https://github.com/syrixpierre-creator/skyhost.git
 cd skyhost
 sudo ./scripts/install.sh --install-gvisor \
-  --domain app.example.com \
-  --apps-domain apps.example.com \
-  --email admin@example.com
+  --domain skyhost.tech \
+  --apps-domain skyhost.tech \
+  --email syrixcompany@gmail.com
 ```
 
 What the installer does, in order:

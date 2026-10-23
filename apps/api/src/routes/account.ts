@@ -9,7 +9,7 @@ import {
 import { createApiKeySchema, nameSchema, passwordSchema, EVENT_TYPES } from "@skyhost/shared";
 import { decrypt, encrypt, randomId, sha256 } from "@skyhost/shared/node";
 import { audit, badRequest, conflict, forbidden, notFound, unauthorized } from "@skyhost/core";
-import { actorOf, generateApiKey } from "../lib/auth";
+import { actorOf, generateApiKey, sessionCookie } from "../lib/auth";
 import { teamAccess } from "../lib/authz";
 import { idParam, route } from "../lib/http";
 import { hashPassword, verifyPassword } from "../lib/password";
@@ -263,7 +263,7 @@ export default async function accountRoutes(app: FastifyInstance) {
     await db.delete(oauthAccounts).where(eq(oauthAccounts.userId, u.id));
     if (owned.length) await db.update(teams).set({ deletedAt: new Date() }).where(inArray(teams.id, owned.map((t) => t.id)));
     await audit(actorOf(req), null, "account.deleted", { type: "user", id: u.id });
-    reply.clearCookie("sh_session", { path: "/" });
+    reply.clearCookie(sessionCookie(), { path: "/" });
     return { ok: true };
   });
 }

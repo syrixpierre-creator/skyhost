@@ -25,8 +25,14 @@ declare module "fastify" {
   }
 }
 
-export const SESSION_COOKIE = "sh_session";
-export const CSRF_COOKIE = "sh_csrf";
+/**
+ * Over HTTPS the cookies use the __Host- prefix: browsers then refuse any version of them set by a subdomain. User
+ * applications can be served under the dashboard's own domain (dashboard skyhost.tech, apps *.skyhost.tech), so an
+ * application must not be able to plant a session or CSRF cookie for the dashboard.
+ */
+const hostPrefix = () => (secureCookies() && !serverConfig().SKYHOST_COOKIE_DOMAIN ? "__Host-" : "");
+export const sessionCookie = () => `${hostPrefix()}sh_session`;
+export const csrfCookie = () => `${hostPrefix()}sh_csrf`;
 export const SESSION_DAYS = 30;
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -77,14 +83,14 @@ export async function createSession(req: FastifyRequest, reply: FastifyReply, us
       expiresAt: new Date(Date.now() + ttlMs),
     })
     .returning();
-  reply.setCookie(SESSION_COOKIE, token, cookieOpts(true, ttlMs / 1000));
-  reply.setCookie(CSRF_COOKIE, randomToken(18), cookieOpts(false, ttlMs / 1000));
+  reply.setCookie(sessionCookie(), token, cookieOpts(true, ttlMs / 1000));
+  reply.setCookie(csrfCookie(), randomToken(18), cookieOpts(false, ttlMs / 1000));
   return s!;
 }
 
 export function clearSessionCookies(reply: FastifyReply) {
-  reply.clearCookie(SESSION_COOKIE, { path: "/" });
-  reply.clearCookie(CSRF_COOKIE, { path: "/" });
+  reply.clearCookie(sessionCookie(), { path: "/" });
+  reply.clearCookie(csrfCookie(), { path: "/" });
 }
 
 export function generateApiKey() {
@@ -111,7 +117,7 @@ async function authenticate(req: FastifyRequest): Promise<AuthContext> {
     }
     return { user, session: null, apiKey: key };
   }
-  const token = req.cookies[SESSION_COOKIE];
+  const token = req.cookies[sessionCookie()];
   if (!token) return { user: null, session: null, apiKey: null };
   const [s] = await db.select().from(sessions).where(eq(sessions.tokenHash, sha256(token)));
   if (!s || s.revokedAt || s.expiresAt < new Date()) return { user: null, session: null, apiKey: null };
@@ -130,7 +136,7 @@ export function registerAuth(app: FastifyInstance) {
     // CSRF: cookie-authenticated state-changing requests must echo the CSRF cookie in a header.
     if (req.auth.session && !SAFE_METHODS.has(req.method) && !req.routeOptions.config?.public) {
       const header = req.headers["x-csrf-token"];
-      const cookie = req.cookies[CSRF_COOKIE];
+      const cookie = req.cookies[csrfCookie()];
       if (!cookie || typeof header !== "string" || !safeEqual(header, cookie)) {
         return reply.code(403).send({ error: { code: "csrf", message: "Invalid or missing CSRF token" } });
       }

@@ -21,7 +21,7 @@ const schema = z.object({
   SKYHOST_API_INTERNAL_URL: z.string().url().default("http://api.skyhost-control:4000"),
   /** Internal URL of the dashboard container that Traefik routes the dashboard host to (empty: not routed by Traefik). */
   SKYHOST_DASHBOARD_UPSTREAM: z.string().default(""),
-  SKYHOST_BASE_DOMAIN: z.string().default("skyhost.app"),
+  SKYHOST_BASE_DOMAIN: z.string().default("skyhost.tech"),
   SKYHOST_PUBLIC_SCHEME: z.enum(["http", "https"]).default("https"),
   SKYHOST_TLS: bool(true),
   SKYHOST_CERT_RESOLVER: z.string().default("letsencrypt"),
@@ -31,9 +31,11 @@ const schema = z.object({
   SKYHOST_COOKIE_DOMAIN: z.string().optional(),
   SKYHOST_PAYMENTS_ENABLED: bool(false),
   SKYHOST_REQUIRE_EMAIL_VERIFICATION: bool(true),
+  /** Shown to users (sign-in pages, suspended teams, contact sales). */
+  SKYHOST_SUPPORT_EMAIL: z.union([z.string().email(), z.literal("")]).default(""),
 
   SMTP_URL: z.string().default(""),
-  MAIL_FROM: z.string().default("SKYHOST <no-reply@skyhost.app>"),
+  MAIL_FROM: z.string().default("SKYHOST <no-reply@skyhost.tech>"),
 
   GITHUB_APP_ID: z.string().default(""),
   GITHUB_APP_SLUG: z.string().default(""),

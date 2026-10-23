@@ -15,7 +15,7 @@ Errors use one shape: `{"error": {"code": "not_found", "message": "Project not f
 ## Common calls
 
 ```bash
-API=https://app.example.com/api/v1
+API=https://skyhost.tech/api/v1
 KEY=sky_xxxxxxxx_yyyyyyyy
 
 # Teams and projects
@@ -49,7 +49,7 @@ instead of calling them; such calls answer `503` with `code: "unavailable"`.
 # Create a deploy hook (the URL is returned once), then trigger it from anywhere
 curl -X POST -H "Authorization: Bearer $KEY" -H 'content-type: application/json' \
   -d '{"name":"CI","environmentId":"<env id>"}' $API/services/<service id>/deploy-hooks
-curl -X POST https://app.example.com/api/v1/hooks/deploy/<secret>
+curl -X POST https://skyhost.tech/api/v1/hooks/deploy/<secret>
 ```
 
 ## Realtime

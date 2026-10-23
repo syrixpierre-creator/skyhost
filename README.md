@@ -11,7 +11,7 @@ GitHub / GitLab / Bitbucket / Git URL / ZIP / Docker image
 SmartDeploy analysis ──► BuildKit build (secrets mounted, never baked) ──► tests ──► image
         │                                                                             │
         ▼                                                                             ▼
-Smart Error Analyzer ◄── failure                  blue/green release ── health check ── Traefik ── https://app-xxxx.apps.example.com
+Smart Error Analyzer ◄── failure                  blue/green release ── health check ── Traefik ── https://app-xxxx.skyhost.tech
 ```
 
 ## Screenshots
@@ -72,7 +72,7 @@ Requirements: a Linux server with Docker Engine 25+, the Compose and Buildx plug
 ```bash
 git clone https://github.com/syrixpierre-creator/skyhost.git && cd skyhost
 sudo ./scripts/install.sh --install-gvisor \
-  --domain app.example.com --apps-domain apps.example.com --email admin@example.com
+  --domain skyhost.tech --apps-domain skyhost.tech --email syrixcompany@gmail.com
 ```
 
 The installer generates every secret into `.env` (mode 600), checks the container sandbox (gVisor), builds the
@@ -93,7 +93,7 @@ See [docs/installation.md](docs/installation.md) and [docs/production.md](docs/p
 ## CLI
 
 ```bash
-node apps/cli/dist/skyhost.js login --api-url https://app.example.com   # browser approval (device flow)
+node apps/cli/dist/skyhost.js login --api-url https://skyhost.tech   # browser approval (device flow)
 skyhost init            # create a project from the current directory and deploy it
 skyhost deploy          # upload and deploy, streaming the logs
 skyhost logs -f         # runtime logs

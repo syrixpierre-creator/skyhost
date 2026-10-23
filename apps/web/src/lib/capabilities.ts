@@ -6,6 +6,7 @@ export interface Capabilities {
   git: { github: boolean; gitlab: boolean; bitbucket: boolean };
   payments: { enabled: boolean; stripe: boolean; paypal: boolean; mobileMoney: boolean };
   email: { delivery: boolean; verificationRequired: boolean };
+  support: { email: string | null };
   maintenance: { enabled: boolean; message?: string; blockDeploys?: boolean; endsAt?: string | null };
 }
 
@@ -14,6 +15,7 @@ const NONE: Capabilities = {
   git: { github: false, gitlab: false, bitbucket: false },
   payments: { enabled: false, stripe: false, paypal: false, mobileMoney: false },
   email: { delivery: false, verificationRequired: false },
+  support: { email: null },
   maintenance: { enabled: false },
 };
 

@@ -221,6 +221,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const { t, i18n } = useTranslation();
   const [palette, setPalette] = useState(false);
   const [theme, setTheme] = useTheme();
+  const support = useCapabilities().support.email;
   const dark = theme === "dark";
   const nav = useNavigate();
   useEffect(() => {
@@ -291,7 +292,7 @@ export function Layout({ children }: { children: ReactNode }) {
               </Button>
             </div>
           </header>
-          {team?.suspended && <div className="border-b border-red-500/30 bg-red-500/10 px-4 py-2 text-sm">{t("This team is suspended. Contact support to restore access to deployments.")}</div>}
+          {team?.suspended && <div className="border-b border-red-500/30 bg-red-500/10 px-4 py-2 text-sm">{t("This team is suspended. Contact support to restore access to deployments.")}{support && <> <a href={`mailto:${support}`} className="underline underline-offset-4">{support}</a></>}</div>}
           {team?.billingStatus === "past_due" && (
             <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm">
               {t("A payment failed.")} <Link to="/billing" className="underline">{t("Update your payment method")}</Link> {t("to avoid suspension.")}

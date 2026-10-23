@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Database, Plus, Rocket } from "lucide-react";
 import { get } from "../lib/api";
 import { useRealtimeInvalidate, useSession } from "../lib/session";
+import { Onboarding } from "../components/Onboarding";
 import { Button, EmptyState, ErrorState, LoadingRows, PageHeader, StatusBadge, timeAgo, Meter, Card } from "../components/ui";
 import { t } from "../lib/i18n";
 import { useCapabilities } from "../lib/capabilities";
@@ -39,6 +40,7 @@ export default function Dashboard() {
           </Link>
         }
       />
+      <Onboarding />
       <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
         <div>
           {q.isLoading && <LoadingRows rows={4} />}

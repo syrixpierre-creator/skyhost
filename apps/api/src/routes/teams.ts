@@ -1,10 +1,10 @@
 import type { FastifyInstance } from "fastify";
-import { and, desc, eq, gt, gte, isNull, lt, lte, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, inArray, isNull, lt, lte, sql } from "drizzle-orm";
 import { z } from "zod";
-import { apiKeys, auditLogs, getDb, notifications, plans, projectMembers, projects, teamInvites, teamMembers, teams, users } from "@skyhost/db";
+import { apiKeys, auditLogs, databases, deployments, domains, getDb, gitInstallations, notifications, plans, projectMembers, projects, services, teamInvites, teamMembers, teams, users } from "@skyhost/db";
 import { emailSchema, nameSchema, PERMISSIONS, roleSchema, ROLE_RANK, slugSchema } from "@skyhost/shared";
 import { randomToken, sha256 } from "@skyhost/shared/node";
-import { assertQuota, audit, badRequest, conflict, forbidden, getTeamPlan, notFound, notify, redis, renderEmail, sendMail, serverConfig, usageSummary } from "@skyhost/core";
+import { assertQuota, audit, badRequest, emailVerificationRequired, conflict, forbidden, getTeamPlan, notFound, notify, redis, renderEmail, sendMail, serverConfig, usageSummary } from "@skyhost/core";
 import { actorOf } from "../lib/auth";
 import { projectAccess, teamAccess } from "../lib/authz";
 import { idParam, route } from "../lib/http";
@@ -181,6 +181,25 @@ export default async function teamRoutes(app: FastifyInstance) {
   });
 
   // ------------------------------------------------------------------------------------------- Members
+  // Getting-started checklist shown on the dashboard until every step is done.
+  route(app, { method: "GET", url: "/teams/:teamId/onboarding", tags: ["teams"], params: teamParam }, async (req, _r, { params }) => {
+    await teamAccess(req, params.teamId, "team:read");
+    const db = getDb();
+    const one = async (q: Promise<unknown[]>) => (await q).length > 0;
+    const teamServices = db.select({ id: services.id }).from(services).innerJoin(projects, eq(projects.id, services.projectId)).where(and(eq(projects.teamId, params.teamId), isNull(services.deletedAt)));
+    const ids = (await teamServices).map((s) => s.id);
+    const steps = {
+      verifyEmail: !!req.auth.user!.emailVerifiedAt || !emailVerificationRequired(),
+      connectGit: await one(db.select({ id: gitInstallations.id }).from(gitInstallations).where(eq(gitInstallations.teamId, params.teamId)).limit(1)),
+      firstDeploy: ids.length > 0 && (await one(db.select({ id: deployments.id }).from(deployments).where(and(inArray(deployments.serviceId, ids), inArray(deployments.status, ["live", "superseded"]))).limit(1))),
+      addDatabase: await one(db.select({ id: databases.id }).from(databases).where(and(eq(databases.teamId, params.teamId), isNull(databases.deletedAt))).limit(1)),
+      customDomain: ids.length > 0 && (await one(db.select({ id: domains.id }).from(domains).where(inArray(domains.serviceId, ids)).limit(1))),
+      // Not a step when the plan has a single seat.
+      inviteTeammate: (await getTeamPlan(params.teamId)).limits.members <= 1 || (await db.select({ id: teamMembers.userId }).from(teamMembers).where(eq(teamMembers.teamId, params.teamId)).limit(2)).length > 1 || (await one(db.select({ id: teamInvites.id }).from(teamInvites).where(eq(teamInvites.teamId, params.teamId)).limit(1))),
+    };
+    return { steps, done: Object.values(steps).every(Boolean) };
+  });
+
   route(app, { method: "GET", url: "/teams/:teamId/members", tags: ["members"], params: teamParam }, async (req, _r, { params }) => {
     await teamAccess(req, params.teamId, "members:read");
     const db = getDb();

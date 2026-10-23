@@ -355,3 +355,25 @@ describe("Telegram and WhatsApp channels", () => {
     expect(Object.fromEntries(waUrl.searchParams)).toMatchObject({ phone: "243812345678", apikey: "1234567", text: "web crashed\nThe process exited.\nhttps://skyhost.tech/x" });
   });
 });
+
+describe("onboarding checklist", () => {
+  it("reports which getting-started steps a team has done", async () => {
+    const u = await newUser();
+    const r0 = await u.client.get(`/api/v1/teams/${u.teamId}/onboarding`);
+    expect(r0.status).toBe(200);
+    expect(r0.body.steps).toMatchObject({ verifyEmail: true, connectGit: false, firstDeploy: false, addDatabase: false, customDomain: false });
+    // A single-seat plan has no invite step.
+    await setPlan(u.teamId, "free");
+    expect((await u.client.get(`/api/v1/teams/${u.teamId}/onboarding`)).body.steps.inviteTeammate).toBe(true);
+    expect(r0.body.done).toBe(false);
+    await setPlan(u.teamId, "pro");
+    const d = await u.client.post(`/api/v1/teams/${u.teamId}/databases`, { name: "first", engine: "redis" });
+    expect(d.status, d.raw).toBe(201);
+    const inv = await u.client.post(`/api/v1/teams/${u.teamId}/invites`, { email: `mate-${Date.now()}@example.com`, role: "developer" });
+    expect(inv.status, inv.raw).toBe(201);
+    const r1 = await u.client.get(`/api/v1/teams/${u.teamId}/onboarding`);
+    expect(r1.body.steps).toMatchObject({ addDatabase: true, inviteTeammate: true });
+    // Another team cannot read it.
+    expect((await (await newUser()).client.get(`/api/v1/teams/${u.teamId}/onboarding`)).status).toBe(404);
+  });
+});

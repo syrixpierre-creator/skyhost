@@ -1124,5 +1124,21 @@
   "Chat id": "Chat id",
   "CallMeBot API key": "Clé API CallMeBot",
   "Create a bot with @BotFather and copy its token. Send it a message, then open https://api.telegram.org/bot<token>/getUpdates to read your chat id (for a group, add the bot to the group first).": "Créez un bot avec @BotFather et copiez son token. Envoyez-lui un message, puis ouvrez https://api.telegram.org/bot<token>/getUpdates pour lire votre chat id (pour un groupe, ajoutez d'abord le bot au groupe).",
-  "Free for personal numbers through CallMeBot: follow the WhatsApp steps on callmebot.com (send their bot the activation message) and it replies with your API key.": "Gratuit pour les numéros personnels via CallMeBot : suivez les étapes WhatsApp sur callmebot.com (envoyez le message d'activation à leur bot) et il vous répond avec votre clé API."
+  "Free for personal numbers through CallMeBot: follow the WhatsApp steps on callmebot.com (send their bot the activation message) and it replies with your API key.": "Gratuit pour les numéros personnels via CallMeBot : suivez les étapes WhatsApp sur callmebot.com (envoyez le message d'activation à leur bot) et il vous répond avec votre clé API.",
+  "Verify your email": "Vérifiez votre email",
+  "Needed to deploy and to receive alerts.": "Nécessaire pour déployer et recevoir les alertes.",
+  "Resend email": "Renvoyer l'email",
+  "Connect GitHub": "Connecter GitHub",
+  "Every push to your repository redeploys automatically.": "Chaque push sur votre dépôt redéploie automatiquement.",
+  "Deploy your first app": "Déployez votre première app",
+  "From a repository, a ZIP, a Docker image or a template.": "Depuis un dépôt, un ZIP, une image Docker ou un template.",
+  "Add a database": "Ajoutez une base de données",
+  "PostgreSQL, MySQL, MongoDB or Redis, ready in seconds.": "PostgreSQL, MySQL, MongoDB ou Redis, prête en quelques secondes.",
+  "Use your own domain": "Utilisez votre propre domaine",
+  "In a service: Domains. HTTPS is automatic.": "Dans un service : Domains. Le HTTPS est automatique.",
+  "How": "Comment",
+  "Invite a teammate": "Invitez un coéquipier",
+  "Work together with roles and permissions.": "Travaillez ensemble avec des rôles et des permissions.",
+  "Getting started": "Pour bien démarrer",
+  "{{done}} of {{total}} done": "{{done}} sur {{total}} terminées"
 }

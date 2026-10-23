@@ -8,6 +8,7 @@ import { setLanguage } from "../lib/i18n";
 import { useRealtimeInvalidate, useSession } from "../lib/session";
 import { Button, cx, timeAgo, useToast } from "./ui";
 import { t } from "../lib/i18n";
+import { useTheme } from "../lib/theme";
 import { Logo } from "./Logo";
 import { useCapabilities } from "../lib/capabilities";
 
@@ -219,7 +220,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const { me, team } = useSession();
   const { t, i18n } = useTranslation();
   const [palette, setPalette] = useState(false);
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
+  const [theme, setTheme] = useTheme();
+  const dark = theme === "dark";
   const nav = useNavigate();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -233,16 +235,7 @@ export function Layout({ children }: { children: ReactNode }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [nav]);
-  const toggleTheme = () => {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    try {
-      localStorage.setItem("sh-theme", next ? "dark" : "light");
-    } catch {
-      /* ignore */
-    }
-  };
+  const toggleTheme = () => setTheme(dark ? "light" : "dark");
   const item = (to: string, icon: ReactNode, label: string) => (
     <NavLink to={to} end={to === "/"} className={({ isActive }) => cx("flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm", isActive ? "bg-panel-2 font-medium text-fg [&>svg]:text-fg" : "text-muted hover:text-fg [&>svg]:text-faint")}>
       {icon}

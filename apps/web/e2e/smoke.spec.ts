@@ -51,11 +51,15 @@ test("sign up, dashboard, theme and language", async ({ page }) => {
   await signup(page);
   // No SMTP in this environment: email verification cannot be required, so no banner asks for it.
   await expect(page.getByText("Verify your email address to deploy.")).toHaveCount(0);
-  // Dark mode is the default; the toggle switches to light and persists.
+  // Light mode is the default; dark mode is chosen in Account → Appearance and persists.
+  await expect(page.locator("html")).not.toHaveClass(/dark/);
+  await page.goto("/account");
+  await page.getByRole("tab", { name: "Appearance" }).click();
+  await page.getByRole("radio", { name: /Dark/ }).click();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await page.reload();
   await expect(page.locator("html")).toHaveClass(/dark/);
   await page.getByRole("button", { name: /theme/i }).click();
-  await expect(page.locator("html")).not.toHaveClass(/dark/);
-  await page.reload();
   await expect(page.locator("html")).not.toHaveClass(/dark/);
   // French translation
   await page.getByRole("button", { name: /^(Language|Langue)$/ }).click();

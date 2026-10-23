@@ -1008,5 +1008,12 @@
   "{{count}} days left": "{{count}} jours restants",
   "{{percent}}% off your next plan payment": "{{percent}} % de réduction sur votre prochain paiement de plan",
   "{{plan}} plan": "Plan {{plan}}",
-  "{{provider}} is not available yet": "{{provider}} n'est pas encore disponible"
+  "{{provider}} is not available yet": "{{provider}} n'est pas encore disponible",
+  "Appearance": "Apparence",
+  "Theme": "Thème",
+  "Light": "Clair",
+  "Dark": "Sombre",
+  "Default. White background, black text.": "Par défaut. Fond blanc, texte noir.",
+  "Black background, easier on the eyes at night.": "Fond noir, plus reposant le soir.",
+  "Saved in this browser.": "Enregistré dans ce navigateur."
 }

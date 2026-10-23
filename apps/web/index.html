@@ -1,18 +1,21 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="dark light" />
-    <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#ffffff" />
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="apple-touch-icon" href="/brand/skyhost-mark-192.png" />
     <title>SKYHOST</title>
     <script>
       try {
-        var t = localStorage.getItem("sh-theme");
-        if (t === "light") document.documentElement.classList.remove("dark");
+        // Light by default; dark when the user chose it in Account → Appearance.
+        if (localStorage.getItem("sh-theme") === "dark") {
+          document.documentElement.classList.add("dark");
+          document.querySelector('meta[name="theme-color"]').setAttribute("content", "#000000");
+        }
       } catch (e) {}
     </script>
   </head>

@@ -5,11 +5,12 @@ import { useTranslation } from "react-i18next";
 import { del, download, get, patch, post, put } from "../lib/api";
 import { setLanguage } from "../lib/i18n";
 import { useSession } from "../lib/session";
-import { Alert, Badge, Button, Card, CodeField, ConfirmDialog, Field, Input, LoadingRows, Modal, PageHeader, Select, Tabs, Toggle, timeAgo, useToast } from "../components/ui";
+import { Alert, Badge, Button, Card, CodeField, cx, ConfirmDialog, Field, Input, LoadingRows, Modal, PageHeader, Select, Tabs, Toggle, timeAgo, useToast } from "../components/ui";
 import { ApiKeys } from "./TeamSettings";
 import { t } from "../lib/i18n";
+import { useTheme, type Theme } from "../lib/theme";
 
-type Tab = "profile" | "security" | "sessions" | "notifications" | "apikeys" | "privacy";
+type Tab = "profile" | "security" | "sessions" | "notifications" | "apikeys" | "appearance" | "privacy";
 
 function Profile() {
   const { me, refresh } = useSession();
@@ -204,6 +205,44 @@ function Privacy() {
   );
 }
 
+function Appearance() {
+  const [theme, setTheme] = useTheme();
+  const options: Array<{ id: Theme; label: string; hint: string }> = [
+    { id: "light", label: t("Light"), hint: t("Default. White background, black text.") },
+    { id: "dark", label: t("Dark"), hint: t("Black background, easier on the eyes at night.") },
+  ];
+  return (
+    <Card title={t("Theme")}>
+      <div role="radiogroup" aria-label={t("Theme")} className="grid max-w-xl gap-3 sm:grid-cols-2">
+        {options.map((o) => (
+          <button
+            key={o.id}
+            type="button"
+            role="radio"
+            aria-checked={theme === o.id}
+            onClick={() => setTheme(o.id)}
+            className={cx("overflow-hidden rounded-lg border text-left transition-colors", theme === o.id ? "border-fg" : "border-line hover:border-line-strong")}
+          >
+            <div className={cx("flex h-20 gap-2 border-b border-line p-3", o.id === "dark" ? "bg-black" : "bg-white")} aria-hidden>
+              <div className={cx("w-10 rounded", o.id === "dark" ? "bg-neutral-800" : "bg-neutral-100")} />
+              <div className="flex flex-1 flex-col gap-1.5">
+                <div className={cx("h-2 w-2/3 rounded", o.id === "dark" ? "bg-neutral-200" : "bg-neutral-900")} />
+                <div className={cx("h-2 w-1/2 rounded", o.id === "dark" ? "bg-neutral-700" : "bg-neutral-300")} />
+                <div className={cx("mt-auto h-4 w-12 rounded", o.id === "dark" ? "bg-neutral-100" : "bg-neutral-900")} />
+              </div>
+            </div>
+            <div className="p-3">
+              <div className="text-sm font-medium">{o.label}</div>
+              <div className="text-xs text-muted">{o.hint}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+      <p className="mt-3 text-xs text-muted">{t("Saved in this browser.")}</p>
+    </Card>
+  );
+}
+
 export default function Account() {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>("profile");
@@ -219,6 +258,7 @@ export default function Account() {
           { id: "sessions", label: t("Sessions") },
           { id: "notifications", label: t("Notifications") },
           { id: "apikeys", label: t("API keys") },
+          { id: "appearance", label: t("Appearance") },
           { id: "privacy", label: t("Privacy") },
         ]}
       />
@@ -228,6 +268,7 @@ export default function Account() {
         {tab === "sessions" && <Sessions />}
         {tab === "notifications" && <NotificationPrefs />}
         {tab === "apikeys" && <ApiKeys />}
+        {tab === "appearance" && <Appearance />}
         {tab === "privacy" && <Privacy />}
       </div>
     </>

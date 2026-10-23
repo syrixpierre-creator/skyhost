@@ -36,6 +36,16 @@ function run(cmd: string, mounts: string[] = []): string {
   return `RUN ${m}${JSON.stringify(["/bin/sh", "-c", cmd])}`;
 }
 
+/**
+ * User commands (install/build) get the service variables through a BuildKit secret mount: values are available
+ * while the command runs but are never written into an image layer.
+ */
+export const BUILD_ENV_SECRET = "skyhost_env";
+function runUser(cmd: string, mounts: string[] = []): string {
+  const withEnv = `if [ -f /run/secrets/${BUILD_ENV_SECRET} ]; then set -a; . /run/secrets/${BUILD_ENV_SECRET}; set +a; fi; ${cmd}`;
+  return run(withEnv, [`type=secret,id=${BUILD_ENV_SECRET},required=false`, ...mounts]);
+}
+
 function cmdLine(cmd: string): string {
   if (/[\r\n]/.test(cmd)) throw new BuildPlanError("Start command must be a single line");
   return `CMD ${JSON.stringify(["/bin/sh", "-c", `exec ${cmd}`])}`;
@@ -109,9 +119,9 @@ export function generateBuildPlan(input: BuildPlanInput): BuildPlan {
       if (input.packageManager === "pnpm" || input.packageManager === "yarn") lines.push(run("corepack enable"));
       lines.push("COPY . .");
       const cacheTarget = bun ? "/root/.bun/install/cache" : input.packageManager === "pnpm" ? "/root/.local/share/pnpm/store" : input.packageManager === "yarn" ? "/usr/local/share/.cache/yarn" : "/root/.npm";
-      if (input.installCommand) lines.push(run(input.installCommand, [`type=cache,id=${k}-node,target=${cacheTarget}`]));
+      if (input.installCommand) lines.push(runUser(input.installCommand, [`type=cache,id=${k}-node,target=${cacheTarget}`]));
       if (appDir !== "/app") lines.push(`WORKDIR ${appDir}`);
-      if (input.buildCommand) lines.push(run(input.buildCommand, [`type=cache,id=${k}-nodebuild,target=${appDir}/node_modules/.cache`]));
+      if (input.buildCommand) lines.push(runUser(input.buildCommand, [`type=cache,id=${k}-nodebuild,target=${appDir}/node_modules/.cache`]));
       if (isStatic) {
         lines.push("", ...staticStage("build", outRel(input.outputDirectory ?? "dist"), spa));
         files["nginx.conf"] = nginxConfig(spa);
@@ -143,11 +153,11 @@ export function generateBuildPlan(input: BuildPlanInput): BuildPlan {
         "COPY . .",
       );
       const pipCache = `type=cache,id=${k}-pip,target=/root/.cache/pip`;
-      if (input.installCommand) lines.push(run(input.installCommand, [pipCache]));
+      if (input.installCommand) lines.push(runUser(input.installCommand, [pipCache]));
       const start = input.startCommand ?? "";
       const servers = ["gunicorn", "uvicorn"].filter((s) => start.startsWith(s));
       if (servers.length) lines.push(run(`python -c "import ${servers[0]}" 2>/dev/null || pip install ${servers.join(" ")}`, [pipCache]));
-      if (input.buildCommand) lines.push(run(input.buildCommand));
+      if (input.buildCommand) lines.push(runUser(input.buildCommand));
       if (isStatic) {
         lines.splice(0, 1, `FROM python:${v}-slim AS build`);
         lines.push("", ...staticStage("build", outRel(input.outputDirectory ?? "."), spa));
@@ -167,8 +177,8 @@ export function generateBuildPlan(input: BuildPlanInput): BuildPlan {
         `FROM golang:${v}-alpine AS build`,
         "WORKDIR /src",
         "COPY . .",
-        run(input.installCommand ?? "go mod download", [`type=cache,id=${k}-gomod,target=/go/pkg/mod`]),
-        run(input.buildCommand ?? "CGO_ENABLED=0 go build -o /app/server .", [`type=cache,id=${k}-gomod,target=/go/pkg/mod`, `type=cache,id=${k}-gobuild,target=/root/.cache/go-build`]),
+        runUser(input.installCommand ?? "go mod download", [`type=cache,id=${k}-gomod,target=/go/pkg/mod`]),
+        runUser(input.buildCommand ?? "CGO_ENABLED=0 go build -o /app/server .", [`type=cache,id=${k}-gomod,target=/go/pkg/mod`, `type=cache,id=${k}-gobuild,target=/root/.cache/go-build`]),
         "",
         "FROM alpine:3.20",
         run("apk add --no-cache ca-certificates tzdata && adduser -D -u 1000 app"),
@@ -188,7 +198,7 @@ export function generateBuildPlan(input: BuildPlanInput): BuildPlan {
         run("apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*"),
         "WORKDIR /src",
         "COPY . .",
-        run(`${input.buildCommand ?? "cargo build --release"} && mkdir -p /out && cp target/release/${bin} /out/`, [
+        runUser(`${input.buildCommand ?? "cargo build --release"} && mkdir -p /out && cp target/release/${bin} /out/`, [
           `type=cache,id=${k}-cargo,target=/usr/local/cargo/registry`,
           `type=cache,id=${k}-target,target=/src/target`,
         ]),
@@ -212,10 +222,10 @@ export function generateBuildPlan(input: BuildPlanInput): BuildPlan {
         "WORKDIR /app",
         "COPY . .",
       );
-      if (input.installCommand) lines.push(run(input.installCommand, [`type=cache,id=${k}-composer,target=/root/.composer/cache`]));
+      if (input.installCommand) lines.push(runUser(input.installCommand, [`type=cache,id=${k}-composer,target=/root/.composer/cache`]));
       if (input.buildCommand) {
         lines.push(run("apt-get update && apt-get install -y --no-install-recommends nodejs npm && rm -rf /var/lib/apt/lists/*"));
-        lines.push(run(input.buildCommand));
+        lines.push(runUser(input.buildCommand));
       }
       lines.push(run("useradd -u 1000 -m app && chown -R app:app /app"), "USER 1000");
       if (port) lines.push(`ENV PORT=${port}`, `EXPOSE ${port}`);
@@ -229,7 +239,7 @@ export function generateBuildPlan(input: BuildPlanInput): BuildPlan {
         maven ? `FROM maven:3-eclipse-temurin-${v} AS build` : `FROM gradle:8-jdk${v} AS build`,
         "WORKDIR /src",
         "COPY . .",
-        run(`${input.buildCommand ?? (maven ? "mvn -B -DskipTests package" : "gradle build -x test --no-daemon")} && mkdir -p /out && find ${maven ? "target" : "build/libs"} -maxdepth 1 -name '*.jar' ! -name '*-plain.jar' ! -name '*-sources.jar' ! -name 'original-*' | head -n 1 | xargs -I{} cp {} /out/app.jar`, [
+        runUser(`${input.buildCommand ?? (maven ? "mvn -B -DskipTests package" : "gradle build -x test --no-daemon")} && mkdir -p /out && find ${maven ? "target" : "build/libs"} -maxdepth 1 -name '*.jar' ! -name '*-plain.jar' ! -name '*-sources.jar' ! -name 'original-*' | head -n 1 | xargs -I{} cp {} /out/app.jar`, [
           maven ? `type=cache,id=${k}-m2,target=/root/.m2` : `type=cache,id=${k}-gradle,target=/home/gradle/.gradle`,
         ]),
         "",

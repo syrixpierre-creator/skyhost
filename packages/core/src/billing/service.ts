@@ -183,7 +183,7 @@ export async function paymentFailed(provider: Provider, providerSubscriptionId: 
       .where(and(eq(subscriptions.provider, provider), eq(subscriptions.providerSubscriptionId, providerSubscriptionId)));
   }
   const graceEndsAt = new Date(Date.now() + settings.graceDays * 24 * 3600 * 1000);
-  await db.update(teams).set({ billingStatus: "past_due", graceEndsAt: sql`coalesce(${teams.graceEndsAt}, ${graceEndsAt})` }).where(eq(teams.id, teamId));
+  await db.update(teams).set({ billingStatus: "past_due", graceEndsAt: sql`coalesce(${teams.graceEndsAt}, ${graceEndsAt.toISOString()}::timestamptz)` }).where(eq(teams.id, teamId));
   await notify({
     teamId,
     event: "billing.payment_failed",

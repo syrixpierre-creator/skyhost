@@ -70,7 +70,7 @@ export async function buildProxyConfig() {
     }
     if (protect && prot.mode === "ip" && prot.ipAllowlist?.length) base.ipAllowlist = prot.ipAllowlist;
     const needsGate = (protect && prot.mode === "password") || (svc.config.waf?.enabled && (svc.config.waf.rules.length > 0 || svc.config.waf.blockBots));
-    if (needsGate) base.forwardAuthUrl = `${cfg.SKYHOST_API_INTERNAL_URL}/internal/gate?instance=${inst.id}`;
+    if (needsGate) base.forwardAuthUrl = `${cfg.SKYHOST_API_INTERNAL_URL}/internal/gate?instance=${inst.id}&token=${encodeURIComponent(cfg.SKYHOST_INTERNAL_TOKEN)}`;
 
     routes.push({ ...base, id: `i-${inst.id}`, hosts: [serviceHostname(svc, env)], certResolver: cfg.SKYHOST_WILDCARD_CERT_RESOLVER || cfg.SKYHOST_CERT_RESOLVER });
     for (const d of allDomains) {

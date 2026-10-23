@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { getDb, notificationChannels, notifications, outgoingWebhooks, teamMembers, users, webhookDeliveries } from "@skyhost/db";
 import { decrypt, encrypt, hmacSha256, randomToken } from "@skyhost/shared/node";
 import type { EventType } from "@skyhost/shared";
@@ -6,6 +6,7 @@ import { enqueue } from "./queue";
 import { publish } from "./realtime";
 import { renderEmail, sendMail } from "./mail";
 import { serverConfig } from "./config";
+import { redis } from "./redis";
 
 export interface NotifyInput {
   teamId: string;
@@ -117,3 +118,16 @@ export function channelMessage(kind: string, payload: { title?: string; body?: s
 }
 
 export const sendEmailNow = sendMail;
+
+/**
+ * Emails every platform administrator (server health, failed off-site backups, abuse). With a cooldown key the
+ * same alert is sent at most once per cooldown period.
+ */
+export async function emailAdmins(title: string, paragraphs: string[], opts: { cooldownKey?: string; cooldownSeconds?: number; link?: string } = {}) {
+  if (opts.cooldownKey && !(await redis().set(`sh:admin-alert:${opts.cooldownKey}`, "1", "EX", opts.cooldownSeconds ?? 6 * 3600, "NX"))) return false;
+  const admins = await getDb().select({ email: users.email }).from(users).where(and(eq(users.isAdmin, true), isNull(users.deletedAt)));
+  const link = opts.link ? `${serverConfig().SKYHOST_DASHBOARD_URL}${opts.link}` : undefined;
+  const { text, html } = renderEmail(title, paragraphs, link ? { label: "Open the administration", url: link } : undefined);
+  for (const a of admins) await enqueue("notify", { email: a.email, subject: `[SKYHOST admin] ${title}`, text, html });
+  return true;
+}

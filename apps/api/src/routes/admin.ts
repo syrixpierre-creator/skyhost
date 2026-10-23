@@ -6,7 +6,7 @@ import {
   serviceInstances, services, sessions, taxRates, teams, users,
 } from "@skyhost/db";
 import { PLAN_FEATURE_KEYS, PLAN_LIMIT_KEYS } from "@skyhost/shared";
-import { audit, badRequest, enqueue, getQueue, getSetting, notFound, notify, QUEUES, refundPaypalCapture, refundStripePayment, setSetting } from "@skyhost/core";
+import { audit, badRequest, enqueue, getQueue, getSetting, notFound, notify, QUEUES, redis, refundPaypalCapture, refundStripePayment, setSetting } from "@skyhost/core";
 import { actorOf, createSession } from "../lib/auth";
 import { requireAdmin } from "../lib/authz";
 import { idParam, route } from "../lib/http";
@@ -71,7 +71,15 @@ export default async function adminRoutes(app: FastifyInstance) {
     const queues: Record<string, unknown> = {};
     for (const q of Object.values(QUEUES)) queues[q] = await getQueue(q).getJobCounts("waiting", "active", "delayed", "failed");
     const workerNodes = await db.select().from(nodes);
-    return { users: usersN, teams: teamsN, services: servicesN, runningInstances: running, deployments: { queued, building }, revenue30dCents: revenue, openAbuseReports: openAbuse, flaggedReferrals: flaggedRefs, queues, nodes: workerNodes };
+    const offsiteRaw = await redis().get("sh:offsite:status");
+    const offsite = { configured: !!(process.env.OFFSITE_S3_ENDPOINT && process.env.OFFSITE_S3_ACCESS_KEY && process.env.OFFSITE_S3_SECRET_KEY), ...(offsiteRaw ? JSON.parse(offsiteRaw) : {}) };
+    return { offsite, users: usersN, teams: teamsN, services: servicesN, runningInstances: running, deployments: { queued, building }, revenue30dCents: revenue, openAbuseReports: openAbuse, flaggedReferrals: flaggedRefs, queues, nodes: workerNodes };
+  });
+
+  route(app, { method: "POST", url: "/admin/offsite/run", tags: ["admin"] }, async (req) => {
+    await enqueue("maintenance", { task: "offsite-platform" });
+    await audit(actorOf(req), null, "admin.offsite_backup", { type: "platform", id: "offsite" });
+    return { ok: true };
   });
 
   // ---------------------------------------------------------------------------------- Users

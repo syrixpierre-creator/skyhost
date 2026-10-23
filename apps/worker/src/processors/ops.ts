@@ -13,6 +13,7 @@ import {
   channelMessage, createDeployment, decryptChannelConfig, enqueue, notify, publish, resolveServiceEnv, sendEmailNow, serverConfig, serviceHostname, signWebhook,
 } from "@skyhost/core";
 import { teamOfService } from "../deploy-log";
+import { platformBackup } from "../offsite";
 import { canaryAction } from "./release";
 
 // ------------------------------------------------------------------------------------------- Jobs & cron runs
@@ -291,6 +292,8 @@ export async function processMaintenance(data: { task: string }) {
       return canaryAction(rest[0]!, "promote");
     case "canary-abort":
       return canaryAction(rest[0]!, "abort");
+    case "offsite-platform":
+      return platformBackup();
     case "delete-volume":
       await getDocker().getVolume(rest.join(":")).remove().catch(() => {});
       return;

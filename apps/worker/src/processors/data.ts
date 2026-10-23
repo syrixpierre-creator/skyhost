@@ -9,6 +9,7 @@ import {
   backupDatabase, cloneRepository, deleteDatabase, disablePublicAccess, enablePublicAccess, execInContainer, extractZip, getObjectStore, makeWorkDir, names, provisionDatabase,
   removeWorkDir, restoreDatabase, rotatePassword, DB_PORTS, type DbRef,
 } from "@skyhost/engine";
+import { copyBackupOffsite } from "../offsite";
 import { audit, decryptDbPassword, encryptDbPassword, getTeamPlan, notify, publish, type AnalyzeSource } from "@skyhost/core";
 
 type Db = typeof databases.$inferSelect;
@@ -190,6 +191,7 @@ export async function processBackup(data: { action: string; backupId?: string; r
       const dump = await backupDatabase(refOf(d));
       const key = `backups/${d.teamId}/${d.id}/${b.id}.bin`;
       await getObjectStore().put(key, dump);
+      await copyBackupOffsite(key, dump);
       const [team] = await db.select().from(teams).where(eq(teams.id, d.teamId));
       const plan = await getTeamPlan(d.teamId);
       const days = Math.min(d.backupRetentionDays, team?.retention.backupsDays ?? plan.limits.backupRetentionDays, plan.limits.backupRetentionDays);

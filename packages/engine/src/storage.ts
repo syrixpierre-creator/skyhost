@@ -92,6 +92,14 @@ export class S3ObjectStore implements ObjectStore {
     await this.ensure();
     await this.client.removeObject(this.bucket, key);
   }
+  /** Keys under a prefix with their last modification date (retention of off-site copies). */
+  async list(prefix: string): Promise<Array<{ key: string; lastModified: Date }>> {
+    await this.ensure();
+    const out: Array<{ key: string; lastModified: Date }> = [];
+    const stream = this.client.listObjectsV2(this.bucket, prefix, true);
+    for await (const o of stream as AsyncIterable<{ name?: string; lastModified?: Date }>) if (o.name) out.push({ key: o.name, lastModified: o.lastModified ?? new Date(0) });
+    return out;
+  }
   async exists(key: string) {
     checkKey(key);
     await this.ensure();
@@ -116,6 +124,20 @@ export function getObjectStore(): ObjectStore {
     store = new FsObjectStore(env.STORAGE_FS_ROOT || join(env.SKYHOST_DATA_DIR || "/var/lib/skyhost", "objects"));
   }
   return store;
+}
+
+/**
+ * Off-site copies (backups of databases and of SKYHOST itself) on an S3-compatible service outside this server:
+ * Cloudflare R2, Backblaze B2, AWS S3… Encrypted with the master key like every other object. Null when not set.
+ */
+let offsite: S3ObjectStore | null | undefined;
+export function getOffsiteStore(): S3ObjectStore | null {
+  if (offsite !== undefined) return offsite;
+  const env = process.env;
+  offsite = env.OFFSITE_S3_ENDPOINT && env.OFFSITE_S3_ACCESS_KEY && env.OFFSITE_S3_SECRET_KEY
+    ? new S3ObjectStore(env.OFFSITE_S3_ENDPOINT, env.OFFSITE_S3_ACCESS_KEY, env.OFFSITE_S3_SECRET_KEY, env.OFFSITE_S3_BUCKET || "skyhost-backups", env.OFFSITE_S3_REGION || "auto")
+    : null;
+  return offsite;
 }
 
 export function setObjectStore(s: ObjectStore | null) {

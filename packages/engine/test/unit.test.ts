@@ -162,6 +162,6 @@ describe("wildcard certificate", () => {
       [{ id: "a", hosts: ["web-1.skyhost.tech"], backends: [{ deploymentId: "d", weight: 100, servers: ["http://c:80"] }], tls: true, certResolver: "letsencrypt-dns", tlsDomains: [{ main: "skyhost.tech", sans: ["*.skyhost.tech"] }] }],
       { apiUrl: "http://api:4000", httpEntryPoint: "web", httpsEntryPoint: "websecure", tlsEnabled: true, internalToken: "t" },
     );
-    expect(cfg.http.routers.a!.tls).toEqual({ certResolver: "letsencrypt-dns", domains: [{ main: "skyhost.tech", sans: ["*.skyhost.tech"] }] });
+    expect((cfg as { http: { routers: Record<string, { tls: unknown }> } }).http.routers.a!.tls).toEqual({ certResolver: "letsencrypt-dns", domains: [{ main: "skyhost.tech", sans: ["*.skyhost.tech"] }] });
   });
 });

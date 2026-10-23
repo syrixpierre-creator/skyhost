@@ -13,6 +13,7 @@ import {
   approveDueRewards, audit, enqueue, getSetting, getTeamPlan, getUsage, isDue, notify, redis, serviceHostname, verifyDomain, labelOf,
 } from "@skyhost/core";
 import { refOf } from "./processors/data";
+import { platformBackup } from "./offsite";
 
 const TICK_MS = 30_000;
 
@@ -450,6 +451,7 @@ export function startScheduler() {
     await every("quota-warnings", 60 * 60_000, quotaWarnings);
     await every("retention", 6 * 60 * 60_000, retention);
     await every("disk-cleanup", 6 * 60 * 60_000, diskCleanup);
+    await every("offsite-platform", 24 * 60 * 60_000, platformBackup);
     await every("stale", 5 * 60_000, failStaleDeployments);
   };
   const timer = setInterval(() => void tick(), TICK_MS);

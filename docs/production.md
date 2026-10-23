@@ -34,6 +34,15 @@ temporary container.
 Restore on a fresh server: install SKYHOST, copy the backup directory, then `./skyhost restore backups/<timestamp>`.
 Restore the original `.env` first so the encryption keys match.
 
+### Off-site copies
+
+With `OFFSITE_S3_*` set (Cloudflare R2, Backblaze B2, AWS S3…), every customer database backup is also copied
+off the server, and the scheduler uploads a daily dump of the SKYHOST database (`platform/skyhost-<date>.dump`).
+Copies older than `OFFSITE_RETENTION_DAYS` (14) are deleted. Admin → Overview shows the last copy and any error,
+and administrators get an email when a copy fails. Copies are encrypted with `SKYHOST_MASTER_KEYS`: keep a copy
+of `.env` in a password manager. For Cloudflare R2 use the endpoint `https://<account>.r2.cloudflarestorage.com`
+and `OFFSITE_S3_REGION=auto`.
+
 ## Capacity
 
 One build at a time needs about 2 CPUs and 4 GB RAM (`SKYHOST_BUILD_*`). Plan limits (CPU, memory, storage)

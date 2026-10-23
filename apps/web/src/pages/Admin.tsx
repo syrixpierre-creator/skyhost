@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatCents, PLAN_FEATURE_KEYS, PLAN_LIMIT_KEYS } from "@skyhost/shared";
 import { del, get, patch, post, put } from "../lib/api";
 import { useSession } from "../lib/session";
-import { Alert, Badge, Button, Card, cx, EmptyState, ErrorState, Field, Input, LoadingRows, Modal, PageHeader, Select, StatusBadge, Textarea, Toggle, timeAgo, useToast } from "../components/ui";
+import { Alert, Badge, Button, Card, cx, EmptyState, ErrorState, Field, Input, LoadingRows, Modal, PageHeader, Select, StatusBadge, Textarea, Toggle, timeAgo, Unavailable, useToast } from "../components/ui";
 import { t } from "../lib/i18n";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -24,6 +24,28 @@ function useReason() {
     </Modal>
   );
   return { modal, ask: (title: string, run: (reason: string) => Promise<unknown>, min = 3) => { setReason(""); setState({ title, run, min }); } };
+}
+
+function OffsiteCard({ offsite, onRun }: { offsite: { configured: boolean; lastSuccessAt?: string | null; lastError?: string | null; lastErrorAt?: string | null; lastPlatformDumpAt?: string | null }; onRun: () => void }) {
+  const toast = useToast();
+  const failing = offsite.lastErrorAt && (!offsite.lastSuccessAt || offsite.lastErrorAt > offsite.lastSuccessAt);
+  return (
+    <Card
+      title={t("Off-site backups")}
+      actions={offsite.configured ? <Button size="sm" onClick={() => post("/admin/offsite/run").then(() => { toast("success", t("Off-site backup started")); setTimeout(onRun, 5000); }).catch((e) => toast("error", e.message))}>{t("Run now")}</Button> : <Unavailable />}
+    >
+      {!offsite.configured ? (
+        <p className="text-sm text-muted">{t("Backups stay on this server only. Set OFFSITE_S3_ENDPOINT, OFFSITE_S3_ACCESS_KEY, OFFSITE_S3_SECRET_KEY and OFFSITE_S3_BUCKET (Cloudflare R2, Backblaze B2…) to keep a copy elsewhere.")}</p>
+      ) : (
+        <dl className="grid gap-3 text-sm sm:grid-cols-3">
+          <div><dt className="text-xs text-muted">{t("Status")}</dt><dd><StatusBadge status={failing ? "failed" : offsite.lastSuccessAt ? "active" : "pending"} label={failing ? t("Failing") : offsite.lastSuccessAt ? t("OK") : t("Waiting for the first copy")} /></dd></div>
+          <div><dt className="text-xs text-muted">{t("Last copy")}</dt><dd>{offsite.lastSuccessAt ? timeAgo(offsite.lastSuccessAt) : "–"}</dd></div>
+          <div><dt className="text-xs text-muted">{t("Last SKYHOST database dump")}</dt><dd>{offsite.lastPlatformDumpAt ? timeAgo(offsite.lastPlatformDumpAt) : "–"}</dd></div>
+          {failing && <div className="sm:col-span-3"><Alert kind="error">{offsite.lastError}</Alert></div>}
+        </dl>
+      )}
+    </Card>
+  );
 }
 
 function Overview() {
@@ -47,6 +69,7 @@ function Overview() {
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         {stats.map(([l, v]) => <div key={l} className="rounded-lg border border-line bg-panel p-3"><div className="text-xs text-muted">{l}</div><div className="mt-1 text-xl font-semibold">{v}</div></div>)}
       </div>
+      <OffsiteCard offsite={d.offsite} onRun={() => q.refetch()} />
       <Card title={t("Queues")} padded={false}>
         <table className="w-full text-sm">
           <thead className="text-left text-xs text-muted"><tr><th className="p-3">{t("Queue")}</th><th className="p-3">{t("Waiting")}</th><th className="p-3">{t("Active")}</th><th className="p-3">{t("Delayed")}</th><th className="p-3">{t("Failed")}</th></tr></thead>

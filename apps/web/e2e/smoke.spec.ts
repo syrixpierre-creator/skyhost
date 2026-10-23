@@ -175,3 +175,17 @@ test("phones get a full menu; sign out lives in the account page; English by def
   await expect(page).toHaveURL(/\/login/);
   await ctx.close();
 });
+
+test("a standalone database shows its connection details right away", async ({ page }) => {
+  await login(page);
+  await page.goto("/databases/new");
+  for (const engine of ["PostgreSQL", "MySQL (MariaDB)", "MongoDB", "Redis"]) await expect(page.getByRole("button", { name: new RegExp(`^${engine.replace(/[()]/g, "\\$&")}`) })).toBeVisible();
+  await page.getByRole("button", { name: /^MongoDB/ }).click();
+  await page.getByLabel("Name").fill("orders");
+  await page.getByRole("button", { name: "Create database" }).click();
+  await expect(page).toHaveURL(/\/databases\/[0-9a-f-]{36}$/);
+  await expect(page.getByText("Hostname")).toBeVisible();
+  await expect(page.getByText("Internal URL")).toBeVisible();
+  await expect(page.getByText("External URL")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Enable public access" })).toBeVisible();
+});

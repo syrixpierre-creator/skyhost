@@ -246,7 +246,7 @@ function SettingsTab({ s, onSaved }: { s: ServiceDetail; onSaved: () => void }) 
           </div>
         </div>
       )}
-      <ConfirmDialog open={confirmDelete} onClose={() => setConfirmDelete(false)} title={t("Delete service")} description={t("Stops the service and deletes its containers and volumes.")} typeToConfirm={s.service.name} onConfirm={() => del(`/services/${s.service.id}`, { confirmName: s.service.name }).then(() => nav(`/projects/${s.service.projectId}`))} />
+      <ConfirmDialog open={confirmDelete} onClose={() => setConfirmDelete(false)} title={t("Delete service")} description={t("Everything is erased from the server: containers, volumes, built images, screenshots and logs. This cannot be undone.")} typeToConfirm={s.service.name} onConfirm={() => del(`/services/${s.service.id}`, { confirmName: s.service.name }).then(() => nav(`/projects/${s.service.projectId}`))} />
     </div>
   );
 }

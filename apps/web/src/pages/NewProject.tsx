@@ -2,14 +2,21 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Boxes, Container, FileArchive, FolderGit2, GitBranch, Github, Gitlab, Globe, HelpCircle, Package, Sparkles } from "lucide-react";
-import { DATABASE_ENGINES } from "@skyhost/shared";
+import { Boxes, Container, Database as DatabaseIcon, FileArchive, FolderGit2, GitBranch, Github, Gitlab, Globe, HelpCircle, Package, Sparkles } from "lucide-react";
+import { DATABASE_ENGINES, DATABASE_VERSIONS } from "@skyhost/shared";
 import { api, get, post } from "../lib/api";
 import { useSession } from "../lib/session";
 import { Alert, Badge, Button, Card, cx, EmptyState, ErrorState, Field, Input, LoadingRows, PageHeader, Select, Toggle, Unavailable, useToast } from "../components/ui";
 import { t } from "../lib/i18n";
 
-type SourceTab = "github" | "gitlab" | "bitbucket" | "git" | "zip" | "image" | "empty";
+type SourceTab = "github" | "gitlab" | "bitbucket" | "git" | "zip" | "image" | "database" | "empty";
+
+const ENGINES: Array<{ id: (typeof DATABASE_ENGINES)[number]; name: string; hint: string }> = [
+  { id: "postgres", name: "PostgreSQL", hint: "Relational, the default choice for most apps" },
+  { id: "mariadb", name: "MySQL (MariaDB)", hint: "MySQL-compatible: WordPress, Laravel, PHP apps" },
+  { id: "mongodb", name: "MongoDB", hint: "Document database for JSON data" },
+  { id: "redis", name: "Redis", hint: "Cache, sessions, queues and rate limits" },
+];
 
 interface Analysis {
   rootDir: string;
@@ -130,7 +137,7 @@ export default function NewProject() {
   const nav = useNavigate();
   const toast = useToast();
   const [params] = useSearchParams();
-  const [tab, setTab] = useState<SourceTab>("github");
+  const [tab, setTab] = useState<SourceTab>(window.location.pathname === "/databases/new" ? "database" : "github");
   const [source, setSource] = useState<Record<string, string> | null>(null);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [explanation, setExplanation] = useState<string[]>([]);
@@ -229,6 +236,7 @@ export default function NewProject() {
     { id: "git", label: t("deploy.fromUrl"), icon: <Globe className="size-4" /> },
     { id: "zip", label: t("deploy.fromZip"), icon: <FileArchive className="size-4" /> },
     { id: "image", label: t("deploy.fromImage"), icon: <Container className="size-4" /> },
+    { id: "database", label: t("Database"), icon: <DatabaseIcon className="size-4" /> },
     { id: "empty", label: t("deploy.empty"), icon: <Package className="size-4" /> },
   ];
 
@@ -310,6 +318,8 @@ export default function NewProject() {
                 </Field>
                 <Button variant="primary" loading={deployImage.isPending}>{t("deploy.deploy")}</Button>
               </form>
+            ) : tab === "database" ? (
+              <StandaloneDatabase teamId={team.id} />
             ) : (
               <form onSubmit={(e) => { e.preventDefault(); emptyProject.mutate(); }} className="space-y-4">
                 <Field label={t("Project name")}>
@@ -426,5 +436,49 @@ export default function NewProject() {
         </div>
       )}
     </>
+  );
+}
+
+/** A database on its own, like Render: pick an engine, name it, get the connection details. No app is created. */
+function StandaloneDatabase({ teamId }: { teamId: string }) {
+  const nav = useNavigate();
+  const toast = useToast();
+  const [engine, setEngine] = useState<(typeof DATABASE_ENGINES)[number]>("postgres");
+  const [name, setName] = useState("");
+  const [version, setVersion] = useState("");
+  const [storage, setStorage] = useState("1024");
+  const create = useMutation({
+    mutationFn: () => post<{ database: { id: string; projectId: string } }>(`/teams/${teamId}/databases`, { name, engine, version: version || undefined, storageMb: Number(storage) }),
+    onSuccess: ({ database }) => nav(`/projects/${database.projectId}/databases/${database.id}`),
+    onError: (e) => toast("error", (e as Error).message),
+  });
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); create.mutate(); }} className="space-y-5">
+      <div className="grid gap-2 sm:grid-cols-2">
+        {ENGINES.map((x) => (
+          <button key={x.id} type="button" onClick={() => { setEngine(x.id); setVersion(""); }} aria-pressed={engine === x.id} className={cx("rounded-lg border p-3 text-left transition-colors", engine === x.id ? "border-fg bg-panel-2" : "border-line hover:border-line-strong")}>
+            <div className="text-sm font-medium">{x.name}</div>
+            <div className="text-xs text-muted">{t(x.hint)}</div>
+          </button>
+        ))}
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Field label={t("Name")} hint={t("Lowercase letters, digits and dashes")}>
+          <Input required value={name} onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))} placeholder={engine === "redis" ? "cache" : "my-database"} maxLength={48} />
+        </Field>
+        <Field label={t("Version")}>
+          <Select value={version} onChange={(e) => setVersion(e.target.value)}>
+            {DATABASE_VERSIONS[engine].map((v, i) => <option key={v} value={i === 0 ? "" : v}>{v}{i === 0 ? ` (${t("latest")})` : ""}</option>)}
+          </Select>
+        </Field>
+        <Field label={t("Storage")}>
+          <Select value={storage} onChange={(e) => setStorage(e.target.value)}>
+            {[1024, 5120, 10240, 25600].map((mb) => <option key={mb} value={mb}>{mb / 1024} GB</option>)}
+          </Select>
+        </Field>
+      </div>
+      <p className="text-xs text-muted">{t("You get the hostname, port, user, password, and internal and external URLs. Any of your services can connect to it, in any project.")}</p>
+      <Button variant="primary" loading={create.isPending} disabled={!name}>{t("Create database")}</Button>
+    </form>
   );
 }

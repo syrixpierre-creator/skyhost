@@ -21,8 +21,8 @@ export interface Template {
   databases: Array<{ name: string; engine: DatabaseEngine; connectTo: string[] }>;
 }
 
-/** Repository that hosts SKYHOST starter source code. Overridable with SKYHOST_TEMPLATES_REPO. */
-export const DEFAULT_TEMPLATES_REPO = "https://github.com/SYRIX-COMPANY/skyhost-templates";
+/** Repository that hosts the starters' source code (the templates/ folder of SKYHOST). Overridable with SKYHOST_TEMPLATES_REPO. */
+export const DEFAULT_TEMPLATES_REPO = "https://github.com/syrixpierre-creator/skyhost";
 
 export const TEMPLATES: Template[] = [
   {
@@ -34,7 +34,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "web",
         type: "web",
-        source: { kind: "git", repo: DEFAULT_TEMPLATES_REPO, rootDir: "nextjs-postgres" },
+        source: { kind: "git", repo: DEFAULT_TEMPLATES_REPO, rootDir: "templates/nextjs-postgres" },
         port: 3000,
         env: { DATABASE_URL: "${{db.DATABASE_URL}}" },
       },
@@ -50,7 +50,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "api",
         type: "web",
-        source: { kind: "git", repo: DEFAULT_TEMPLATES_REPO, rootDir: "express-redis" },
+        source: { kind: "git", repo: DEFAULT_TEMPLATES_REPO, rootDir: "templates/express-redis" },
         port: 3000,
         healthcheckPath: "/health",
         env: { REDIS_URL: "${{cache.REDIS_URL}}" },
@@ -67,7 +67,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "bot",
         type: "worker",
-        source: { kind: "git", repo: DEFAULT_TEMPLATES_REPO, rootDir: "whatsapp-bot" },
+        source: { kind: "git", repo: DEFAULT_TEMPLATES_REPO, rootDir: "templates/whatsapp-bot" },
         env: { SESSION_DIR: "/data/session" },
         volumes: [{ name: "session", mountPath: "/data", sizeMb: 512 }],
       },
@@ -131,7 +131,7 @@ export const TEMPLATES: Template[] = [
       {
         name: "site",
         type: "static",
-        source: { kind: "git", repo: DEFAULT_TEMPLATES_REPO, rootDir: "vite-react" },
+        source: { kind: "git", repo: DEFAULT_TEMPLATES_REPO, rootDir: "templates/vite-react" },
       },
     ],
     databases: [],

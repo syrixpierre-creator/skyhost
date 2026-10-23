@@ -60,6 +60,7 @@ export function App() {
         <Route path="/cli" element={<Protected><Public page="cli" /></Protected>} />
         <Route path="/" element={<Protected><Dashboard /></Protected>} />
         <Route path="/new" element={<Protected><NewProject /></Protected>} />
+        <Route path="/databases/new" element={<Protected><NewProject key="database" /></Protected>} />
         <Route path="/templates" element={<Protected><Templates /></Protected>} />
         <Route path="/projects/:projectId" element={<Protected><Project /></Protected>} />
         <Route path="/projects/:projectId/services/:serviceId" element={<Protected><Service /></Protected>} />

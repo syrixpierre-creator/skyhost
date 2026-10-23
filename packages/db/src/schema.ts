@@ -390,6 +390,8 @@ export const projects = pgTable(
     slug: text("slug").notNull(),
     description: text("description"),
     regionId: text("region_id").notNull().default("eu-west"),
+    /** app: a regular project. databases: the team's home for standalone databases (not counted in the plan). */
+    kind: text("kind").notNull().default("app"),
     canvas: jsonb("canvas").$type<Record<string, { x: number; y: number }>>().notNull().default({}),
     statusPageEnabled: boolean("status_page_enabled").notNull().default(false),
     statusPageSlug: text("status_page_slug"),

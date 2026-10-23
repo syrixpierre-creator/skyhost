@@ -1,3 +1,4 @@
+import { execFile } from "node:child_process";
 import { hostname } from "node:os";
 import { and, avg, desc, eq, gte, inArray, isNotNull, isNull, lt, lte, ne, sql, sum } from "drizzle-orm";
 import {
@@ -372,6 +373,48 @@ async function retention() {
   }
 }
 
+/**
+ * Keeps the server's disk in check: images of old releases (the live one and the last few stay for rollbacks),
+ * images and containers of deleted services or databases, BuildKit cache older than three days.
+ */
+const KEEP_IMAGES = 3;
+async function diskCleanup() {
+  const db = getDb();
+  const docker = getDocker();
+  const images = await docker.listImages({ filters: { label: [`${LABEL.service}`] } });
+  const byService = new Map<string, Array<{ id: string; deploymentId: string; created: number }>>();
+  for (const i of images) {
+    const sid = i.Labels?.[LABEL.service];
+    const did = i.Labels?.[LABEL.deployment];
+    if (!sid || !did) continue;
+    byService.set(sid, [...(byService.get(sid) ?? []), { id: i.Id, deploymentId: did, created: i.Created }]);
+  }
+  for (const [sid, imgs] of byService) {
+    const [svc] = await db.select({ deletedAt: services.deletedAt }).from(services).where(eq(services.id, sid));
+    const live = new Set((await db.select({ a: serviceInstances.liveDeploymentId, b: serviceInstances.canaryDeploymentId }).from(serviceInstances).where(eq(serviceInstances.serviceId, sid))).flatMap((r) => [r.a, r.b]).filter(Boolean));
+    const removable = !svc || svc.deletedAt ? imgs : imgs.filter((i) => !live.has(i.deploymentId)).sort((a, b) => b.created - a.created).slice(KEEP_IMAGES);
+    for (const i of removable) await docker.getImage(i.id).remove({ force: !svc || !!svc.deletedAt }).catch(() => {}); // in use → skipped
+  }
+  // Containers whose service or database no longer exists (deleted while a worker was down).
+  for (const c of await listManagedContainers({})) {
+    const sid = c.Labels[LABEL.service];
+    const dbid = c.Labels[LABEL.database];
+    if (sid) {
+      const [s] = await db.select({ deletedAt: services.deletedAt }).from(services).where(eq(services.id, sid));
+      if (!s || s.deletedAt) await docker.getContainer(c.Id).remove({ force: true }).catch(() => {});
+    } else if (dbid) {
+      const [d] = await db.select({ deletedAt: databases.deletedAt }).from(databases).where(eq(databases.id, dbid));
+      if (!d || d.deletedAt) await docker.getContainer(c.Id).remove({ force: true }).catch(() => {});
+    }
+  }
+  await docker.pruneImages({ filters: { dangling: { true: true } } }).catch(() => {});
+  const builder = process.env.SKYHOST_BUILDX_BUILDER;
+  if (builder) {
+    // The builder runs in its own container (docker-container driver): prune its cache with buildctl inside it.
+    await new Promise<void>((resolve) => execFile("docker", ["exec", `buildx_buildkit_${builder}0`, "buildctl", "prune", "--keep-duration", "72h"], { timeout: 600_000 }, () => resolve()));
+  }
+}
+
 async function failStaleDeployments() {
   const db = getDb();
   const cutoff = new Date(Date.now() - (Number(process.env.SKYHOST_BUILD_TIMEOUT ?? 1800) + 600) * 1000);
@@ -406,6 +449,7 @@ export function startScheduler() {
     await every("spendcap", 10 * 60_000, spendCaps);
     await every("quota-warnings", 60 * 60_000, quotaWarnings);
     await every("retention", 6 * 60 * 60_000, retention);
+    await every("disk-cleanup", 6 * 60 * 60_000, diskCleanup);
     await every("stale", 5 * 60_000, failStaleDeployments);
   };
   const timer = setInterval(() => void tick(), TICK_MS);

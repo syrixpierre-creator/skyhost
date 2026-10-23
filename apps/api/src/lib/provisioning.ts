@@ -164,7 +164,10 @@ export async function connectDatabase(databaseId: string, serviceId: string, var
   const [d] = await db.select().from(databases).where(eq(databases.id, databaseId));
   if (!d) throw notFound("Database");
   const [svc] = await db.select().from(services).where(eq(services.id, serviceId));
-  if (!svc || svc.projectId !== d.projectId) throw badRequest("Databases can only be connected to services of the same project");
+  if (!svc) throw notFound("Service");
+  // Any service of the same team can use the database: they share the team's private network.
+  const [p] = await db.select({ teamId: projects.teamId }).from(projects).where(eq(projects.id, svc.projectId));
+  if (p?.teamId !== d.teamId) throw badRequest("Databases can only be connected to services of the same team");
   const name = variableName ?? DATABASE_ENV_VAR[d.engine as DatabaseEngine];
   if (!/^[A-Z_][A-Z0-9_]*$/.test(name)) throw badRequest("Invalid variable name");
   await db

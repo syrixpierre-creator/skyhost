@@ -1,7 +1,7 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { eq, isNotNull } from "drizzle-orm";
-import { databaseBackups, databaseRestores, databases, getDb, teams, uploads } from "@skyhost/db";
+import { databaseBackups, databaseConnections, databaseRestores, databases, getDb, teams, uploads } from "@skyhost/db";
 import { analyzeRepository, localFS } from "@skyhost/analyzer";
 import type { DatabaseEngine } from "@skyhost/shared";
 import { randomPassword, sha256 } from "@skyhost/shared/node";
@@ -64,7 +64,7 @@ export async function processAnalyze(data: { source: AnalyzeSource; rootDir?: st
   }
 }
 
-export async function processDatabase(data: { action: string; databaseId: string; keepVolume?: boolean; sourceId?: string; anonymize?: boolean }) {
+export async function processDatabase(data: { action: string; databaseId: string; keepVolume?: boolean; keepBackups?: boolean; sourceId?: string; anonymize?: boolean }) {
   const db = getDb();
   const [d] = await db.select().from(databases).where(eq(databases.id, data.databaseId));
   if (!d) return;
@@ -84,10 +84,18 @@ export async function processDatabase(data: { action: string; databaseId: string
       }
       return;
     }
-    case "delete":
+    case "delete": {
       await deleteDatabase(d.id, { keepVolume: data.keepVolume });
+      // No trace left unless the owner asked to keep the backups: encrypted dumps, connections, injected variables.
+      if (!data.keepBackups) {
+        const db = getDb();
+        for (const b of await db.select().from(databaseBackups).where(eq(databaseBackups.databaseId, d.id))) if (b.objectKey) await getObjectStore().delete(b.objectKey).catch(() => {});
+        await db.delete(databaseBackups).where(eq(databaseBackups.databaseId, d.id));
+      }
+      await getDb().delete(databaseConnections).where(eq(databaseConnections.databaseId, d.id));
       await setDbStatus(d.id, { status: "deleted" });
       return;
+    }
     case "rotate": {
       const next = randomPassword(32);
       await rotatePassword(specOf(d), d.containerName, next);

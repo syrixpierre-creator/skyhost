@@ -10,6 +10,12 @@
 | Docker image | Any public image, or a private one with registry credentials (stored encrypted). |
 | Template | A ready-made stack (Templates page). |
 
+## Templates
+
+Templates deploy starters from the `templates/` folder of this repository (Next.js + PostgreSQL, Express + Redis,
+a WhatsApp bot, a Vite static site) or public images (WordPress, n8n). Set `SKYHOST_TEMPLATES_REPO` to a fork to
+customise them.
+
 ## SmartDeploy
 
 The analyzer reads the repository (never executes it) and proposes: the runtime and framework, install, build

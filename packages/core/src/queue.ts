@@ -22,7 +22,7 @@ export interface JobPayloads {
   release: { deploymentId: string };
   database:
     | { action: "provision"; databaseId: string }
-    | { action: "delete"; databaseId: string; keepVolume?: boolean }
+    | { action: "delete"; databaseId: string; keepVolume?: boolean; keepBackups?: boolean }
     | { action: "rotate"; databaseId: string }
     | { action: "public"; databaseId: string }
     | { action: "clone"; databaseId: string; sourceId: string; anonymize: boolean };

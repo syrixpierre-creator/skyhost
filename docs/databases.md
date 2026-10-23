@@ -5,11 +5,27 @@
 PostgreSQL, MariaDB, MongoDB and Redis, each in its own container on the team network, with a dedicated volume,
 resource limits from the plan and a generated password (encrypted at rest).
 
+## Standalone databases
+
+**New database** (sidebar) creates a database on its own, like Render: choose PostgreSQL, MySQL (MariaDB),
+MongoDB or Redis, a name, a version and a size. No app is created. The database page shows right away the
+hostname, port, database, user, password, internal URL, external URL (once public access is on) and a ready-made
+command line (`psql`, `mariadb`, `mongosh`, `redis-cli`). Standalone databases live in the team's "Databases"
+project, which does not count against the plan's project limit, and any service of the team can connect to them.
+
 ## Connecting a service
 
 Connecting a database to a service adds its connection URL to the service as a variable resolved at deploy
 time: `DATABASE_URL` for PostgreSQL and MariaDB, `MONGODB_URI` for MongoDB, `REDIS_URL` for Redis (the name can
-be changed when connecting). Inside the team network the database answers on `<name>.internal`.
+be changed when connecting). Inside the team network the database answers on `<name>.internal`. Any service of the same team can be connected,
+whatever its project.
+
+## Deleting
+
+Deleting a database, a service or a project erases it from the server: containers, volumes and their snapshots,
+built images, database backups, screenshots, deployment logs, connections and deploy hooks. Every six hours the
+scheduler also removes images of old releases (the live one and the three previous stay for rollbacks), leftovers
+of deleted resources and BuildKit cache older than three days.
 
 ## Public access
 

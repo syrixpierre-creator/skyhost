@@ -22,7 +22,7 @@ export function projectView(p: typeof projects.$inferSelect) {
   return { id: p.id, teamId: p.teamId, name: p.name, slug: p.slug, description: p.description, regionId: p.regionId, canvas: p.canvas, statusPageEnabled: p.statusPageEnabled, statusPageSlug: p.statusPageSlug, createdAt: p.createdAt };
 }
 
-async function uniqueProjectSlug(teamId: string, name: string) {
+export async function uniqueProjectSlug(teamId: string, name: string) {
   const base = slugify(name, 40);
   const taken = new Set((await getDb().select({ slug: projects.slug }).from(projects).where(and(eq(projects.teamId, teamId), isNull(projects.deletedAt)))).map((p) => p.slug));
   let slug = base;
@@ -191,8 +191,14 @@ export default async function projectRoutes(app: FastifyInstance) {
     }
     for (const d of dbs) {
       await db.update(databases).set({ deletedAt: now, status: "deleting" }).where(eq(databases.id, d.id));
-      await enqueue("database", { action: "delete", databaseId: d.id });
+      await enqueue("database", { action: "delete", databaseId: d.id, keepBackups: false });
     }
+    // Buckets and their stored objects go with the project.
+    for (const b of await db.select().from(buckets).where(and(eq(buckets.projectId, params.id), isNull(buckets.deletedAt)))) {
+      await db.update(buckets).set({ deletedAt: now }).where(eq(buckets.id, b.id));
+      await enqueue("bucket", { action: "delete", bucketId: b.id });
+    }
+    await db.update(environments).set({ deletedAt: now }).where(and(eq(environments.projectId, params.id), isNull(environments.deletedAt)));
     await db.update(projects).set({ deletedAt: now }).where(eq(projects.id, params.id));
     await audit(actorOf(req), a.team.id, "project.delete", { type: "project", id: params.id }, { name: a.project.name });
     return { ok: true };

@@ -141,6 +141,46 @@ function Backups({ db }: { db: Db }) {
   );
 }
 
+const CLI: Record<string, (c: { host: string; port: number; username: string; dbName: string }, url: string) => string> = {
+  postgres: (_c, url) => `psql "${url}"`,
+  mariadb: (c) => `mariadb -h ${c.host} -P ${c.port} -u ${c.username} -p ${c.dbName}`,
+  mongodb: (_c, url) => `mongosh "${url}"`,
+  redis: (_c, url) => `redis-cli -u "${url}"`,
+};
+
+/** Everything needed to use the database from any app or tool, on the first screen (like Render). */
+function ConnectionInfo({ db, creds, canSee, onPublic }: { db: Db; creds?: { host: string; port: number; username: string; password: string; dbName: string; connectionUrl: string; publicUrl: string | null }; canSee: boolean; onPublic: () => void }) {
+  if (!canSee) return <Card title={t("Connection")} className="md:col-span-3"><p className="text-sm text-muted">{t("Your role cannot see the credentials of this database.")}</p></Card>;
+  if (!creds) return <Card title={t("Connection")} className="md:col-span-3"><LoadingRows rows={3} /></Card>;
+  return (
+    <Card title={t("Connection")} className="md:col-span-3">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Field label={t("Hostname")}><CodeField value={creds.host} /></Field>
+        <Field label={t("Port")}><CodeField value={String(creds.port)} /></Field>
+        {db.engine !== "redis" && <Field label={t("Database")}><CodeField value={creds.dbName} /></Field>}
+        {creds.username && <Field label={t("Username")}><CodeField value={creds.username} /></Field>}
+        <Field label={t("Password")}><CodeField value={creds.password} secret /></Field>
+        <div className="sm:col-span-2 lg:col-span-3"><Field label={t("Internal URL")} hint={t("For services on SKYHOST: private network, fastest and free of egress.")}><CodeField value={creds.connectionUrl} secret /></Field></div>
+        <div className="sm:col-span-2 lg:col-span-3">
+          {creds.publicUrl ? (
+            <Field label={t("External URL")} hint={t("For your computer or apps hosted elsewhere. Only the allowed IP addresses can connect.")}><CodeField value={creds.publicUrl} secret /></Field>
+          ) : (
+            // Not a <label>: it holds a button, which must keep its own accessible name.
+            <div className="space-y-1.5">
+              <span className="text-sm font-medium text-fg">{t("External URL")}</span>
+              <div className="flex flex-wrap items-center gap-3 rounded-md border border-dashed border-line-strong px-3 py-2 text-sm text-muted">
+                {t("Public access is off: only services on SKYHOST can connect.")}
+                <Button size="sm" onClick={onPublic}>{t("Enable public access")}</Button>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="sm:col-span-2 lg:col-span-3"><Field label={t("Command line")}><CodeField value={CLI[db.engine]?.(creds, creds.publicUrl ?? creds.connectionUrl) ?? creds.connectionUrl} secret /></Field></div>
+      </div>
+    </Card>
+  );
+}
+
 export default function Database() {
   const { projectId, databaseId } = useParams();
   const { t } = useTranslation();
@@ -149,10 +189,10 @@ export default function Database() {
   const [tab, setTab] = useState<Tab>("overview");
   const q = useQuery({ queryKey: ["database", databaseId], queryFn: () => get<{ database: Db; connections: Array<{ serviceId: string; serviceName: string; variableName: string }>; permissions: string[] }>(`/databases/${databaseId}`) });
   useRealtimeInvalidate(databaseId ? `database:${databaseId}` : null, [["database", databaseId]]);
-  const creds = useQuery({ queryKey: ["creds", databaseId], queryFn: () => get<{ credentials: { host: string; port: number; username: string; password: string; dbName: string; connectionUrl: string; publicUrl: string | null } }>(`/databases/${databaseId}/credentials`), enabled: tab === "credentials" });
+  const creds = useQuery({ queryKey: ["creds", databaseId], queryFn: () => get<{ credentials: { host: string; port: number; username: string; password: string; dbName: string; connectionUrl: string; publicUrl: string | null } }>(`/databases/${databaseId}/credentials`), enabled: (tab === "credentials" || tab === "overview") && !!q.data?.permissions.includes("database:credentials") });
   const metrics = useQuery({ queryKey: ["dbmetrics", databaseId], queryFn: () => get<{ samples: Array<{ createdAt: string; cpuPercent: number; memoryBytes: number; diskBytes: number; requests: number }>; uptimePercent: number | null }>(`/databases/${databaseId}/metrics`), enabled: tab === "metrics" || tab === "overview" });
   const logs = useQuery({ queryKey: ["dblogs", databaseId], queryFn: () => get<{ lines: string[] }>(`/databases/${databaseId}/logs`), enabled: tab === "logs" });
-  const project = useQuery({ queryKey: ["project", projectId], queryFn: () => get<{ services: Array<{ id: string; name: string }> }>(`/projects/${projectId}`) });
+  const connectable = useQuery({ queryKey: ["connectable", databaseId], queryFn: () => get<{ services: Array<{ id: string; name: string; projectName: string }> }>(`/databases/${databaseId}/connectable-services`), enabled: tab === "connections" });
   const [connectTo, setConnectTo] = useState("");
   const [varName, setVarName] = useState("");
   const [settings, setSettings] = useState<Partial<Db> | null>(null);
@@ -184,6 +224,7 @@ export default function Database() {
       />
       {tab === "overview" && (
         <div className="grid gap-4 md:grid-cols-3">
+          <ConnectionInfo db={db} creds={creds.data?.credentials} canSee={q.data!.permissions.includes("database:credentials")} onPublic={() => setTab("settings")} />
           <Card title={t("Database")}><dl className="space-y-2 text-sm"><div><dt className="text-xs text-muted">{t("Engine")}</dt><dd>{db.engine} {db.version}</dd></div><div><dt className="text-xs text-muted">{t("Storage")}</dt><dd>{db.storageMb} MB</dd></div><div><dt className="text-xs text-muted">{t("Ready since")}</dt><dd>{timeAgo(db.readyAt)}</dd></div></dl></Card>
           <Card title={t("Network")}><dl className="space-y-2 text-sm"><div><dt className="text-xs text-muted">{t("Private host")}</dt><dd className="font-mono text-xs">{db.internalHost}:{db.port}</dd></div><div><dt className="text-xs text-muted">{t("Public access")}</dt><dd>{db.publicAccess ? `Enabled (port ${db.publicPort ?? "…"})` : t("Disabled")}</dd></div></dl></Card>
           <Card title={t("Health")}><dl className="space-y-2 text-sm"><div><dt className="text-xs text-muted">{t("Uptime (24h)")}</dt><dd>{metrics.data?.uptimePercent ?? "–"}%</dd></div><div><dt className="text-xs text-muted">{t("Connected services")}</dt><dd>{q.data!.connections.length}</dd></div></dl></Card>
@@ -201,7 +242,7 @@ export default function Database() {
             {!q.data!.connections.length && <li className="text-muted">{t("No service uses this database yet.")}</li>}
           </ul>
           <div className="flex flex-wrap items-end gap-2">
-            <Field label={t("Service")}><Select value={connectTo} onChange={(e) => setConnectTo(e.target.value)}><option value="">{t("Choose…")}</option>{project.data?.services.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</Select></Field>
+            <Field label={t("Service")}><Select value={connectTo} onChange={(e) => setConnectTo(e.target.value)}><option value="">{t("Choose…")}</option>{connectable.data?.services.map((x) => <option key={x.id} value={x.id}>{x.projectName} / {x.name}</option>)}</Select></Field>
             <Field label={t("Variable name")}><Input value={varName} placeholder={db.engine === "mongodb" ? "MONGODB_URI" : db.engine === "redis" ? "REDIS_URL" : "DATABASE_URL"} onChange={(e) => setVarName(e.target.value.toUpperCase())} /></Field>
             <Button disabled={!connectTo} onClick={() => post(`/databases/${db.id}/connections`, { serviceId: connectTo, variableName: varName || undefined }).then(() => { toast("success", t("Connected. Redeploy the service to inject the URL.")); void q.refetch(); }).catch((e) => toast("error", e.message))}>{t("Connect")}</Button>
           </div>
@@ -253,7 +294,7 @@ export default function Database() {
             <Button variant="danger" disabled={db.deletionProtection} onClick={() => setConfirm(true)}>{t("Delete database")}</Button>
             {db.deletionProtection && <p className="text-xs text-muted">{t("Disable deletion protection to delete this database.")}</p>}
           </div>
-          <ConfirmDialog open={confirm} onClose={() => setConfirm(false)} title={t("Delete database")} description={t("The container and its data volume are deleted. Existing backups are kept until they expire.")} typeToConfirm={db.name} onConfirm={() => del(`/databases/${db.id}`, { confirmName: db.name }).then(() => nav(`/projects/${projectId}`)).catch((e) => toast("error", e.message))} />
+          <ConfirmDialog open={confirm} onClose={() => setConfirm(false)} title={t("Delete database")} description={t("Everything is erased from the server: the container, the data, the backups and the connections. This cannot be undone.")} typeToConfirm={db.name} onConfirm={() => del(`/databases/${db.id}`, { confirmName: db.name }).then(() => nav(`/projects/${projectId}`)).catch((e) => toast("error", e.message))} />
         </Card>
       )}
     </>

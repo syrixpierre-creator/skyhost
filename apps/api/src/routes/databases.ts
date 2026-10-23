@@ -1,13 +1,14 @@
 import type { FastifyInstance } from "fastify";
 import { and, desc, eq, gte, isNull } from "drizzle-orm";
 import { z } from "zod";
-import { databaseBackups, databaseConnections, databaseRestores, databases, getDb, metricSamples, services } from "@skyhost/db";
+import { databaseBackups, databaseConnections, databaseRestores, databases, environments, getDb, metricSamples, projects, services } from "@skyhost/db";
 import { createDatabaseSchema, DATABASE_VERSIONS, type DatabaseEngine } from "@skyhost/shared";
 import { Redactor } from "@skyhost/shared/node";
 import { connectionUrl, DB_PORTS, getObjectStore, listTables, queryMongo, querySql, redisCommand, tailLogs, parseCommand } from "@skyhost/engine";
 import { assertFeature, audit, badRequest, conflict, decryptDbPassword, enqueue, notFound, serverConfig, validateCron } from "@skyhost/core";
 import { actorOf } from "../lib/auth";
-import { databaseAccess, projectAccess, serviceAccess } from "../lib/authz";
+import { databaseAccess, projectAccess, serviceAccess, teamAccess } from "../lib/authz";
+import { uniqueProjectSlug } from "./projects";
 import { idParam, route } from "../lib/http";
 import { connectDatabase, createDatabase } from "../lib/provisioning";
 
@@ -57,6 +58,27 @@ export default async function databaseRoutes(app: FastifyInstance) {
     const [row] = await getDb().select().from(databases).where(eq(databases.id, d.id));
     return { database: dbView(row!) };
   });
+
+  // Standalone database, like Render: no app to create. It lives in the team's "Databases" project, which does not
+  // count as a project in the plan, and any service of the team can connect to it.
+  route(
+    app,
+    { method: "POST", url: "/teams/:teamId/databases", tags: ["databases"], params: z.object({ teamId: z.string().uuid() }), body: createDatabaseSchema.omit({ projectId: true }) },
+    async (req, reply, { params, body }) => {
+      const a = await teamAccess(req, params.teamId, "database:create");
+      const db = getDb();
+      let [home] = await db.select().from(projects).where(and(eq(projects.teamId, params.teamId), eq(projects.kind, "databases"), isNull(projects.deletedAt)));
+      if (!home) {
+        [home] = await db.insert(projects).values({ teamId: params.teamId, name: "Databases", slug: await uniqueProjectSlug(params.teamId, "databases"), description: "Standalone databases", kind: "databases", regionId: serverConfig().SKYHOST_REGION }).returning();
+        await db.insert(environments).values({ projectId: home!.id, name: "production", type: "production" });
+      }
+      const d = await createDatabase({ teamId: params.teamId, projectId: home!.id, environmentId: null, name: body.name, engine: body.engine, version: body.version, regionId: body.region, storageMb: body.storageMb });
+      await audit(actorOf(req), a.team.id, "database.create", { type: "database", id: d.id }, { name: d.name, engine: d.engine, version: d.version, standalone: true });
+      reply.code(201);
+      const [row] = await db.select().from(databases).where(eq(databases.id, d.id));
+      return { database: dbView(row!) };
+    },
+  );
 
   route(app, { method: "GET", url: "/projects/:id/databases", tags: ["databases"], params: idParam }, async (req, _r, { params }) => {
     await projectAccess(req, params.id, "database:read");
@@ -135,6 +157,16 @@ export default async function databaseRoutes(app: FastifyInstance) {
       return { database: dbView(d!) };
     },
   );
+
+  route(app, { method: "GET", url: "/databases/:id/connectable-services", tags: ["databases"], params: idParam }, async (req, _r, { params }) => {
+    const a = await databaseAccess(req, params.id, "database:read");
+    const rows = await getDb()
+      .select({ id: services.id, name: services.name, projectId: projects.id, projectName: projects.name })
+      .from(services)
+      .innerJoin(projects, eq(projects.id, services.projectId))
+      .where(and(eq(projects.teamId, a.team.id), isNull(projects.deletedAt), isNull(services.deletedAt)));
+    return { services: rows };
+  });
 
   route(app, { method: "POST", url: "/databases/:id/connections", tags: ["databases"], params: idParam, body: z.object({ serviceId: z.string().uuid(), variableName: z.string().regex(/^[A-Z_][A-Z0-9_]*$/).max(64).optional() }) }, async (req, reply, { params, body }) => {
     const a = await databaseAccess(req, params.id, "database:read");
@@ -262,12 +294,12 @@ export default async function databaseRoutes(app: FastifyInstance) {
   });
 
   // ---------------------------------------------------------------------------------- Danger zone
-  route(app, { method: "DELETE", url: "/databases/:id", tags: ["databases"], params: idParam, body: z.object({ confirmName: z.string(), keepBackups: z.boolean().default(true) }) }, async (req, _r, { params, body }) => {
+  route(app, { method: "DELETE", url: "/databases/:id", tags: ["databases"], params: idParam, body: z.object({ confirmName: z.string(), keepBackups: z.boolean().default(false) }) }, async (req, _r, { params, body }) => {
     const a = await databaseAccess(req, params.id, "database:delete");
     if (a.database.deletionProtection) throw conflict("Deletion protection is enabled for this database. Disable it first.");
     if (body.confirmName !== a.database.name) throw badRequest("Type the database name to confirm");
     await getDb().update(databases).set({ deletedAt: new Date(), status: "deleting" }).where(eq(databases.id, params.id));
-    await enqueue("database", { action: "delete", databaseId: params.id });
+    await enqueue("database", { action: "delete", databaseId: params.id, keepBackups: body.keepBackups });
     await audit(actorOf(req), a.team.id, "database.delete", { type: "database", id: params.id }, { name: a.database.name, keepBackups: body.keepBackups });
     return { ok: true };
   });

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Bell, Boxes, ChevronDown, CreditCard, Gift, LayoutGrid, Menu, Moon, Plus, Search, Settings, Shield, Sun, User, Languages, FileCode2, X } from "lucide-react";
+import { Bell, Boxes, ChevronDown, CreditCard, Database, Gift, LayoutGrid, Menu, Moon, Plus, Search, Settings, Shield, Sun, User, Languages, FileCode2, X } from "lucide-react";
 import { get, post } from "../lib/api";
 import { setLanguage } from "../lib/i18n";
 import { useRealtimeInvalidate, useSession } from "../lib/session";
@@ -253,6 +253,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <nav className="flex flex-1 flex-col gap-0.5 px-2">
             {item("/", <LayoutGrid className="size-4" />, t("nav.projects"))}
             {item("/new", <Plus className="size-4" />, t("nav.new"))}
+            {item("/databases/new", <Database className="size-4" />, t("New database"))}
             {item("/templates", <Boxes className="size-4" />, t("nav.templates"))}
             {item("/billing", <CreditCard className="size-4" />, t("nav.billing"))}
             {item("/referrals", <Gift className="size-4" />, t("nav.referrals"))}

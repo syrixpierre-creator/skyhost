@@ -227,3 +227,33 @@ describe("deployment page", () => {
     expect(r.body.url).toMatch(new RegExp(`^https?://web-[a-z0-9]+\\.${TEST_ENV.SKYHOST_BASE_DOMAIN!.replace(/\./g, "\\.")}$`));
   });
 });
+
+describe("standalone databases", () => {
+  it("a database can be created on its own, does not use a project slot, and any team service can use it", async () => {
+    const u = await newUser();
+    await setPlan(u.teamId, "free");
+    // The free plan allows one project: use it for an app.
+    const s = await imageService(u);
+    const r = await u.client.post(`/api/v1/teams/${u.teamId}/databases`, { name: "main-db", engine: "postgres" });
+    expect(r.status, r.raw).toBe(201);
+    expect(r.body.database).toMatchObject({ name: "main-db", engine: "postgres" });
+    const home = r.body.database.projectId as string;
+    expect(home).not.toBe(s.projectId);
+    // A second standalone database (the free plan allows one database) goes to the same "Databases" project.
+    expect((await u.client.post(`/api/v1/teams/${u.teamId}/databases`, { name: "docs", engine: "mongodb" })).status).toBe(402);
+    await setPlan(u.teamId, "pro");
+    const r2 = await u.client.post(`/api/v1/teams/${u.teamId}/databases`, { name: "docs", engine: "mongodb" });
+    expect(r2.status, r2.raw).toBe(201);
+    expect(r2.body.database.projectId).toBe(home);
+    // Services of other projects in the team can connect.
+    const listed = await u.client.get(`/api/v1/databases/${r.body.database.id}/connectable-services`);
+    expect(listed.body.services.map((x: { id: string }) => x.id)).toContain(s.serviceId);
+    const c = await u.client.post(`/api/v1/databases/${r.body.database.id}/connections`, { serviceId: s.serviceId });
+    expect(c.status, c.raw).toBe(201);
+    expect(c.body.variableName).toBe("DATABASE_URL");
+    // Another team's service cannot.
+    const other = await newUser();
+    const os = await imageService(other);
+    expect((await u.client.post(`/api/v1/databases/${r.body.database.id}/connections`, { serviceId: os.serviceId })).status).toBe(404);
+  });
+});

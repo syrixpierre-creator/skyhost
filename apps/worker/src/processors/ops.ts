@@ -2,7 +2,7 @@ import { connect as tlsConnect } from "node:tls";
 import { lookup } from "node:dns/promises";
 import { and, eq, inArray } from "drizzle-orm";
 import {
-  buckets, databases, deployments, domains, environments, getDb, jobRuns, notificationChannels, outgoingWebhooks, screenshots, serviceInstances, services, volumes, volumeSnapshots, webhookDeliveries,
+  buckets, databaseConnections, databases, deployHooks, deploymentLogs, deployments, domains, environments, getDb, jobRuns, notificationChannels, outgoingWebhooks, screenshots, serviceInstances, services, volumes, volumeSnapshots, webhookDeliveries,
 } from "@skyhost/db";
 import { assertPublicUrl, decrypt, Redactor } from "@skyhost/shared/node";
 import type { ServiceConfig } from "@skyhost/shared";
@@ -110,6 +110,37 @@ export async function processWebhook(data: { deliveryId: string }) {
   if (error) throw new Error(error); // BullMQ retries with exponential backoff
 }
 
+// ------------------------------------------------------------------------------------------- Deletion
+/**
+ * Removes everything a deleted service left on the server: containers (apps, jobs, cron), volumes and their
+ * snapshots, built images, screenshots and deployment logs. Nothing of it is reachable once the service is deleted.
+ */
+export async function purgeService(serviceId: string) {
+  const db = getDb();
+  const docker = getDocker();
+  const store = getObjectStore();
+  for (const c of await listManagedContainers({ [LABEL.service]: serviceId })) await removeContainer(c.Id, { graceSeconds: 10 }).catch(() => {});
+  const vols = await db.select().from(volumes).where(eq(volumes.serviceId, serviceId));
+  for (const v of vols) {
+    for (const s of await db.select().from(volumeSnapshots).where(eq(volumeSnapshots.volumeId, v.id))) if (s.objectKey) await store.delete(s.objectKey).catch(() => {});
+    await docker.getVolume(v.dockerVolume).remove({ force: true }).catch(() => {});
+  }
+  await db.delete(volumes).where(eq(volumes.serviceId, serviceId));
+  // Images built for this service (and the image tags of every deployment). Pulled public images are left to
+  // Docker's own pruning since other services may use them.
+  const deps = await db.select({ id: deployments.id, image: deployments.image }).from(deployments).where(eq(deployments.serviceId, serviceId));
+  const built = await docker.listImages({ filters: { label: [`${LABEL.service}=${serviceId}`] } }).catch(() => []);
+  const refs = new Set<string>([...built.map((i) => i.Id), ...deps.map((d) => d.image).filter((i): i is string => !!i && /(^|\/)skyhost\//.test(i))]);
+  for (const ref of refs) await docker.getImage(ref).remove({ force: true }).catch(() => {});
+  for (const s of await db.select().from(screenshots).where(eq(screenshots.serviceId, serviceId))) if (s.objectKey) await store.delete(s.objectKey).catch(() => {});
+  await db.delete(screenshots).where(eq(screenshots.serviceId, serviceId));
+  const depIds = deps.map((d) => d.id);
+  for (let i = 0; i < depIds.length; i += 500) await db.delete(deploymentLogs).where(inArray(deploymentLogs.deploymentId, depIds.slice(i, i + 500)));
+  await db.delete(deployHooks).where(eq(deployHooks.serviceId, serviceId));
+  await db.delete(databaseConnections).where(eq(databaseConnections.serviceId, serviceId));
+  await db.update(serviceInstances).set({ status: "stopped", liveDeploymentId: null, canaryDeploymentId: null }).where(eq(serviceInstances.serviceId, serviceId));
+}
+
 // ------------------------------------------------------------------------------------------- Buckets
 export async function processBucket(data: { action: string; bucketId: string }) {
   const [b] = await getDb().select().from(buckets).where(eq(buckets.id, data.bucketId));
@@ -212,14 +243,8 @@ export async function processMaintenance(data: { task: string }) {
     case "reconcile-proxy":
       // Traefik polls the configuration endpoint; nothing to push. Kept for event ordering.
       return;
-    case "teardown-service": {
-      const [serviceId] = rest;
-      for (const c of await listManagedContainers({ [LABEL.service]: serviceId! })) await removeContainer(c.Id, { graceSeconds: 10 });
-      const vols = await db.select().from(volumes).where(eq(volumes.serviceId, serviceId!));
-      for (const v of vols) await getDocker().getVolume(v.dockerVolume).remove().catch(() => {});
-      await db.update(serviceInstances).set({ status: "stopped", liveDeploymentId: null }).where(eq(serviceInstances.serviceId, serviceId!));
-      return;
-    }
+    case "teardown-service":
+      return purgeService(rest[0]!);
     case "teardown-environment": {
       const [envId] = rest;
       for (const c of await listManagedContainers({ [LABEL.environment]: envId! })) await removeContainer(c.Id, { graceSeconds: 10 });

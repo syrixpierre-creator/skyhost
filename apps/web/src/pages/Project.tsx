@@ -249,7 +249,7 @@ function SettingsTab({ data, refetch }: { data: ProjectDetail; refetch: () => vo
       <Card title={t("Danger zone")} className="border-red-500/30">
         <p className="mb-3 text-sm text-muted">{t("Deleting the project stops every service and deletes its databases. Databases with deletion protection block this action.")}</p>
         <Button variant="danger" onClick={() => setConfirm(true)}>{t("Delete project")}</Button>
-        <ConfirmDialog open={confirm} onClose={() => setConfirm(false)} title={t("Delete project")} description={t("This cannot be undone.")} typeToConfirm={data.project.name} onConfirm={() => del(`/projects/${data.project.id}`, { confirmName: data.project.name }).then(() => nav("/")).catch((e) => toast("error", e.message))} />
+        <ConfirmDialog open={confirm} onClose={() => setConfirm(false)} title={t("Delete project")} description={t("Every service, database, bucket and file of this project is erased from the server. This cannot be undone.")} typeToConfirm={data.project.name} onConfirm={() => del(`/projects/${data.project.id}`, { confirmName: data.project.name }).then(() => nav("/")).catch((e) => toast("error", e.message))} />
       </Card>
     </div>
   );

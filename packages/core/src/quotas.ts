@@ -31,7 +31,8 @@ const startOfMonth = () => {
 
 export async function getUsage(teamId: string): Promise<Usage> {
   const db = getDb();
-  const projectIds = (await db.select({ id: projects.id }).from(projects).where(and(eq(projects.teamId, teamId), isNull(projects.deletedAt)))).map((p) => p.id);
+  const projectRows = await db.select({ id: projects.id, kind: projects.kind }).from(projects).where(and(eq(projects.teamId, teamId), isNull(projects.deletedAt)));
+  const projectIds = projectRows.map((p) => p.id);
   const inProjects = projectIds.length ? projectIds : ["00000000-0000-0000-0000-000000000000"];
   const svcRows = await db
     .select({ id: services.id, type: services.type, config: services.config })
@@ -81,7 +82,8 @@ export async function getUsage(teamId: string): Promise<Usage> {
     customDomains,
     screenshotsPerMonth: shots,
     previewEnvironments: previewEnvs,
-    projects: projectIds.length,
+    // The "Databases" project holding standalone databases is not a project the user created.
+    projects: projectRows.filter((p) => p.kind !== "databases").length,
     volumesMb: volumeMb,
     buckets: bucketCount,
     bucketStorageMb: bucketQuota,

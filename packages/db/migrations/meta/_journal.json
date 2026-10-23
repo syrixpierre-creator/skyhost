@@ -15,6 +15,13 @@
       "when": 1792761648590,
       "tag": "0001_promo_codes_deploy_hooks",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792790423448,
+      "tag": "0002_project_kind",
+      "breakpoints": true
     }
   ]
 }

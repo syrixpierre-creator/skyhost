@@ -21,6 +21,7 @@ const LABEL_SOURCES = [
   ["pages/Deployment.tsx", /const PHASE_LABELS[^;]*;/, /"([A-Z][^"]+)"/g],
   ["pages/Referrals.tsx", /const METHOD_LABEL[^;]*;/, /"([A-Z][^"]+)"/g],
   ["pages/Admin.tsx", /const SECTIONS = \[[\s\S]*?\] as const;/, /"([A-Z][^"]+)"/g],
+  ["pages/NewProject.tsx", /const ENGINES[\s\S]*?\n\];/, /hint: "([^"]+)"/g],
 ];
 for (const [file, a, b] of LABEL_SOURCES) {
   let code = readFileSync(join(src, file), "utf8");

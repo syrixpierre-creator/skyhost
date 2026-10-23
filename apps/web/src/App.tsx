@@ -1,0 +1,74 @@
+import { lazy, Suspense, type ReactNode } from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { useSession } from "./lib/session";
+import { Layout } from "./components/Layout";
+import { Skeleton } from "./components/ui";
+
+const Auth = lazy(() => import("./pages/Auth"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const NewProject = lazy(() => import("./pages/NewProject"));
+const Project = lazy(() => import("./pages/Project"));
+const Service = lazy(() => import("./pages/Service"));
+const Deployment = lazy(() => import("./pages/Deployment"));
+const Database = lazy(() => import("./pages/Database"));
+const TeamSettings = lazy(() => import("./pages/TeamSettings"));
+const Account = lazy(() => import("./pages/Account"));
+const Billing = lazy(() => import("./pages/Billing"));
+const Referrals = lazy(() => import("./pages/Referrals"));
+const Templates = lazy(() => import("./pages/Templates"));
+const Admin = lazy(() => import("./pages/Admin"));
+const Public = lazy(() => import("./pages/Public"));
+
+function Loading() {
+  return (
+    <div className="space-y-3 p-8">
+      <Skeleton className="h-6 w-48" />
+      <Skeleton className="h-24 w-full" />
+      <Skeleton className="h-24 w-full" />
+    </div>
+  );
+}
+
+function Protected({ children }: { children: ReactNode }) {
+  const { me, loading } = useSession();
+  const loc = useLocation();
+  if (loading) return <Loading />;
+  if (!me) return <Navigate to={`/login?next=${encodeURIComponent(loc.pathname + loc.search)}`} replace />;
+  return <Layout>{children}</Layout>;
+}
+
+export function App() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <Routes>
+        <Route path="/login" element={<Auth mode="login" />} />
+        <Route path="/signup" element={<Auth mode="signup" />} />
+        <Route path="/forgot-password" element={<Auth mode="forgot" />} />
+        <Route path="/reset-password" element={<Auth mode="reset" />} />
+        <Route path="/verify-email" element={<Auth mode="verify" />} />
+        <Route path="/r/:code" element={<Auth mode="referral" />} />
+        <Route path="/invite" element={<Public page="invite" />} />
+        <Route path="/status" element={<Public page="status" />} />
+        <Route path="/status/:slug" element={<Public page="project-status" />} />
+        <Route path="/s/:token" element={<Public page="shared-screenshot" />} />
+        <Route path="/report-abuse" element={<Public page="abuse" />} />
+        <Route path="/terms" element={<Public page="terms" />} />
+        <Route path="/privacy" element={<Public page="privacy" />} />
+        <Route path="/cli" element={<Protected><Public page="cli" /></Protected>} />
+        <Route path="/" element={<Protected><Dashboard /></Protected>} />
+        <Route path="/new" element={<Protected><NewProject /></Protected>} />
+        <Route path="/templates" element={<Protected><Templates /></Protected>} />
+        <Route path="/projects/:projectId" element={<Protected><Project /></Protected>} />
+        <Route path="/projects/:projectId/services/:serviceId" element={<Protected><Service /></Protected>} />
+        <Route path="/projects/:projectId/deployments/:deploymentId" element={<Protected><Deployment /></Protected>} />
+        <Route path="/projects/:projectId/databases/:databaseId" element={<Protected><Database /></Protected>} />
+        <Route path="/settings" element={<Protected><TeamSettings /></Protected>} />
+        <Route path="/account" element={<Protected><Account /></Protected>} />
+        <Route path="/billing" element={<Protected><Billing /></Protected>} />
+        <Route path="/referrals" element={<Protected><Referrals /></Protected>} />
+        <Route path="/admin/*" element={<Protected><Admin /></Protected>} />
+        <Route path="*" element={<Public page="404" />} />
+      </Routes>
+    </Suspense>
+  );
+}

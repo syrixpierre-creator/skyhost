@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Neutral palette, one solid accent (blue). No gradients, no glow. */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+  --color-bg: var(--sh-bg);
+  --color-panel: var(--sh-panel);
+  --color-panel-2: var(--sh-panel-2);
+  --color-line: var(--sh-line);
+  --color-fg: var(--sh-fg);
+  --color-muted: var(--sh-muted);
+  --color-faint: var(--sh-faint);
+}
+
+:root {
+  --sh-bg: #f7f7f8;
+  --sh-panel: #ffffff;
+  --sh-panel-2: #f1f2f4;
+  --sh-line: #e3e5e8;
+  --sh-fg: #15171a;
+  --sh-muted: #5c636e;
+  --sh-faint: #8b929c;
+}
+
+.dark {
+  --sh-bg: #0b0d10;
+  --sh-panel: #121418;
+  --sh-panel-2: #181b20;
+  --sh-line: #23272e;
+  --sh-fg: #e6e8eb;
+  --sh-muted: #9aa1ab;
+  --sh-faint: #6b7280;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--sh-bg);
+  color: var(--sh-fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+.skeleton {
+  background: var(--sh-panel-2);
+  border-radius: 6px;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.react-flow__attribution {
+  display: none;
+}

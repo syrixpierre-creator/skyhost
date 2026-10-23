@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { creditTransactions, deployments, getDb, teams, users } from "@skyhost/db";
 import { EMAIL_BY_DEFAULT, getQueue, githubAppJwt, notify, QUEUES, resetServerConfig } from "@skyhost/core";
-import { Client, newUser, setPlan } from "./helpers";
+import { Client, newUser, PASSWORD, setPlan } from "./helpers";
 import { TEST_ENV } from "./env";
 
 async function adminUser() {
@@ -255,5 +255,36 @@ describe("standalone databases", () => {
     const other = await newUser();
     const os = await imageService(other);
     expect((await u.client.post(`/api/v1/databases/${r.body.database.id}/connections`, { serviceId: os.serviceId })).status).toBe(404);
+  });
+});
+
+describe("dashboard closed for maintenance", () => {
+  it("only administrators can sign in and use the dashboard; users see the maintenance message", async () => {
+    const admin = await adminUser();
+    const u = await newUser();
+    const [adminRow] = await getDb().select().from(users).where(eq(users.id, admin.user.id));
+    try {
+      expect((await admin.client.put("/api/v1/admin/settings/maintenance", { enabled: true, closeDashboard: true, message: "Back at 22:00." })).status).toBe(200);
+      const caps = await new Client().get("/api/v1/capabilities");
+      expect(caps.body.maintenance).toMatchObject({ enabled: true, closeDashboard: true });
+      // A signed-in user is stopped everywhere except "who am I" and sign out.
+      const blocked = await u.client.get("/api/v1/teams");
+      expect(blocked.status).toBe(503);
+      expect(blocked.body.error).toMatchObject({ code: "maintenance" });
+      expect(blocked.body.error.message).toContain("Back at 22:00.");
+      expect((await u.client.get("/api/v1/auth/me")).status).toBe(200);
+      // Users cannot sign in or sign up; the administrator can.
+      const login = await new Client().post("/api/v1/auth/login", { email: u.email, password: PASSWORD });
+      expect(login.status).toBe(503);
+      expect(login.body.error.message).toContain("maintenance");
+      expect((await new Client().post("/api/v1/auth/signup", { email: `m-${Date.now()}@example.com`, password: PASSWORD, name: "M", acceptTerms: true })).status).toBe(503);
+      const adminLogin = new Client();
+      expect((await adminLogin.post("/api/v1/auth/login", { email: adminRow!.email, password: PASSWORD })).status).toBe(200);
+      expect((await adminLogin.get("/api/v1/admin/settings")).status).toBe(200);
+      expect((await adminLogin.get("/api/v1/teams")).status).toBe(200);
+    } finally {
+      await admin.client.put("/api/v1/admin/settings/maintenance", { enabled: false, closeDashboard: false, message: "" });
+    }
+    expect((await u.client.get("/api/v1/teams")).status).toBe(200);
   });
 });

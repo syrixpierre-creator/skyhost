@@ -27,7 +27,7 @@ export interface JobPayloads {
     | { action: "public"; databaseId: string }
     | { action: "clone"; databaseId: string; sourceId: string; anonymize: boolean };
   backup: { action: "backup"; backupId: string } | { action: "restore"; restoreId: string } | { action: "verify"; backupId: string };
-  screenshot: { screenshotId: string };
+  screenshot: { screenshotId: string; attempt?: number };
   job: { jobRunId: string };
   notify: { channelId: string; event: string; payload: Record<string, unknown> } | { email: string; subject: string; text: string; html?: string };
   webhook: { deliveryId: string };

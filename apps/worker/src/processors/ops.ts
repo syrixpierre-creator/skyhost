@@ -154,7 +154,11 @@ export async function processBucket(data: { action: string; bucketId: string }) 
 // ------------------------------------------------------------------------------------------- Screenshots (SSRF-safe)
 const VIEWPORTS = { desktop: { width: 1440, height: 900 }, tablet: { width: 834, height: 1112 }, mobile: { width: 390, height: 844 } } as const;
 
-export async function processScreenshot(data: { screenshotId: string }) {
+/** A release goes live before Let's Encrypt has issued its certificate: wait for it instead of failing. */
+const CERT_RETRIES = 10;
+const isCertError = (m: string) => /ERR_CERT_|ERR_SSL_|certificate/i.test(m);
+
+export async function processScreenshot(data: { screenshotId: string; attempt?: number }) {
   const db = getDb();
   const [s] = await db.select().from(screenshots).where(eq(screenshots.id, data.screenshotId));
   if (!s || s.status === "completed") return;
@@ -196,7 +200,15 @@ export async function processScreenshot(data: { screenshotId: string }) {
     await db.update(screenshots).set({ status: "completed", objectKey: key, sizeBytes: png.length, mimeType: "image/png" }).where(eq(screenshots.id, s.id));
     await publish(`service:${svc.id}`, { type: "screenshot.completed", screenshotId: s.id });
   } catch (e) {
-    await db.update(screenshots).set({ status: "failed", error: (e as Error).message.slice(0, 500) }).where(eq(screenshots.id, s.id));
+    const message = (e as Error).message;
+    const attempt = data.attempt ?? 0;
+    if (isCertError(message) && attempt < CERT_RETRIES) {
+      await db.update(screenshots).set({ status: "pending", error: "Waiting for the HTTPS certificate of the site" }).where(eq(screenshots.id, s.id));
+      await enqueue("screenshot", { screenshotId: s.id, attempt: attempt + 1 }, { delay: 30_000 * (attempt + 1), attempts: 1 });
+      return;
+    }
+    const friendly = isCertError(message) ? `The HTTPS certificate of ${host} is not valid yet (DNS or Let's Encrypt). ${message}` : message;
+    await db.update(screenshots).set({ status: "failed", error: friendly.slice(0, 500) }).where(eq(screenshots.id, s.id));
     throw e;
   } finally {
     await browser.close();

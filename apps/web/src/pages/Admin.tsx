@@ -233,7 +233,7 @@ function JsonSetting({ k, value, onSaved }: { k: string; value: unknown; onSaved
   );
 }
 
-interface Maintenance { enabled: boolean; message: string; blockDeploys: boolean; endsAt: string | null }
+interface Maintenance { enabled: boolean; message: string; blockDeploys: boolean; closeDashboard: boolean; endsAt: string | null }
 
 function MaintenanceSettings({ value, onSaved }: { value: Maintenance; onSaved: () => void }) {
   const toast = useToast();
@@ -251,11 +251,13 @@ function MaintenanceSettings({ value, onSaved }: { value: Maintenance; onSaved: 
         <div className="flex flex-wrap gap-6">
           <Toggle checked={m.enabled} onChange={(v) => setM({ ...m, enabled: v })} label={t("Show the maintenance banner to every user")} />
           <Toggle checked={m.blockDeploys} onChange={(v) => setM({ ...m, blockDeploys: v })} label={t("Pause new deployments (rollbacks stay allowed)")} />
+          <Toggle checked={!!m.closeDashboard} onChange={(v) => setM({ ...m, closeDashboard: v })} label={t("Put the site in maintenance: only administrators can sign in")} />
         </div>
         <div className="grid gap-4 md:grid-cols-[1fr_16rem]">
           <Field label={t("Message")}><Input maxLength={500} value={m.message} placeholder={t("Database upgrade in progress.")} onChange={(e) => setM({ ...m, message: e.target.value })} /></Field>
           <Field label={t("Expected end")}><Input type="datetime-local" value={local} onChange={(e) => setM({ ...m, endsAt: e.target.value ? new Date(e.target.value).toISOString() : null })} /></Field>
         </div>
+        {m.enabled && m.closeDashboard && <Alert kind="warn">{t("Users and visitors see the maintenance page on sign in, sign up and the dashboard. You keep full access as an administrator. Hosted apps keep running.")}</Alert>}
         <Button variant="primary" size="sm">{t("Save")}</Button>
       </form>
     </Card>

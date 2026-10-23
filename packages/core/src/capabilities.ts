@@ -37,7 +37,7 @@ export async function capabilities() {
     },
     email: { delivery: !!c.SMTP_URL, verificationRequired: emailVerificationRequired() },
     support: { email: c.SKYHOST_SUPPORT_EMAIL || null },
-    maintenance: maintenance.enabled ? { enabled: true, message: maintenance.message, blockDeploys: maintenance.blockDeploys, endsAt: maintenance.endsAt } : { enabled: false },
+    maintenance: maintenance.enabled ? { enabled: true, message: maintenance.message, blockDeploys: maintenance.blockDeploys, closeDashboard: maintenance.closeDashboard, endsAt: maintenance.endsAt } : { enabled: false },
   };
 }
 

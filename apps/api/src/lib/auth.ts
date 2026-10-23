@@ -3,7 +3,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { apiKeys, getDb, sessions, users } from "@skyhost/db";
 import { randomToken, safeEqual, sha256 } from "@skyhost/shared/node";
 import type { Actor } from "@skyhost/core";
-import { serverConfig } from "@skyhost/core";
+import { dashboardClosed, serverConfig } from "@skyhost/core";
 
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
@@ -35,6 +35,7 @@ export const sessionCookie = () => `${hostPrefix()}sh_session`;
 export const csrfCookie = () => `${hostPrefix()}sh_csrf`;
 export const SESSION_DAYS = 30;
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+const MAINTENANCE_ALLOWED = new Set(["/api/v1/auth/me", "/api/v1/auth/logout", "/api/v1/capabilities"]);
 
 export function clientIp(req: FastifyRequest): string {
   return req.ip;
@@ -139,6 +140,16 @@ export function registerAuth(app: FastifyInstance) {
       const cookie = req.cookies[csrfCookie()];
       if (!cookie || typeof header !== "string" || !safeEqual(header, cookie)) {
         return reply.code(403).send({ error: { code: "csrf", message: "Invalid or missing CSRF token" } });
+      }
+    }
+    // Dashboard closed for maintenance: signed-in non-administrators can only read who they are and sign out.
+    // Administrators (and support sessions they open) keep full access; apps, webhooks and deploy hooks are untouched.
+    const u = req.auth.user;
+    if (u && !u.isAdmin && !req.auth.session?.impersonatorId && req.url.startsWith("/api/v1/")) {
+      const path = req.url.split("?")[0]!;
+      if (!MAINTENANCE_ALLOWED.has(path)) {
+        const closed = await dashboardClosed();
+        if (closed) return reply.code(503).header("Retry-After", "600").send({ error: { code: "maintenance", message: `SKYHOST is under maintenance.${closed.message ? ` ${closed.message}` : ""} Please come back later.` } });
       }
     }
   });

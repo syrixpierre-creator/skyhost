@@ -30,6 +30,8 @@ export interface MaintenanceSettings {
   enabled: boolean;
   message: string;
   blockDeploys: boolean;
+  /** Only administrators can sign in and use the dashboard; everyone else sees the maintenance page. */
+  closeDashboard: boolean;
   /** ISO date shown to users as the expected end. */
   endsAt: string | null;
 }
@@ -39,6 +41,18 @@ interface Settings {
   billing: BillingSettings;
   signup: SignupSettings;
   maintenance: MaintenanceSettings;
+}
+
+/**
+ * The maintenance settings when the dashboard is closed to non-administrators, else null. Read on every API request,
+ * so cached for a few seconds (and refreshed at once by setSetting on this instance).
+ */
+let closedCache: { at: number; value: MaintenanceSettings | null } | null = null;
+export async function dashboardClosed(): Promise<MaintenanceSettings | null> {
+  if (closedCache && Date.now() - closedCache.at < 5_000) return closedCache.value;
+  const m = await getSetting("maintenance");
+  closedCache = { at: Date.now(), value: m.enabled && m.closeDashboard ? m : null };
+  return closedCache.value;
 }
 
 export async function getSetting<K extends keyof Settings>(key: K): Promise<Settings[K]> {
@@ -52,5 +66,6 @@ export async function setSetting<K extends keyof Settings>(key: K, value: Partia
     .insert(systemSettings)
     .values({ key, value: merged })
     .onConflictDoUpdate({ target: systemSettings.key, set: { value: merged, updatedAt: new Date() } });
+  if (key === "maintenance") closedCache = null;
   return merged;
 }

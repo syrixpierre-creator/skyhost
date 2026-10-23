@@ -2,8 +2,11 @@ import { lazy, Suspense, type ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useSession } from "./lib/session";
+import { MaintenanceScreen, useDashboardClosed } from "./components/Maintenance";
 import { Layout } from "./components/Layout";
-import { Skeleton } from "./components/ui";
+import { Button, Skeleton } from "./components/ui";
+import { post } from "./lib/api";
+import { t } from "./lib/i18n";
 
 const Auth = lazy(() => import("./pages/Auth"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -32,9 +35,17 @@ function Loading() {
 
 function Protected({ children }: { children: ReactNode }) {
   const { me, loading } = useSession();
+  const closed = useDashboardClosed();
   const loc = useLocation();
   if (loading) return <Loading />;
   if (!me) return <Navigate to={`/login?next=${encodeURIComponent(loc.pathname + loc.search)}`} replace />;
+  // Closed for maintenance: administrators keep the dashboard, everyone else sees the maintenance page.
+  if (closed && !me.user.isAdmin && !me.impersonating)
+    return (
+      <MaintenanceScreen>
+        <Button onClick={() => post("/auth/logout").finally(() => (window.location.href = "/login"))}>{t("nav.logout")}</Button>
+      </MaintenanceScreen>
+    );
   return <Layout>{children}</Layout>;
 }
 

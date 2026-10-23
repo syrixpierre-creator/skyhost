@@ -137,6 +137,7 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
     enabled: false,
     message: "",
     blockDeploys: true,
+    closeDashboard: false,
     endsAt: null,
   },
 };

@@ -108,20 +108,31 @@ export function PageHeader({ title, subtitle, actions, breadcrumbs }: { title: R
 }
 
 export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: Array<{ id: T; label: ReactNode }>; value: T; onChange: (v: T) => void }) {
+  // Phones get a menu: a row of many tabs scrolls sideways and hides some of them.
+  const plain = tabs.every((x) => typeof x.label === "string");
   return (
-    <div className="mb-5 flex gap-1 overflow-x-auto border-b border-line" role="tablist">
-      {tabs.map((t) => (
-        <button
-          key={t.id}
-          role="tab"
-          aria-selected={value === t.id}
-          onClick={() => onChange(t.id)}
-          className={cx("-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm transition-colors", value === t.id ? "border-accent font-medium text-fg" : "border-transparent text-muted hover:text-fg")}
-        >
-          {t.label}
-        </button>
-      ))}
-    </div>
+    <>
+      {plain && (
+        <div className="mb-5 sm:hidden">
+          <Select aria-label={t("Section")} value={value} onChange={(e) => onChange(e.target.value as T)}>
+            {tabs.map((x) => <option key={x.id} value={x.id}>{x.label as string}</option>)}
+          </Select>
+        </div>
+      )}
+      <div className={cx("mb-5 gap-1 overflow-x-auto border-b border-line", plain ? "hidden sm:flex" : "flex")} role="tablist">
+        {tabs.map((x) => (
+          <button
+            key={x.id}
+            role="tab"
+            aria-selected={value === x.id}
+            onClick={() => onChange(x.id)}
+            className={cx("-mb-px whitespace-nowrap border-b-2 px-3 py-2 text-sm transition-colors", value === x.id ? "border-accent font-medium text-fg" : "border-transparent text-muted hover:text-fg")}
+          >
+            {x.label}
+          </button>
+        ))}
+      </div>
+    </>
   );
 }
 

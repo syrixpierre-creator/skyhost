@@ -7,7 +7,7 @@ export interface Capabilities {
   payments: { enabled: boolean; stripe: boolean; paypal: boolean; mobileMoney: boolean };
   email: { delivery: boolean; verificationRequired: boolean };
   support: { email: string | null };
-  maintenance: { enabled: boolean; message?: string; blockDeploys?: boolean; endsAt?: string | null };
+  maintenance: { enabled: boolean; message?: string; blockDeploys?: boolean; closeDashboard?: boolean; endsAt?: string | null };
 }
 
 const NONE: Capabilities = {

@@ -1060,5 +1060,12 @@
   "Relational, the default choice for most apps": "Relationnelle, le choix par défaut pour la plupart des apps",
   "MySQL-compatible: WordPress, Laravel, PHP apps": "Compatible MySQL : WordPress, Laravel, apps PHP",
   "Document database for JSON data": "Base orientée documents pour les données JSON",
-  "Cache, sessions, queues and rate limits": "Cache, sessions, files d'attente et limitation de débit"
+  "Cache, sessions, queues and rate limits": "Cache, sessions, files d'attente et limitation de débit",
+  "We'll be back soon": "Nous revenons très vite",
+  "SKYHOST is under maintenance. Your applications and databases keep running.": "SKYHOST est en maintenance. Vos applications et bases de données continuent de fonctionner.",
+  "Questions?": "Des questions ?",
+  "Put the site in maintenance: only administrators can sign in": "Mettre le site en maintenance : seuls les administrateurs peuvent se connecter",
+  "Users and visitors see the maintenance page on sign in, sign up and the dashboard. You keep full access as an administrator. Hosted apps keep running.": "Les utilisateurs et visiteurs voient la page de maintenance à la connexion, à l'inscription et dans le dashboard. En tant qu'administrateur, vous gardez un accès complet. Les apps hébergées continuent de tourner.",
+  "Administrator sign-in": "Connexion administrateur",
+  "Section": "Section"
 }

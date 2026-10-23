@@ -5,7 +5,7 @@ import { authenticator } from "otplib";
 import { apiKeys, cliAuthRequests, emailTokens, getDb, oauthAccounts, plans, recoveryCodes, sessions, teamMembers, teams, users } from "@skyhost/db";
 import { emailSchema, loginSchema, passwordSchema, signupSchema, slugify } from "@skyhost/shared";
 import { decrypt, encrypt, randomId, randomToken, sha256 } from "@skyhost/shared/node";
-import { attachReferral, audit, badRequest, conflict, forbidden, getSetting, redis, renderEmail, sendMail, serverConfig, tooMany, unauthorized, capabilities } from "@skyhost/core";
+import { attachReferral, audit, badRequest, conflict, dashboardClosed, forbidden, getSetting, redis, renderEmail, sendMail, serverConfig, tooMany, unauthorized, unavailable, capabilities } from "@skyhost/core";
 import { actorOf, clearSessionCookies, clientIp, createSession, generateApiKey, secureCookies, type User } from "../lib/auth";
 import { route } from "../lib/http";
 import { hashPassword, verifyPassword } from "../lib/password";
@@ -98,7 +98,15 @@ function publicUser(u: User) {
 }
 export { publicUser };
 
+/** While the dashboard is closed for maintenance, only administrators may sign in or sign up. */
+export const maintenanceMessage = (m: { message: string }) => `SKYHOST is under maintenance.${m.message ? ` ${m.message}` : ""} Please come back later.`;
+async function assertOpenFor(user: Pick<User, "isAdmin">) {
+  const closed = await dashboardClosed();
+  if (closed && !user.isAdmin) throw unavailable(maintenanceMessage(closed));
+}
+
 async function finishLogin(req: FastifyRequest, reply: FastifyReply, user: User, method: string, deviceId?: string | null) {
+  await assertOpenFor(user);
   await getDb().update(users).set({ failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() }).where(eq(users.id, user.id));
   await createSession(req, reply, user, { deviceId });
   await audit({ userId: user.id, ip: clientIp(req), userAgent: req.headers["user-agent"] }, null, "auth.login", { type: "user", id: user.id }, { method });
@@ -116,6 +124,9 @@ export default async function authRoutes(app: FastifyInstance) {
     const db = getDb();
     const signup = await getSetting("signup");
     if (!signup.enabled) throw forbidden("Sign ups are currently closed");
+    // The very first account (the platform administrator) can always be created.
+    const closed = await dashboardClosed();
+    if (closed && (await db.select({ id: users.id }).from(users).limit(1)).length) throw unavailable(maintenanceMessage(closed));
     const ip = clientIp(req);
     const ipKey = `sh:signup:ip:${sha256(ip)}`;
     const n = await redis().incr(ipKey);
@@ -343,6 +354,8 @@ export default async function authRoutes(app: FastifyInstance) {
       // Only link by email when the provider confirms the address belongs to this person.
       if (user && !profile.emailVerified) return fail("Your email on this provider is not verified. Sign in with your password instead.");
     }
+    const closed = await dashboardClosed();
+    if (closed && !user?.isAdmin) return fail(maintenanceMessage(closed));
     if (!user) {
       if (!profile.email) return fail("Your account has no public verified email address");
       if (!(await getSetting("signup")).enabled) return fail("Sign ups are currently closed");

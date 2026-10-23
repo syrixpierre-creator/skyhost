@@ -49,3 +49,12 @@ suspension of teams or users by administrators, with every decision recorded.
 
 Security-relevant actions (logins, 2FA, keys, members, roles, variables, deploys, billing, admin actions) are
 written to the audit log, visible to team admins (Team settings → Audit log, `GET /api/v1/teams/:teamId/audit-logs`).
+
+## Abuse detection
+
+Every 10 minutes the scheduler looks for services that used at least 90% of their allocated CPU on average for
+two hours (`SKYHOST_ABUSE_CPU_RATIO`, `SKYHOST_ABUSE_CPU_HOURS`), the signature of crypto-mining or a runaway
+process. On a free plan the service is paused and its team notified; on a paid plan it keeps running. Either way an
+abuse report (category "mining", source "detector") is opened and administrators get an email. Unsuspending the
+team in Admin → Teams resumes its services.
+

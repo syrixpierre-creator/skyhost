@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { creditTransactions, deployments, getDb, teams, users } from "@skyhost/db";
+import { abuseReports, creditTransactions, deployments, getDb, metricSamples, serviceInstances, teams, users } from "@skyhost/db";
 import { EMAIL_BY_DEFAULT, getQueue, githubAppJwt, notify, QUEUES, resetServerConfig } from "@skyhost/core";
 import { Client, newUser, PASSWORD, setPlan } from "./helpers";
 import { TEST_ENV } from "./env";
@@ -286,5 +286,39 @@ describe("dashboard closed for maintenance", () => {
       await admin.client.put("/api/v1/admin/settings/maintenance", { enabled: false, closeDashboard: false, message: "" });
     }
     expect((await u.client.get("/api/v1/teams")).status).toBe(200);
+  });
+});
+
+describe("abuse detection", () => {
+  it("pauses a free-plan service that maxes out its CPU for hours, and only reports a paid one", async () => {
+    const { detectCpuAbuse } = await import("../../worker/src/scheduler");
+    const db = getDb();
+    const make = async (plan: string, cpuPercent: number) => {
+      const u = await newUser();
+      await setPlan(u.teamId, plan);
+      const s = await imageService(u);
+      const [existing] = await db.select().from(serviceInstances).where(eq(serviceInstances.serviceId, s.serviceId));
+      if (existing) await db.update(serviceInstances).set({ status: "running" }).where(eq(serviceInstances.id, existing.id));
+      else await db.insert(serviceInstances).values({ serviceId: s.serviceId, environmentId: s.environmentId, status: "running" });
+      // One sample per minute for 2h15, at the given CPU (100 = one full vCPU; the service has 0.5 vCPU by default).
+      const now = Date.now();
+      await db.insert(metricSamples).values(Array.from({ length: 135 }, (_, i) => ({ serviceId: s.serviceId, environmentId: s.environmentId, cpuPercent, createdAt: new Date(now - i * 60_000) })));
+      return s;
+    };
+    const free = await make("free", 49);
+    const paid = await make("pro", 50);
+    const calm = await make("free", 10);
+    await detectCpuAbuse();
+    const inst = async (id: string) => (await db.select().from(serviceInstances).where(eq(serviceInstances.serviceId, id)))[0]!;
+    const reports = async (id: string) => db.select().from(abuseReports).where(eq(abuseReports.serviceId, id));
+    expect(await inst(free.serviceId)).toMatchObject({ status: "paused", pausedReason: "abuse" });
+    expect((await reports(free.serviceId))[0]).toMatchObject({ category: "mining", source: "detector", status: "open" });
+    expect((await inst(paid.serviceId)).status).toBe("running");
+    expect(await reports(paid.serviceId)).toHaveLength(1);
+    expect((await inst(calm.serviceId)).status).toBe("running");
+    expect(await reports(calm.serviceId)).toHaveLength(0);
+    // Not reported twice within a day.
+    await detectCpuAbuse();
+    expect(await reports(paid.serviceId)).toHaveLength(1);
   });
 });

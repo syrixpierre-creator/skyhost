@@ -10,7 +10,7 @@ import { assertPublicUrl } from "@skyhost/shared/node";
 import { attachEdgeToAllNetworks, containerStats, databaseStats, getDocker, getObjectStore, LABEL, listManagedContainers, stopContainer, tailLogs } from "@skyhost/engine";
 import { analyzeErrors } from "@skyhost/analyzer";
 import {
-  approveDueRewards, audit, enqueue, getSetting, getTeamPlan, getUsage, isDue, notify, redis, serviceHostname, verifyDomain, labelOf,
+  approveDueRewards, audit, emailAdmins, enqueue, getSetting, getTeamPlan, getUsage, isDue, notify, redis, serviceHostname, verifyDomain, labelOf,
 } from "@skyhost/core";
 import { refOf } from "./processors/data";
 import { platformBackup } from "./offsite";
@@ -375,6 +375,56 @@ async function retention() {
 }
 
 /**
+ * Crypto-mining and runaway processes: a service that uses nearly all of its CPU for hours. On a free plan it is
+ * paused (an abuse report explains why and an administrator can resume it); on a paid plan administrators are
+ * only told. Thresholds: SKYHOST_ABUSE_CPU_RATIO (0.9 of the allocated vCPU) over SKYHOST_ABUSE_CPU_HOURS (2).
+ */
+export async function detectCpuAbuse() {
+  const db = getDb();
+  const ratio = Number(process.env.SKYHOST_ABUSE_CPU_RATIO ?? 0.9);
+  const hours = Number(process.env.SKYHOST_ABUSE_CPU_HOURS ?? 2);
+  const since = new Date(Date.now() - hours * 3600_000);
+  const rows = await db
+    .select({ inst: serviceInstances, svc: services, teamId: projects.teamId })
+    .from(serviceInstances)
+    .innerJoin(services, eq(services.id, serviceInstances.serviceId))
+    .innerJoin(projects, eq(projects.id, services.projectId))
+    .where(and(eq(serviceInstances.status, "running"), isNull(services.deletedAt)));
+  for (const { inst, svc, teamId } of rows) {
+    const [m] = await db
+      .select({ avg: avg(metricSamples.cpuPercent), n: sql<number>`count(*)::int`, first: sql<Date>`min(${metricSamples.createdAt})` })
+      .from(metricSamples)
+      .where(and(eq(metricSamples.serviceId, svc.id), eq(metricSamples.environmentId, inst.environmentId), gte(metricSamples.createdAt, since)));
+    // Enough samples spread over the whole window (one per minute), not a burst after a deploy.
+    if (!m || m.n < hours * 40 || new Date(m.first).getTime() > since.getTime() + 15 * 60_000) continue;
+    const cfg = svc.config as ServiceConfig;
+    const allocated = (cfg.resources?.cpu ?? 0.5) * (cfg.resources?.replicas ?? 1) * 100;
+    const usage = Number(m.avg) / allocated;
+    if (usage < ratio) continue;
+    const [recent] = await db.select({ id: abuseReports.id }).from(abuseReports).where(and(eq(abuseReports.serviceId, svc.id), eq(abuseReports.source, "detector"), gte(abuseReports.createdAt, new Date(Date.now() - 24 * 3600_000))));
+    if (recent) continue;
+    const plan = await getTeamPlan(teamId);
+    const pause = plan.isFree;
+    const pct = Math.round(usage * 100);
+    await db.insert(abuseReports).values({
+      targetUrl: `service:${svc.id}`,
+      category: "mining",
+      description: `${svc.name} used ${pct}% of its ${cfg.resources?.cpu ?? 0.5} vCPU on average for ${hours} hours${pause ? " and was paused automatically (free plan)" : ""}.`,
+      serviceId: svc.id,
+      teamId,
+      status: "open",
+      source: "detector",
+    });
+    if (pause) {
+      await db.update(serviceInstances).set({ status: "paused", pausedReason: "abuse" }).where(eq(serviceInstances.id, inst.id));
+      await enqueue("maintenance", { task: `stop:${svc.id}:${inst.environmentId}` });
+      await notify({ teamId, event: "alert.triggered", title: `${svc.name} was paused`, body: `It used ${pct}% of its CPU for ${hours} hours, which looks like crypto-mining or a runaway process. Contact support if this is expected; paid plans are not paused.`, link: `/projects/${svc.projectId}/services/${svc.id}` });
+    }
+    await emailAdmins(`Sustained CPU usage: ${svc.name}`, [`${svc.name} (team ${teamId}) used ${pct}% of its CPU for ${hours} hours.`, pause ? "It was paused automatically (free plan). Review the abuse report: dismiss it to keep it paused, or unsuspend the team to resume it." : "It runs on a paid plan and was not paused."], { cooldownKey: `cpu-abuse:${svc.id}`, cooldownSeconds: 24 * 3600, link: "/admin/abuse" });
+  }
+}
+
+/**
  * Keeps the server's disk in check: images of old releases (the live one and the last few stay for rollbacks),
  * images and containers of deleted services or databases, BuildKit cache older than three days.
  */
@@ -451,6 +501,7 @@ export function startScheduler() {
     await every("quota-warnings", 60 * 60_000, quotaWarnings);
     await every("retention", 6 * 60 * 60_000, retention);
     await every("disk-cleanup", 6 * 60 * 60_000, diskCleanup);
+    await every("cpu-abuse", 10 * 60_000, detectCpuAbuse);
     await every("offsite-platform", 24 * 60 * 60_000, platformBackup);
     await every("stale", 5 * 60_000, failStaleDeployments);
   };

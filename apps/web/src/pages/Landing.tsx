@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Activity, Database, GitBranch, LifeBuoy, RotateCcw, ShieldCheck, Sparkles, Wand2 } from "lucide-react";
+import { Activity, Database, GitBranch, LifeBuoy, RotateCcw, ScanSearch, ShieldCheck, Sparkles, Stethoscope, Wand2 } from "lucide-react";
 import { formatCents } from "@skyhost/shared";
 import { get } from "../lib/api";
 import { useCapabilities } from "../lib/capabilities";
@@ -12,9 +12,9 @@ import { DeployIllustration } from "./Auth";
 interface PublicPlan { id: string; name: string; priceCents: number; currency: string; interval: string; isFree: boolean; isContactSales: boolean; limits: Record<string, number> }
 
 const FEATURES = [
-  { icon: Sparkles, title: "SmartDeploy", text: "Detects Next.js, Node, Python, Go, PHP, Java, static sites and Dockerfiles: no configuration file to write." },
+  { icon: Sparkles, phoneIcon: ScanSearch, title: "SmartDeploy", text: "Detects Next.js, Node, Python, Go, PHP, Java, static sites and Dockerfiles: no configuration file to write." },
   { icon: RotateCcw, title: "Zero-downtime releases", text: "Every release is health-checked before it receives traffic. One click rolls back." },
-  { icon: Wand2, title: "Smart Error Analyzer", text: "When a build or an app fails, you get the cause and the fix, by email too." },
+  { icon: Wand2, phoneIcon: Stethoscope, title: "Smart Error Analyzer", text: "When a build or an app fails, you get the cause and the fix, by email too." },
   { icon: Database, title: "Managed databases", text: "PostgreSQL, MySQL, MongoDB and Redis with verified backups, in seconds." },
   { icon: ShieldCheck, title: "Secure by default", text: "Isolated containers, encrypted secrets, HTTPS everywhere, firewall and 2FA." },
   { icon: Activity, title: "Logs, metrics, alerts", text: "Live logs, CPU and memory charts, uptime checks and alerts where you are." },
@@ -72,7 +72,8 @@ export default function Landing() {
             <div className="mt-8 grid gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
               {FEATURES.map((f) => (
                 <div key={f.title} className="bg-bg p-6">
-                  <f.icon className="size-5" aria-hidden />
+                  {/* No "magic" sparkle icons on phones: plain icons there, the illustrated ones on computers. */}
+                  {"phoneIcon" in f ? <><f.phoneIcon className="size-5 md:hidden" aria-hidden /><f.icon className="hidden size-5 md:block" aria-hidden /></> : <f.icon className="size-5" aria-hidden />}
                   <h3 className="mt-4 font-medium">{t(f.title)}</h3>
                   <p className="mt-1.5 text-sm text-muted">{t(f.text)}</p>
                 </div>

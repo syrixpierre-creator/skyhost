@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Boxes, Container, Database as DatabaseIcon, FileArchive, FolderGit2, GitBranch, Github, Gitlab, Globe, HelpCircle, Package, Sparkles } from "lucide-react";
+import { Boxes, Container, Database as DatabaseIcon, FileArchive, FolderGit2, GitBranch, Github, Gitlab, Globe, HelpCircle, Loader2, Package, Sparkles } from "lucide-react";
 import { DATABASE_ENGINES, DATABASE_VERSIONS } from "@skyhost/shared";
 import { api, get, post } from "../lib/api";
 import { useSession } from "../lib/session";
@@ -252,7 +252,7 @@ export default function NewProject() {
 
       {!analysis && (
         <div className="grid gap-6 md:grid-cols-[220px_1fr]">
-          <nav className="flex flex-row gap-1 overflow-x-auto md:flex-col">
+          <nav className="flex flex-row flex-wrap gap-1 md:flex-col">
             {tabs.map((x) => (
               <button key={x.id} onClick={() => setTab(x.id)} className={cx("flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-left text-sm", tab === x.id ? "bg-panel-2 font-medium" : "text-muted hover:bg-panel-2")}>
                 {x.icon} <span className={cx(!gitAvailable(x.id) && "text-faint")}>{x.label}</span>
@@ -263,7 +263,8 @@ export default function NewProject() {
           <Card>
             {analyze.isPending ? (
               <div className="flex flex-col items-center gap-3 py-12 text-sm text-muted">
-                <Sparkles className="size-6 animate-pulse text-brand" />
+                <Loader2 className="size-6 animate-spin text-muted md:hidden" />
+                <Sparkles className="hidden size-6 animate-pulse text-brand md:block" />
                 {t("deploy.analyzing")}
               </div>
             ) : ["github", "gitlab", "bitbucket"].includes(tab) ? (
@@ -335,7 +336,7 @@ export default function NewProject() {
       {analysis && (
         <div className="space-y-4">
           <Card
-            title={<span className="flex items-center gap-2"><Sparkles className="size-4 text-brand" /> {t("deploy.detected")} <ConfidenceBadge c={analysis.confidence} /></span>}
+            title={<span className="flex items-center gap-2"><Sparkles className="hidden size-4 text-brand md:block" /> {t("deploy.detected")} <ConfidenceBadge c={analysis.confidence} /></span>}
             actions={
               <>
                 <Button size="sm" variant="ghost" onClick={() => setShowExplain(!showExplain)}>

@@ -119,7 +119,8 @@ export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: Array<
           </Select>
         </div>
       )}
-      <div className={cx("mb-5 gap-1 overflow-x-auto border-b border-line", plain ? "hidden sm:flex" : "flex")} role="tablist">
+      {/* Tabs wrap onto a second line rather than scrolling: a sideways-scrolling row hid the last tabs (Settings). */}
+      <div className={cx("mb-5 flex-wrap gap-x-1 border-b border-line", plain ? "hidden sm:flex" : "flex")} role="tablist">
         {tabs.map((x) => (
           <button
             key={x.id}

@@ -278,3 +278,19 @@ test("public documentation: index, search, articles in English and French", asyn
   await visitor.goto("/docs/custom-domains");
   await expect(visitor.getByRole("heading", { name: "Domaines personnalisés" })).toBeVisible();
 });
+
+test("a phone in Chrome's desktop-site mode still sees every tab, and no sparkle icons on phones", async ({ browser }) => {
+  // "Desktop site" on Android lays pages out 980 px wide: tabs wrap instead of hiding Settings off-screen.
+  const page = await (await browser.newContext({ viewport: { width: 980, height: 1600 }, isMobile: true, hasTouch: true })).newPage();
+  await login(page);
+  await page.goto("/settings");
+  const tabs = page.getByRole("tablist").first();
+  for (const tab of await tabs.getByRole("tab").all()) {
+    const box = (await tab.boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(980);
+  }
+  const phone = await (await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true })).newPage();
+  await phone.goto("/");
+  await expect(phone.getByRole("heading", { name: "SmartDeploy" })).toBeVisible();
+  await expect(phone.locator("svg.lucide-sparkles:visible")).toHaveCount(0);
+});

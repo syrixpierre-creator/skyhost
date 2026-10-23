@@ -5,7 +5,7 @@ import { describe, expect, it, beforeAll } from "vitest";
 import yazl from "yazl";
 import { createWriteStream } from "node:fs";
 import { generateMasterKey, parseKeyring, setKeyring } from "@skyhost/shared/node";
-import { buildTraefikConfig, extractZip, FsObjectStore, parseCommand, safeArchivePath, setEngineConfig, validateCommand, serializeBuildEnv } from "../src";
+import { buildTraefikConfig, extractZip, FsObjectStore, gitEnv, parseCommand, safeArchivePath, setEngineConfig, validateCommand, serializeBuildEnv } from "../src";
 
 beforeAll(async () => {
   setKeyring(parseKeyring(`k1:${generateMasterKey()}`));
@@ -142,4 +142,16 @@ describe("build env", () => {
   it("quotes values safely for the BuildKit secret file", () => {
     expect(serializeBuildEnv({ A: "it's", "BAD-KEY": "x", B: "$(id)" })).toBe("A='it'\\''s'\nB='$(id)'\n");
   });
+});
+
+describe("git environment", () => {
+  // An empty GIT_SSL_CAINFO is not "unset" for git: it fails every HTTPS clone with "Problem with the SSL CA cert".
+  it("passes optional TLS and proxy settings only when they are set", () => {
+    const env = gitEnv({ PATH: "/usr/bin", HOME: "/home/node", GIT_SSL_CAINFO: "", HTTPS_PROXY: "" });
+    expect(env).not.toHaveProperty("GIT_SSL_CAINFO");
+    expect(env).not.toHaveProperty("HTTPS_PROXY");
+    expect(env).toMatchObject({ PATH: "/usr/bin", GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_NOSYSTEM: "1" });
+    expect(gitEnv({ PATH: "/usr/bin", GIT_SSL_CAINFO: "/etc/ssl/ca.pem" }).GIT_SSL_CAINFO).toBe("/etc/ssl/ca.pem");
+  });
+
 });

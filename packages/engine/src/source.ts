@@ -30,21 +30,23 @@ export interface CommitInfo {
   message: string;
 }
 
+/**
+ * Minimal environment for git. Optional settings are passed only when set: an empty GIT_SSL_CAINFO makes git look
+ * for a CA bundle at an empty path ("Problem with the SSL CA cert") instead of using the system certificates.
+ */
+export function gitEnv(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = { PATH: source.PATH, HOME: source.HOME ?? "/tmp", GIT_TERMINAL_PROMPT: "0", GIT_ASKPASS: "/bin/false", GIT_CONFIG_NOSYSTEM: "1" };
+  for (const k of ["HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "https_proxy", "http_proxy", "no_proxy", "GIT_SSL_CAINFO", "SSL_CERT_FILE", "SSL_CERT_DIR"]) {
+    if (source[k]) env[k] = source[k];
+  }
+  return env;
+}
+
 function runGit(args: string[], opts: { cwd?: string; timeoutMs?: number; secrets?: string[]; onLine?: (l: string) => void } = {}): Promise<string> {
   return new Promise((resolvePromise, reject) => {
     const child = spawn("git", args, {
       cwd: opts.cwd,
-      env: {
-        PATH: process.env.PATH,
-        HOME: process.env.HOME ?? "/tmp",
-        GIT_TERMINAL_PROMPT: "0",
-        GIT_ASKPASS: "/bin/false",
-        GIT_CONFIG_NOSYSTEM: "1",
-        HTTPS_PROXY: process.env.HTTPS_PROXY ?? "",
-        HTTP_PROXY: process.env.HTTP_PROXY ?? "",
-        NO_PROXY: process.env.NO_PROXY ?? "",
-        GIT_SSL_CAINFO: process.env.GIT_SSL_CAINFO ?? "",
-      },
+      env: gitEnv(),
       stdio: ["ignore", "pipe", "pipe"],
     });
     let out = "";

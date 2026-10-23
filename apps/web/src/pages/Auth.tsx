@@ -79,7 +79,8 @@ export default function Auth({ mode }: { mode: "login" | "signup" | "forgot" | "
   const [error, setError] = useState<string | null>(params.get("error"));
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const next = params.get("next") ?? "/";
+  const rawNext = params.get("next") ?? "/";
+  const next = rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.startsWith("/\\") ? rawNext : "/";
 
   useEffect(() => {
     if (mode === "referral" && code) {

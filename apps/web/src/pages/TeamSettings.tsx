@@ -76,7 +76,7 @@ function Members() {
                   </td>
                   <td className="w-56 px-4 text-right">
                     {m.role !== "owner" && team!.role === "owner" && <Button size="sm" variant="ghost" onClick={() => setTransfer(m.userId)}>Make owner</Button>}
-                    {m.role !== "owner" && <Button size="sm" variant="ghost" onClick={() => del(`/teams/${team!.id}/members/${m.userId}`).then(() => (m.userId === me?.user.id ? (location.href = "/") : reload())).catch(err)}>{m.userId === me?.user.id ? "Leave" : "Remove"}</Button>}
+                    {m.role !== "owner" && <Button size="sm" variant="ghost" onClick={() => del(`/teams/${team!.id}/members/${m.userId}`).then(() => { if (m.userId === me?.user.id) location.href = "/"; else void reload(); }).catch(err)}>{m.userId === me?.user.id ? "Leave" : "Remove"}</Button>}
                   </td>
                 </tr>
               ))}

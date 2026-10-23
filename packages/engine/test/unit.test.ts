@@ -112,7 +112,7 @@ describe("proxy config", () => {
       { ...opts, tlsEnabled: false },
     ) as { http: { routers: Record<string, { service: string }>; services: Record<string, { weighted?: { services: Array<{ weight: number }> } }> } };
     expect(cfg.http.services["a-svc"]!.weighted!.services.map((s) => s.weight)).toEqual([90, 10]);
-    expect(cfg.http.routers.b!.service).toBe("sh-waker");
+    expect(cfg.http.routers.b!.service).toBe("sh-api");
   });
 });
 

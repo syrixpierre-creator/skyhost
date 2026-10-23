@@ -4,7 +4,7 @@ import * as schema from "./schema";
 
 export * as schema from "./schema";
 export * from "./schema";
-export { seed } from "./seed-data";
+export { seed, DEFAULT_SETTINGS, DEFAULT_PLANS } from "./seed-data";
 export { runMigrations } from "./migrator";
 
 export type Database = PostgresJsDatabase<typeof schema>;

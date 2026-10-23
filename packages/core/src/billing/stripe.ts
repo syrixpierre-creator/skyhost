@@ -1,0 +1,91 @@
+import Stripe from "stripe";
+import { serverConfig } from "../config";
+import { unavailable } from "../errors";
+
+let client: Stripe | null = null;
+
+export function stripeConfigured() {
+  const c = serverConfig();
+  return !!c.STRIPE_SECRET_KEY && c.SKYHOST_PAYMENTS_ENABLED;
+}
+
+export function stripe(): Stripe {
+  const c = serverConfig();
+  if (!c.STRIPE_SECRET_KEY) throw unavailable("Stripe is not configured (set STRIPE_SECRET_KEY)");
+  if (!c.SKYHOST_PAYMENTS_ENABLED) throw unavailable("Payments are disabled in this environment (SKYHOST_PAYMENTS_ENABLED=false)");
+  client ??= new Stripe(c.STRIPE_SECRET_KEY, { maxNetworkRetries: 2, appInfo: { name: "SKYHOST" } });
+  return client;
+}
+
+/**
+ * Verifies the Stripe-Signature header against the raw body. Throws on invalid signature or a timestamp outside
+ * the tolerance window (anti-replay). Does not need API keys.
+ */
+export function verifyStripeWebhook(rawBody: Buffer | string, signature: string | undefined): Stripe.Event {
+  const secret = serverConfig().STRIPE_WEBHOOK_SECRET;
+  if (!secret) throw unavailable("STRIPE_WEBHOOK_SECRET is not configured");
+  if (!signature) throw new Error("Missing Stripe-Signature header");
+  return Stripe.webhooks.constructEvent(rawBody, signature, secret, 300);
+}
+
+export async function ensureStripeCustomer(team: { id: string; name: string; billingEmail: string | null; stripeCustomerId: string | null }, email: string) {
+  if (team.stripeCustomerId) return team.stripeCustomerId;
+  const customer = await stripe().customers.create({ name: team.name, email: team.billingEmail ?? email, metadata: { teamId: team.id } }, { idempotencyKey: `customer-${team.id}` });
+  return customer.id;
+}
+
+export async function createSubscriptionCheckout(o: { customerId: string; teamId: string; userId: string; priceId: string; planId: string; successUrl: string; cancelUrl: string; trialDays?: number }) {
+  const session = await stripe().checkout.sessions.create({
+    mode: "subscription",
+    customer: o.customerId,
+    line_items: [{ price: o.priceId, quantity: 1 }],
+    success_url: o.successUrl,
+    cancel_url: o.cancelUrl,
+    client_reference_id: o.teamId,
+    allow_promotion_codes: true,
+    automatic_tax: { enabled: false },
+    subscription_data: { metadata: { teamId: o.teamId, planId: o.planId, userId: o.userId }, ...(o.trialDays ? { trial_period_days: o.trialDays } : {}) },
+    metadata: { teamId: o.teamId, planId: o.planId, userId: o.userId, kind: "subscription" },
+  });
+  return session.url!;
+}
+
+export async function createCreditsCheckout(o: { customerId: string; teamId: string; userId: string; amountCents: number; currency: string; successUrl: string; cancelUrl: string }) {
+  const session = await stripe().checkout.sessions.create({
+    mode: "payment",
+    customer: o.customerId,
+    line_items: [{ price_data: { currency: o.currency, unit_amount: o.amountCents, product_data: { name: "SKYHOST prepaid credits" } }, quantity: 1 }],
+    success_url: o.successUrl,
+    cancel_url: o.cancelUrl,
+    client_reference_id: o.teamId,
+    payment_intent_data: { metadata: { teamId: o.teamId, userId: o.userId, kind: "credits" } },
+    metadata: { teamId: o.teamId, userId: o.userId, kind: "credits" },
+  });
+  return session.url!;
+}
+
+/** Changes the plan of an existing subscription with proration. */
+export async function changeStripePlan(subscriptionId: string, priceId: string) {
+  const sub = await stripe().subscriptions.retrieve(subscriptionId);
+  const item = sub.items.data[0];
+  return stripe().subscriptions.update(subscriptionId, { items: [{ id: item!.id, price: priceId }], proration_behavior: "create_prorations" });
+}
+
+export async function cancelStripeSubscription(subscriptionId: string, atPeriodEnd = true) {
+  if (atPeriodEnd) return stripe().subscriptions.update(subscriptionId, { cancel_at_period_end: true });
+  return stripe().subscriptions.cancel(subscriptionId);
+}
+
+export async function refundStripePayment(paymentIntentOrCharge: string, amountCents?: number) {
+  const key = paymentIntentOrCharge.startsWith("pi_") ? { payment_intent: paymentIntentOrCharge } : { charge: paymentIntentOrCharge };
+  return stripe().refunds.create({ ...key, ...(amountCents ? { amount: amountCents } : {}) });
+}
+
+export async function billingPortalUrl(customerId: string, returnUrl: string) {
+  const s = await stripe().billingPortal.sessions.create({ customer: customerId, return_url: returnUrl });
+  return s.url;
+}
+
+export async function stripeTransfer(accountId: string, amountCents: number, currency: string, reference: string) {
+  return stripe().transfers.create({ amount: amountCents, currency, destination: accountId, metadata: { reference } }, { idempotencyKey: `payout-${reference}` });
+}

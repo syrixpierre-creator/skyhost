@@ -27,6 +27,8 @@ export interface Route {
   /** Block writes (used for buckets above quota). */
   blockMethods?: string[];
   headers?: Record<string, string>;
+  /** "status": a project status page on a custom domain, served by the API. */
+  kind?: "app" | "status";
 }
 
 export interface ProxyOptions {
@@ -59,8 +61,11 @@ export function buildTraefikConfig(routes: Route[], opts: ProxyOptions): Obj {
       },
     },
   };
-  services["sh-waker"] = { loadBalancer: { servers: [{ url: `${opts.apiUrl}/internal/wake` }], passHostHeader: true } };
-  services["sh-quota-blocked"] = { loadBalancer: { servers: [{ url: `${opts.apiUrl}/internal/blocked` }], passHostHeader: true } };
+  // Requests handled by the API itself (waker, quota block page, status pages on custom domains) get a path prefix.
+  services["sh-api"] = { loadBalancer: { servers: [{ url: opts.apiUrl }], passHostHeader: true } };
+  middlewares["sh-wake-prefix"] = { addPrefix: { prefix: "/internal/wake" } };
+  middlewares["sh-blocked-prefix"] = { addPrefix: { prefix: "/internal/blocked" } };
+  middlewares["sh-status-prefix"] = { addPrefix: { prefix: "/internal/status-page" } };
 
   for (const r of routes) {
     const k = key(r.id);
@@ -95,10 +100,14 @@ export function buildTraefikConfig(routes: Route[], opts: ProxyOptions): Obj {
     }
 
     let serviceName: string;
-    if (r.sleeping) {
-      middlewares[`${k}-wake`] = { headers: { customRequestHeaders: { "X-Skyhost-Route": r.id, "X-Skyhost-Token": opts.internalToken } } };
-      mws.push(`${k}-wake`);
-      serviceName = "sh-waker";
+    if (r.kind === "status") {
+      middlewares[`${k}-route`] = { headers: { customRequestHeaders: { "X-Skyhost-Route": r.id, "X-Skyhost-Token": opts.internalToken } } };
+      mws.push(`${k}-route`, "sh-status-prefix");
+      serviceName = "sh-api";
+    } else if (r.sleeping) {
+      middlewares[`${k}-route`] = { headers: { customRequestHeaders: { "X-Skyhost-Route": r.id, "X-Skyhost-Token": opts.internalToken } } };
+      mws.push(`${k}-route`, "sh-wake-prefix");
+      serviceName = "sh-api";
     } else if (r.backends.length === 1) {
       serviceName = `${k}-svc`;
       services[serviceName] = lb(r.backends[0]!.servers);
@@ -124,7 +133,8 @@ export function buildTraefikConfig(routes: Route[], opts: ProxyOptions): Obj {
       routers[`${k}-blocked`] = {
         rule: methodRule,
         entryPoints: [opts.tlsEnabled && r.tls ? opts.httpsEntryPoint : opts.httpEntryPoint],
-        service: "sh-quota-blocked",
+        service: "sh-api",
+        middlewares: ["sh-blocked-prefix"],
         priority: 100,
         ...(opts.tlsEnabled && r.tls ? { tls: r.certResolver ? { certResolver: r.certResolver } : {} } : {}),
       };

@@ -173,11 +173,17 @@ export default async function adminRoutes(app: FastifyInstance) {
   route(app, { method: "PUT", url: "/admin/settings/:key", tags: ["admin"], params: z.object({ key: z.enum(["referral", "billing", "signup", "maintenance"]) }), body: z.record(z.unknown()) }, async (req, _r, { params, body }) => {
     const schemas = {
       referral: z.object({ enabled: z.boolean(), rewardType: z.enum(["percent", "fixed"]), percent: z.number().min(0).max(100), recurringMonths: z.number().int().min(1).max(120), fixedCents: z.number().int().min(0), refereeBonusCents: z.number().int().min(0), refundWindowDays: z.number().int().min(0).max(180), minPayoutCents: z.number().int().min(0), maxRewardsPerReferrerPerMonth: z.number().int().min(1), payoutMethods: z.array(z.enum(["credit", "stripe_connect", "paypal"])) }).partial(),
-      billing: z.object({ graceDays: z.number().int().min(0).max(60), dunningDays: z.array(z.number().int().min(0).max(60)).max(10), defaultTaxPercent: z.number().min(0).max(50), trialPlan: z.string().max(32) }).partial(),
+      billing: z.object({ graceDays: z.number().int().min(0).max(60), dunningDays: z.array(z.number().int().min(0).max(60)).max(10), defaultTaxPercent: z.number().min(0).max(50), trialPlan: z.string().max(32), usage: z.object({ enabled: z.boolean(), planIncludesUsage: z.boolean(), startedAt: z.string().nullable().optional(), rates: z.object({ cpuHourCents: z.number().min(0).max(10_000), memoryGbHourCents: z.number().min(0).max(10_000), egressGbCents: z.number().min(0).max(10_000), buildMinuteCents: z.number().min(0).max(10_000) }) }) }).partial(),
       signup: z.object({ enabled: z.boolean(), maxAccountsPerIpPerDay: z.number().int().min(1).max(1000) }).partial(),
       maintenance: z.object({ enabled: z.boolean(), message: z.string().max(500), blockDeploys: z.boolean(), closeDashboard: z.boolean(), endsAt: z.string().datetime().nullable() }).partial(),
     };
-    const parsed = schemas[params.key].parse(body);
+    const parsed = schemas[params.key].parse(body) as Record<string, unknown>;
+    if (params.key === "billing" && parsed.usage) {
+      const current = (await getSetting("billing")).usage;
+      const next = parsed.usage as { enabled: boolean; startedAt?: string | null };
+      // Remember when pay-as-you-go starts: usage is only billed for the months after it.
+      next.startedAt = next.enabled ? (current.enabled && current.startedAt ? current.startedAt : new Date().toISOString()) : null;
+    }
     const value = await setSetting(params.key, parsed as never);
     await audit(actorOf(req), null, "admin.settings_updated", { type: "settings", id: params.key }, parsed);
     return { value };

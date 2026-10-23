@@ -10,7 +10,7 @@ import { assertPublicUrl } from "@skyhost/shared/node";
 import { attachEdgeToAllNetworks, containerStats, databaseStats, getDocker, getObjectStore, LABEL, listManagedContainers, stopContainer, tailLogs } from "@skyhost/engine";
 import { analyzeErrors } from "@skyhost/analyzer";
 import {
-  approveDueRewards, audit, checkServerHealth, emailAdmins, enqueue, getSetting, getTeamPlan, getUsage, isDue, notify, redis, serviceHostname, verifyDomain, labelOf,
+  approveDueRewards, audit, checkServerHealth, closeUsagePeriod, emailAdmins, enqueue, getSetting, getTeamPlan, getUsage, isDue, notify, redis, serviceHostname, verifyDomain, labelOf,
 } from "@skyhost/core";
 import { refOf } from "./processors/data";
 import { platformBackup } from "./offsite";
@@ -503,6 +503,8 @@ export function startScheduler() {
     await every("disk-cleanup", 6 * 60 * 60_000, diskCleanup);
     await every("cpu-abuse", 10 * 60_000, detectCpuAbuse);
     await every("server-health", 5 * 60_000, checkServerHealth);
+    // Usage beyond the plan is billed once per team and month (idempotent), checked every few hours.
+    await every("usage-billing", 3 * 60 * 60_000, () => closeUsagePeriod());
     await every("offsite-platform", 24 * 60 * 60_000, platformBackup);
     await every("stale", 5 * 60_000, failStaleDeployments);
   };

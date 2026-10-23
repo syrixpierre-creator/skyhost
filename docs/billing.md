@@ -54,6 +54,15 @@ Billing → Overview shows the estimated bill for the current period (plan price
 the plan price split across services by the CPU and memory they used. Billing → Usage charts CPU hours, memory
 GB-hours, egress and build minutes per day.
 
+## Pay as you go
+
+Admin → Settings → "Pay as you go" bills resource usage like Railway: rates per vCPU-hour, GB-hour of memory, GB of
+outbound traffic and build minute (cents, fractions allowed). With "the plan price includes the same amount of
+usage", a 5 USD plan covers 5 USD of usage and only the rest is billed. The Billing page shows the running
+estimate per resource. Each month, usage beyond the plan becomes an invoice paid from prepaid credits; without
+enough credits it stays open and the team enters the usual grace period. Billing starts with the first full month
+after the feature is switched on: earlier usage is never billed.
+
 ## Failed payments
 
 The team enters a grace period (`billing.graceDays`, default 7) with reminder emails (`dunningDays`). After it

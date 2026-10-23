@@ -8,7 +8,7 @@ import {
   activateSubscription, audit, badRequest, billingPortalUrl, cancelPaypalSubscription, cancelStripeSubscription, capturePaypalOrder, changeStripePlan, conflict, createCreditsCheckout,
   createMobileMoneyPayment, createPaypalOrder, createPaypalSubscription, createSubscriptionCheckout, ensureStripeCustomer, flutterwaveConfigured, getUsage, notFound, paypalConfigured,
   recordPayment, renderInvoicePdf, serverConfig, stripeConfigured, teamBillingOverview, usageSummary, labelOf,
-  consumePendingDiscount, discountedCents, listRedemptions, pendingDiscount, redeemPromoCode, getTeamPlan,
+  consumePendingDiscount, discountedCents, listRedemptions, pendingDiscount, redeemPromoCode, getTeamPlan, usageCharge,
 } from "@skyhost/core";
 import { actorOf } from "../lib/auth";
 import { teamAccess } from "../lib/authz";
@@ -213,6 +213,7 @@ export default async function billingRoutes(app: FastifyInstance) {
     for (const r of rows(builds)) { const s = services.get(String(r.service_id)); if (s) s.buildMinutes += Number(r.q) / 60; }
     const plan = await getTeamPlan(params.teamId);
     const promo = await pendingDiscount(params.teamId);
+    const charge = await usageCharge(params.teamId, start, end);
     const list = [...services.values()];
     // Attribution weight: CPU hours and memory GB-hours, each normalised by the team total.
     const tot = list.reduce((a, s) => ({ cpu: a.cpu + s.cpuHours, mem: a.mem + s.memoryGbHours }), { cpu: 0, mem: 0 });
@@ -220,7 +221,7 @@ export default async function billingRoutes(app: FastifyInstance) {
     return {
       period: { start, end },
       plan: { slug: plan.slug, name: plan.name, priceCents: plan.priceCents, currency: plan.currency },
-      estimate: { planCents: plan.priceCents, discountCents: plan.priceCents - discountedCents(plan.priceCents, promo), totalCents: discountedCents(plan.priceCents, promo), promo },
+      estimate: { planCents: plan.priceCents, discountCents: plan.priceCents - discountedCents(plan.priceCents, promo), usage: charge, totalCents: discountedCents(plan.priceCents, promo) + charge.billableCents, promo },
       daily: [...days.values()],
       services: weighted.sort((a, b) => b.share - a.share).map((s) => ({ ...s, share: Math.round(s.share * 1000) / 10, attributedCents: Math.round(plan.priceCents * s.share) })),
     };

@@ -44,7 +44,13 @@ interface Overview {
 interface Usage {
   period: { start: string; end: string };
   plan: { slug: string; name: string; priceCents: number; currency: string };
-  estimate: { planCents: number; discountCents: number; totalCents: number; promo: { code: string; percentOff: number } | null };
+  estimate: {
+    planCents: number;
+    discountCents: number;
+    totalCents: number;
+    promo: { code: string; percentOff: number } | null;
+    usage?: { enabled: boolean; lines: Array<{ metric: string; label: string; unit: string; quantity: number; unitCents: number; amountCents: number }>; usageCents: number; includedCents: number; billableCents: number };
+  };
   daily: Array<{ day: string; cpuHours: number; memoryGbHours: number; egressGb: number; buildMinutes: number }>;
   services: Array<{ serviceId: string; service: string; project: string; projectId: string; cpuHours: number; memoryGbHours: number; egressGb: number; buildMinutes: number; share: number; attributedCents: number }>;
 }
@@ -188,7 +194,16 @@ export default function Billing() {
                 <dl className="divide-y divide-line text-sm">
                   <Line label={t("{{plan}} plan", { plan: u.plan.name })} value={formatCents(u.estimate.planCents, u.plan.currency.toUpperCase())} />
                   {u.estimate.promo && <Line label={<span className="flex items-center gap-2">{t("Promo code")} <code className="rounded bg-panel-2 px-1.5 py-0.5 font-mono text-xs">{u.estimate.promo.code}</code> <span className="text-muted">−{u.estimate.promo.percentOff}%</span></span>} value={`−${formatCents(u.estimate.discountCents, u.plan.currency.toUpperCase())}`} />}
-                  <Line label={t("Usage included in the plan")} value={formatCents(0, u.plan.currency.toUpperCase())} muted />
+                  {u.estimate.usage?.enabled ? (
+                    <>
+                      {u.estimate.usage.lines.map((l) => (
+                        <Line key={l.metric} label={<span>{t(l.label)} <span className="text-xs text-faint">{l.quantity} {t(l.unit)} × {l.unitCents}¢</span></span>} value={formatCents(l.amountCents, u.plan.currency.toUpperCase())} muted />
+                      ))}
+                      {u.estimate.usage.includedCents > 0 && <Line label={t("Usage included in the plan")} value={`−${formatCents(u.estimate.usage.includedCents, u.plan.currency.toUpperCase())}`} muted />}
+                    </>
+                  ) : (
+                    <Line label={t("Usage included in the plan")} value={formatCents(0, u.plan.currency.toUpperCase())} muted />
+                  )}
                   <Line label={<span className="font-medium text-fg">{t("Total")}</span>} value={<span className="font-semibold text-fg">{formatCents(u.estimate.totalCents, u.plan.currency.toUpperCase())}</span>} />
                 </dl>
               ) : usage.error ? <div className="p-4"><ErrorState error={usage.error} onRetry={() => usage.refetch()} /></div> : <div className="p-4"><LoadingRows rows={3} /></div>}

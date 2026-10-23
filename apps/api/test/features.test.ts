@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
-import { abuseReports, creditTransactions, deployments, getDb, metricSamples, serviceInstances, teams, users } from "@skyhost/db";
-import { EMAIL_BY_DEFAULT, getQueue, githubAppJwt, notify, QUEUES, resetServerConfig } from "@skyhost/core";
+import { and, eq } from "drizzle-orm";
+import { abuseReports, creditTransactions, deployments, getDb, invoices, metricSamples, serviceInstances, teams, usageRecords, users } from "@skyhost/db";
+import { closeUsagePeriod, EMAIL_BY_DEFAULT, getQueue, getSetting, githubAppJwt, notify, QUEUES, resetServerConfig, setSetting } from "@skyhost/core";
 import { Client, newUser, PASSWORD, setPlan } from "./helpers";
 import { TEST_ENV } from "./env";
 
@@ -375,5 +375,47 @@ describe("onboarding checklist", () => {
     expect(r1.body.steps).toMatchObject({ addDatabase: true, inviteTeammate: true });
     // Another team cannot read it.
     expect((await (await newUser()).client.get(`/api/v1/teams/${u.teamId}/onboarding`)).status).toBe(404);
+  });
+});
+
+describe("pay as you go", () => {
+  it("estimates usage beyond the plan and bills last month once, from credits or as an unpaid invoice", async () => {
+    const admin = await adminUser();
+    const db = getDb();
+    const lastMonth = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() - 1, 10));
+    const enable = await admin.client.put("/api/v1/admin/settings/billing", { usage: { enabled: true, planIncludesUsage: true, rates: { cpuHourCents: 100, memoryGbHourCents: 0, egressGbCents: 0, buildMinuteCents: 0 } } });
+    expect(enable.status, enable.raw).toBe(200);
+    expect((await getSetting("billing")).usage.startedAt).toBeTruthy();
+    expect(await closeUsagePeriod()).toBe(0); // switched on this month: last month is never billed
+    // Pretend it was switched on long ago to test the monthly close.
+    await setSetting("billing", { usage: { ...(await getSetting("billing")).usage, startedAt: new Date(Date.UTC(2000, 0, 1)).toISOString() } });
+    try {
+      const rich = await newUser();
+      const poor = await newUser();
+      for (const u of [rich, poor]) {
+        await setPlan(u.teamId, "starter"); // 5 USD plan = 5 USD of included usage
+        // 20 vCPU-hours this month and last month = 20 USD at 1 USD per vCPU-hour.
+        for (const at of [new Date(), lastMonth]) await db.insert(usageRecords).values({ teamId: u.teamId, metric: "cpu_seconds", quantity: 20 * 3600, periodStart: at });
+      }
+      await db.update(teams).set({ creditBalanceCents: 50_00 }).where(eq(teams.id, rich.teamId));
+      const est = await rich.client.get(`/api/v1/teams/${rich.teamId}/billing/usage`);
+      expect(est.body.estimate.usage).toMatchObject({ enabled: true, usageCents: 2000, includedCents: 500, billableCents: 1500 });
+      expect(est.body.estimate.totalCents).toBe(500 + 1500);
+
+      expect(await closeUsagePeriod()).toBeGreaterThanOrEqual(2);
+      const [r] = await db.select().from(teams).where(eq(teams.id, rich.teamId));
+      expect(r!.creditBalanceCents).toBe(50_00 - 15_00);
+      const [p] = await db.select().from(teams).where(eq(teams.id, poor.teamId));
+      expect(p!.billingStatus).toBe("past_due");
+      const invoiceOf = async (teamId: string) => db.select().from(invoices).where(and(eq(invoices.teamId, teamId), eq(invoices.provider, "usage")));
+      expect((await invoiceOf(rich.teamId))[0]).toMatchObject({ status: "paid", totalCents: 1500 });
+      expect((await invoiceOf(poor.teamId))[0]).toMatchObject({ status: "open", totalCents: 1500 });
+      // Idempotent.
+      await closeUsagePeriod();
+      expect(await invoiceOf(rich.teamId)).toHaveLength(1);
+      expect((await db.select().from(teams).where(eq(teams.id, rich.teamId)))[0]!.creditBalanceCents).toBe(35_00);
+    } finally {
+      await admin.client.put("/api/v1/admin/settings/billing", { usage: { enabled: false, planIncludesUsage: true, rates: { cpuHourCents: 2.8, memoryGbHourCents: 1.4, egressGbCents: 5, buildMinuteCents: 0 } } });
+    }
   });
 });

@@ -127,6 +127,8 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
     dunningDays: [1, 3, 5],
     defaultTaxPercent: 0,
     trialPlan: "free",
+    // Off by default. Rates in cents (fractions allowed): about 20 USD per vCPU-month and 10 USD per GB-month of RAM.
+    usage: { enabled: false, planIncludesUsage: true, rates: { cpuHourCents: 2.8, memoryGbHourCents: 1.4, egressGbCents: 5, buildMinuteCents: 0 } },
   },
   signup: {
     enabled: true,

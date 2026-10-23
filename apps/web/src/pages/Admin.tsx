@@ -305,6 +305,35 @@ function MaintenanceSettings({ value, onSaved }: { value: Maintenance; onSaved: 
   );
 }
 
+interface UsageSettings { enabled: boolean; planIncludesUsage: boolean; startedAt?: string | null; rates: { cpuHourCents: number; memoryGbHourCents: number; egressGbCents: number; buildMinuteCents: number } }
+
+function UsagePricing({ value, onSaved }: { value: UsageSettings; onSaved: () => void }) {
+  const toast = useToast();
+  const [u, setU] = useState<UsageSettings>(value);
+  useEffect(() => setU(value), [value]);
+  const rate = (k: keyof UsageSettings["rates"], label: string, hint: string) => (
+    <Field label={label} hint={hint}><Input type="number" min={0} step="0.01" value={u.rates[k]} onChange={(e) => setU({ ...u, rates: { ...u.rates, [k]: Number(e.target.value) } })} /></Field>
+  );
+  return (
+    <Card title={t("Pay as you go")} actions={u.enabled ? <StatusBadge status="active" label={t("On")} /> : <StatusBadge status="pending" label={t("Off")} />}>
+      <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); void put("/admin/settings/billing", { usage: u }).then(() => { toast("success", t("Saved")); onSaved(); }).catch((er) => toast("error", er.message)); }}>
+        <div className="flex flex-wrap gap-6">
+          <Toggle checked={u.enabled} onChange={(v) => setU({ ...u, enabled: v })} label={t("Bill resource usage every month (like Railway)")} />
+          <Toggle checked={u.planIncludesUsage} onChange={(v) => setU({ ...u, planIncludesUsage: v })} label={t("The plan price includes the same amount of usage")} />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {rate("cpuHourCents", t("vCPU · cents per hour"), t("2.8 ≈ 20 USD per vCPU per month"))}
+          {rate("memoryGbHourCents", t("Memory · cents per GB-hour"), t("1.4 ≈ 10 USD per GB per month"))}
+          {rate("egressGbCents", t("Traffic · cents per GB"), t("Outbound traffic"))}
+          {rate("buildMinuteCents", t("Builds · cents per minute"), t("0 = free builds"))}
+        </div>
+        <p className="text-xs text-muted">{u.enabled && u.startedAt ? t("Billing usage since {{date}}. Each month, usage beyond the plan is invoiced and paid from prepaid credits; without enough credits the team enters the usual payment-failed grace period.", { date: new Date(u.startedAt).toLocaleDateString() }) : t("When enabled, billing starts with the next full month: earlier usage is never billed.")}</p>
+        <Button variant="primary" size="sm">{t("Save")}</Button>
+      </form>
+    </Card>
+  );
+}
+
 function Settings() {
   const q = useQuery({ queryKey: ["admin", "settings"], queryFn: () => get("/admin/settings") });
   const taxes = useQuery({ queryKey: ["admin", "tax"], queryFn: () => get("/admin/tax-rates") });
@@ -316,6 +345,7 @@ function Settings() {
   return (
     <div className="space-y-4">
       <MaintenanceSettings value={q.data.maintenance} onSaved={() => void q.refetch()} />
+      <UsagePricing value={q.data.billing.usage} onSaved={() => void q.refetch()} />
       <div className="grid gap-4 xl:grid-cols-3">
         {(["referral", "billing", "signup"] as const).map((k) => <JsonSetting key={k} k={k} value={q.data[k]} onSaved={() => void q.refetch()} />)}
       </div>

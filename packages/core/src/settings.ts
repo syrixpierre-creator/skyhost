@@ -19,6 +19,8 @@ export interface BillingSettings {
   dunningDays: number[];
   defaultTaxPercent: number;
   trialPlan: string;
+  /** Pay as you go (Railway-style): resource usage beyond the plan price is billed monthly. */
+  usage: { enabled: boolean; planIncludesUsage: boolean; /** Set when first enabled: earlier months are never billed. */ startedAt?: string | null; rates: { cpuHourCents: number; memoryGbHourCents: number; egressGbCents: number; buildMinuteCents: number } };
 }
 
 export interface SignupSettings {

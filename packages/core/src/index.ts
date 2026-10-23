@@ -17,6 +17,7 @@ export * from "./referral";
 export * from "./referral-card";
 export * from "./cron";
 export * from "./billing/service";
+export * from "./billing/usage";
 export * from "./billing/events";
 export * from "./billing/stripe";
 export * from "./billing/paypal";

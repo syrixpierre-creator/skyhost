@@ -43,7 +43,7 @@ export async function taxFor(teamId: string, subtotalCents: number): Promise<{ t
   return { taxCents: Math.round((subtotalCents * percent) / (100 + percent)), percent, name };
 }
 
-async function nextInvoiceNumber() {
+export async function nextInvoiceNumber() {
   const year = new Date().getUTCFullYear();
   const [r] = await getDb().select({ c: count() }).from(invoices).where(sql`extract(year from ${invoices.createdAt}) = ${year}`);
   return `SKY-${year}-${String(Number(r?.c ?? 0) + 1).padStart(6, "0")}`;

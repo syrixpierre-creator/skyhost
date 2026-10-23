@@ -1,5 +1,5 @@
 import { Resolver } from "node:dns/promises";
-import { serverConfig } from "@skyhost/core";
+import { serverConfig } from "./config";
 
 const resolver = new Resolver({ timeout: 4000, tries: 2 });
 if (process.env.SKYHOST_DNS_SERVERS) resolver.setServers(process.env.SKYHOST_DNS_SERVERS.split(","));

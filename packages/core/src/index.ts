@@ -22,3 +22,4 @@ export * from "./billing/paypal";
 export * from "./billing/flutterwave";
 export * from "./billing/invoice-pdf";
 export * from "./git/providers";
+export * from "./dns";

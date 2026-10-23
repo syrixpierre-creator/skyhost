@@ -74,6 +74,9 @@ importers:
         specifier: 3.25.2
         version: 3.25.2(zod@3.25.76)
     devDependencies:
+      '@skyhost/worker':
+        specifier: workspace:*
+        version: link:../worker
       '@types/node':
         specifier: 22.20.5
         version: 22.20.5
@@ -110,6 +113,46 @@ importers:
       yazl:
         specifier: 3.3.1
         version: 3.3.1
+
+  apps/worker:
+    dependencies:
+      '@skyhost/analyzer':
+        specifier: workspace:*
+        version: link:../../packages/analyzer
+      '@skyhost/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@skyhost/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@skyhost/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
+      '@skyhost/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      bullmq:
+        specifier: 5.81.5
+        version: 5.81.5
+      drizzle-orm:
+        specifier: 0.44.7
+        version: 0.44.7(postgres@3.4.9)
+      playwright:
+        specifier: 1.56.1
+        version: 1.56.1
+    devDependencies:
+      '@types/node':
+        specifier: 22.20.5
+        version: 22.20.5
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+      tsx:
+        specifier: 4.21.1
+        version: 4.21.1
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
 
   packages/analyzer:
     dependencies:
@@ -1856,6 +1899,11 @@ packages:
   fs-constants@1.0.0:
     resolution: {integrity: sha512-y6OAwoSIf7FyjMIv94u+b5rdheZEjzR63GTyZJm5qh4Bi+2YgwLCcI/fPFZkL5PSixOt6ZNKm+w+Hfp/Bciwow==}
 
+  fsevents@2.3.2:
+    resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
+    engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
+    os: [darwin]
+
   fsevents@2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
@@ -2110,6 +2158,16 @@ packages:
 
   pino@10.4.0:
     resolution: {integrity: sha512-bk1ZMTwG/Vymx+zPoa28MhNzucFvXJWp3csrSuxuHPSMeUettaCoQ5Jvg07mtC4JGNpcfTwz41oVCnNgBK9+vA==}
+    hasBin: true
+
+  playwright-core@1.56.1:
+    resolution: {integrity: sha512-hutraynyn31F+Bifme+Ps9Vq59hKuUCz7H1kDOcBs+2oGguKkWTU50bBWrtz34OUWmIwpBTWDxaRPXrIXkgvmQ==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  playwright@1.56.1:
+    resolution: {integrity: sha512-aFi5B0WovBHTEvpM3DzXTUaeN6eN0qWnTkKx4NQaH4Wvcmc153PdaY2UBdSYKaGYw+UyWXSVyxDUg5DoPEttjw==}
+    engines: {node: '>=18'}
     hasBin: true
 
   png-js@2.0.0:
@@ -3851,6 +3909,9 @@ snapshots:
 
   fs-constants@1.0.0: {}
 
+  fsevents@2.3.2:
+    optional: true
+
   fsevents@2.3.3:
     optional: true
 
@@ -4119,6 +4180,14 @@ snapshots:
       safe-stable-stringify: 2.5.0
       sonic-boom: 4.2.1
       thread-stream: 4.2.0
+
+  playwright-core@1.56.1: {}
+
+  playwright@1.56.1:
+    dependencies:
+      playwright-core: 1.56.1
+    optionalDependencies:
+      fsevents: 2.3.2
 
   png-js@2.0.0:
     dependencies:

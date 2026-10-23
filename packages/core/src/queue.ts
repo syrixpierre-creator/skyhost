@@ -4,6 +4,7 @@ import { newRedisConnection } from "./redis";
 export const QUEUES = {
   analyze: "analyze",
   deploy: "deploy",
+  release: "release",
   database: "database",
   backup: "backup",
   screenshot: "screenshot",
@@ -18,6 +19,7 @@ export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
 export interface JobPayloads {
   analyze: { source: AnalyzeSource; rootDir?: string };
   deploy: { deploymentId: string };
+  release: { deploymentId: string };
   database:
     | { action: "provision"; databaseId: string }
     | { action: "delete"; databaseId: string; keepVolume?: boolean }

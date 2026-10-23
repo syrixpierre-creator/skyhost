@@ -102,6 +102,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     if (err instanceof AppError) {
       return reply.code(err.status).send({ error: { code: err.code, message: err.message, details: err.details } });
     }
+    if ((err as { name?: string }).name === "ZodError") {
+      const issues = (err as unknown as { issues: Array<{ path: Array<string | number>; message: string }> }).issues;
+      return reply.code(400).send({ error: { code: "bad_request", message: issues[0] ? `${issues[0].path.join(".")}: ${issues[0].message}` : "Invalid request", details: issues } });
+    }
     const status = (err as FastifyError).statusCode ?? 500;
     if (status === 429) return reply.code(429).send({ error: { code: "rate_limited", message: "Too many requests, please slow down" } });
     if (status < 500) return reply.code(status).send({ error: { code: (err as FastifyError).code ?? "bad_request", message: err.message } });

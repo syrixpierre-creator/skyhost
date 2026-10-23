@@ -8,7 +8,7 @@ import { assertQuota, audit, badRequest, conflict, enqueue, notify, serverConfig
 import { actorOf } from "../lib/auth";
 import { domainAccess, projectAccess, serviceAccess } from "../lib/authz";
 import { idParam, route } from "../lib/http";
-import { dnsInstructions, verifyDomain } from "../lib/dns";
+import { dnsInstructions, verifyDomain } from "@skyhost/core";
 
 function domainView(d: typeof domains.$inferSelect, target: string) {
   return { ...d, dns: dnsInstructions(d.hostname, target, d.verificationToken) };

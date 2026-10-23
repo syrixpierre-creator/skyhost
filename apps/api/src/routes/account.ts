@@ -8,7 +8,7 @@ import {
 } from "@skyhost/db";
 import { createApiKeySchema, nameSchema, passwordSchema, EVENT_TYPES } from "@skyhost/shared";
 import { decrypt, encrypt, randomId, sha256 } from "@skyhost/shared/node";
-import { audit, badRequest, conflict, forbidden, notFound, unauthorized } from "@skyhost/core";
+import { audit, badRequest, conflict, EMAIL_BY_DEFAULT, forbidden, notFound, unauthorized } from "@skyhost/core";
 import { actorOf, generateApiKey, sessionCookie } from "../lib/auth";
 import { teamAccess } from "../lib/authz";
 import { idParam, route } from "../lib/http";
@@ -194,7 +194,7 @@ export default async function accountRoutes(app: FastifyInstance) {
   });
 
   // ---------------------------------------------------------------------------------- Notification preferences
-  route(app, { method: "GET", url: "/account/notification-preferences", tags: ["account"] }, async (req) => ({ events: EVENT_TYPES, preferences: req.auth.user!.notificationPrefs }));
+  route(app, { method: "GET", url: "/account/notification-preferences", tags: ["account"] }, async (req) => ({ events: EVENT_TYPES, emailDefaults: EMAIL_BY_DEFAULT, preferences: req.auth.user!.notificationPrefs }));
 
   route(
     app,

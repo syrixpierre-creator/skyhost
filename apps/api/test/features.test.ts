@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { creditTransactions, deployments, getDb, teams, users } from "@skyhost/db";
+import { EMAIL_BY_DEFAULT, getQueue, notify, QUEUES } from "@skyhost/core";
 import { Client, newUser, setPlan } from "./helpers";
 import { TEST_ENV } from "./env";
 
@@ -151,5 +152,45 @@ describe("maintenance", () => {
     expect(page.raw).toContain("Back at &lt;b&gt;noon&lt;/b&gt;");
     // Without the internal token the page is not reachable directly
     expect((await new Client().get("/internal/maintenance/", { "x-skyhost-service-id": s.serviceId })).status).toBe(404);
+  });
+});
+
+describe("alert emails", () => {
+  it("a crash reaches every member's inbox with the diagnosis and the last log lines", async () => {
+    const u = await newUser();
+    const queue = getQueue(QUEUES.notify);
+    const before = new Set((await queue.getJobs(["waiting", "delayed", "prioritized"])).map((j) => j.id));
+    await notify({
+      teamId: u.teamId,
+      event: "service.crashed",
+      title: "web crashed",
+      body: "The process exited and was restarted (1 restart).",
+      link: "/projects/p/services/s?tab=logs",
+      details: [["Cause", "The application listens on port 3000 but the service expects 8080."]],
+      logs: "Server listening on :3000\nError: <script>boom</script>",
+    });
+    const jobs = (await queue.getJobs(["waiting", "delayed", "prioritized"])).filter((j) => !before.has(j.id) && (j.data as { email?: string }).email === u.email);
+    expect(jobs).toHaveLength(1);
+    const mail = jobs[0]!.data as { subject: string; text: string; html: string };
+    expect(mail.subject).toBe("[SKYHOST] web crashed");
+    expect(mail.text).toContain("Cause: The application listens on port 3000");
+    expect(mail.text).toContain("Last log lines:");
+    expect(mail.html).toContain("&lt;script&gt;boom&lt;/script&gt;");
+    expect(mail.html).not.toContain("<script>boom");
+    expect(mail.html).toContain(`${TEST_ENV.SKYHOST_DASHBOARD_URL}/projects/p/services/s?tab=logs`);
+    for (const j of jobs) await j.remove();
+  });
+
+  it("outages and failures are emailed by default; a member can opt out", async () => {
+    expect(EMAIL_BY_DEFAULT).toEqual(expect.arrayContaining(["service.crashed", "service.unhealthy", "deployment.failed", "billing.payment_failed"]));
+    const u = await newUser();
+    const prefs = await u.client.get("/api/v1/account/notification-preferences");
+    expect(prefs.body.emailDefaults).toContain("service.unhealthy");
+    await u.client.put("/api/v1/account/notification-preferences", { preferences: { "service.unhealthy": { email: false } } });
+    const queue = getQueue(QUEUES.notify);
+    const before = new Set((await queue.getJobs(["waiting", "delayed", "prioritized"])).map((j) => j.id));
+    await notify({ teamId: u.teamId, event: "service.unhealthy", title: "web is down", body: "No replica is running." });
+    const mine = (await queue.getJobs(["waiting", "delayed", "prioritized"])).filter((j) => !before.has(j.id) && (j.data as { email?: string }).email === u.email);
+    expect(mine).toHaveLength(0);
   });
 });

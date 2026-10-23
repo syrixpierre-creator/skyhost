@@ -6,7 +6,8 @@ import {
 } from "@skyhost/db";
 import type { PlanLimitKey, ServiceConfig } from "@skyhost/shared";
 import { assertPublicUrl } from "@skyhost/shared/node";
-import { containerStats, databaseStats, getDocker, getObjectStore, LABEL, listManagedContainers, stopContainer } from "@skyhost/engine";
+import { containerStats, databaseStats, getDocker, getObjectStore, LABEL, listManagedContainers, stopContainer, tailLogs } from "@skyhost/engine";
+import { analyzeErrors } from "@skyhost/analyzer";
 import {
   approveDueRewards, audit, enqueue, getSetting, getTeamPlan, getUsage, isDue, notify, redis, serviceHostname, verifyDomain, labelOf,
 } from "@skyhost/core";
@@ -112,10 +113,22 @@ async function sampleMetrics() {
     // Crash detection
     if (restarts > inst.restartCount) {
       await db.update(serviceInstances).set({ restartCount: restarts, status: up ? "running" : "crashed" }).where(eq(serviceInstances.id, inst.id));
-      await notify({ teamId: team.id, event: "service.crashed", title: `${svc.name} crashed`, body: `The process exited and was restarted (${restarts} restart${restarts > 1 ? "s" : ""}).`, link: `/projects/${svc.projectId}/services/${svc.id}?tab=logs` });
+      // The email carries the crash output and the Smart Error Analyzer's reading of it.
+      const logs = await tailLogs(dep.containers[0]!, 60);
+      const diag = analyzeErrors(logs, { port: (svc.config as ServiceConfig).port, memoryMb: (svc.config as ServiceConfig).resources?.memoryMb })[0];
+      await notify({
+        teamId: team.id,
+        event: "service.crashed",
+        title: `${svc.name} crashed`,
+        body: `${diag ? `${diag.problem}. ` : ""}The process exited and was restarted (${restarts} restart${restarts > 1 ? "s" : ""}).`,
+        link: `/projects/${svc.projectId}/services/${svc.id}?tab=logs`,
+        details: diag ? [["Cause", diag.cause], ["Suggested fix", diag.suggestedFix]] : undefined,
+        logs,
+      });
     } else if (!up && inst.status !== "crashed") {
       await db.update(serviceInstances).set({ status: "crashed" }).where(eq(serviceInstances.id, inst.id));
-      await notify({ teamId: team.id, event: "service.unhealthy", title: `${svc.name} is down`, body: "No replica is running.", link: `/projects/${svc.projectId}/services/${svc.id}` });
+      const logs = await tailLogs(dep.containers[0]!, 60);
+      await notify({ teamId: team.id, event: "service.unhealthy", title: `${svc.name} is down`, body: "No replica is running. Visitors get an error until it starts again.", link: `/projects/${svc.projectId}/services/${svc.id}?tab=logs`, logs });
     }
 
     // Sleep when idle: no inbound traffic during sleepAfterMinutes.

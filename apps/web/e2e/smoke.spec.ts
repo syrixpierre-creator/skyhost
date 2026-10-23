@@ -152,3 +152,26 @@ test("new project wizard shows the GitHub, ZIP and template sources", async ({ p
   await expect(page.getByText(/GitHub/).first()).toBeVisible();
   await expect(page.getByText(/ZIP/i).first()).toBeVisible();
 });
+
+test("phones get a full menu; sign out lives in the account page; English by default", async ({ browser }) => {
+  // A French phone still starts in English: the language only changes when the user picks it.
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "fr-FR", isMobile: true, hasTouch: true });
+  const page = await ctx.newPage();
+  await login(page);
+  await expect(page.getByRole("button", { name: "Open menu" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Billing" })).toBeHidden();
+  await page.getByRole("button", { name: "Open menu" }).click();
+  const menu = page.getByRole("dialog", { name: "Menu" });
+  await expect(menu.getByRole("link", { name: "Templates" })).toBeVisible();
+  await menu.getByRole("link", { name: "Billing" }).click();
+  await expect(page).toHaveURL(/\/billing$/);
+  await expect(page.getByRole("dialog", { name: "Menu" })).toHaveCount(0);
+  // No horizontal scrolling on a phone.
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  // Sign out is in the account page, not in the header.
+  await expect(page.getByRole("button", { name: "Sign out" })).toHaveCount(0);
+  await page.goto("/account");
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/login/);
+  await ctx.close();
+});

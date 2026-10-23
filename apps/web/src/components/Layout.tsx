@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Bell, Boxes, ChevronDown, CreditCard, Gift, LayoutGrid, LogOut, Moon, Plus, Search, Settings, Shield, Sun, User, Languages, FileCode2 } from "lucide-react";
+import { Bell, Boxes, ChevronDown, CreditCard, Gift, LayoutGrid, Menu, Moon, Plus, Search, Settings, Shield, Sun, User, Languages, FileCode2, X } from "lucide-react";
 import { get, post } from "../lib/api";
 import { setLanguage } from "../lib/i18n";
 import { useRealtimeInvalidate, useSession } from "../lib/session";
@@ -220,6 +220,9 @@ export function Layout({ children }: { children: ReactNode }) {
   const { me, team } = useSession();
   const { t, i18n } = useTranslation();
   const [palette, setPalette] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const location = useLocation();
+  useEffect(() => setMenu(false), [location.pathname]);
   const [theme, setTheme] = useTheme();
   const support = useCapabilities().support.email;
   const dark = theme === "dark";
@@ -243,11 +246,8 @@ export function Layout({ children }: { children: ReactNode }) {
       {label}
     </NavLink>
   );
-  return (
-    <div className="flex min-h-full flex-col">
-      <Banners />
-      <div className="flex flex-1">
-        <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col gap-5 border-r border-line bg-bg py-4 md:flex">
+  const sidebar = (
+    <>
           <HomeLogo />
           <TeamSwitcher />
           <nav className="flex flex-1 flex-col gap-0.5 px-2">
@@ -263,15 +263,32 @@ export function Layout({ children }: { children: ReactNode }) {
             </a>
           </nav>
           <div className="px-5 text-[11px] leading-4 text-faint">{t("SKYHOST by SYRIX VISION COMPANY")}</div>
-        </aside>
+    </>
+  );
+  return (
+    <div className="flex min-h-full flex-col">
+      <Banners />
+      <div className="flex flex-1">
+        <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col gap-5 border-r border-line bg-bg py-4 md:flex">{sidebar}</aside>
+        {menu && (
+          <div className="fixed inset-0 z-40 md:hidden" role="dialog" aria-modal="true" aria-label={t("Menu")}>
+            <button className="absolute inset-0 bg-black/50" aria-label={t("Close menu")} onClick={() => setMenu(false)} />
+            <aside className="relative flex h-full w-72 max-w-[85vw] flex-col gap-5 overflow-y-auto border-r border-line bg-bg py-4 shadow-xl">
+              <button className="absolute right-3 top-3 rounded-md p-2 text-muted hover:bg-panel-2 hover:text-fg" aria-label={t("Close menu")} onClick={() => setMenu(false)}>
+                <X className="size-4" />
+              </button>
+              {sidebar}
+            </aside>
+          </div>
+        )}
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-line bg-bg/85 px-4 backdrop-blur">
-            <div className="md:hidden">
-              <HomeLogo />
-            </div>
+            <button className="-ml-1 rounded-md p-2 text-muted hover:bg-panel-2 hover:text-fg md:hidden" aria-label={t("Open menu")} onClick={() => setMenu(true)}>
+              <Menu className="size-5" />
+            </button>
             <button onClick={() => setPalette(true)} className="flex h-9 w-full max-w-sm items-center gap-2 rounded-md border border-line px-3 text-sm text-faint hover:border-line-strong hover:text-fg">
               <Search className="size-4" />
-              <span className="flex-1 text-left">{t("nav.search")}</span>
+              <span className="flex-1 truncate text-left">{t("nav.search")}</span>
               <kbd className="hidden rounded border border-line px-1.5 text-xs sm:inline">Ctrl K</kbd>
             </button>
             <div className="ml-auto flex items-center gap-1">
@@ -287,9 +304,6 @@ export function Layout({ children }: { children: ReactNode }) {
                 {me?.user.avatarUrl ? <img src={me.user.avatarUrl} alt="" className="size-6 rounded-full" /> : <User className="size-4" />}
                 <span className="hidden max-w-32 truncate lg:inline">{me?.user.name}</span>
               </Link>
-              <Button variant="ghost" size="sm" aria-label={t("nav.logout")} onClick={() => post("/auth/logout").finally(() => (location.href = "/login"))}>
-                <LogOut className="size-4" />
-              </Button>
             </div>
           </header>
           {team?.suspended && <div className="border-b border-red-500/30 bg-red-500/10 px-4 py-2 text-sm">{t("This team is suspended. Contact support to restore access to deployments.")}{support && <> <a href={`mailto:${support}`} className="underline underline-offset-4">{support}</a></>}</div>}
@@ -298,13 +312,6 @@ export function Layout({ children }: { children: ReactNode }) {
               {t("A payment failed.")} <Link to="/billing" className="underline">{t("Update your payment method")}</Link> {t("to avoid suspension.")}
             </div>
           )}
-          <nav className="flex gap-1 overflow-x-auto border-b border-line px-2 py-1 md:hidden">
-            {[["/", t("nav.projects")], ["/new", t("nav.new")], ["/billing", t("nav.billing")], ["/settings", t("nav.settings")]].map(([to, l]) => (
-              <NavLink key={to} to={to!} className="whitespace-nowrap rounded px-2 py-1 text-sm text-muted">
-                {l}
-              </NavLink>
-            ))}
-          </nav>
           <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 md:px-8">{children}</main>
         </div>
       </div>

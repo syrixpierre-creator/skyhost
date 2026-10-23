@@ -37,6 +37,28 @@ const FEATURES: Record<PlanFeatureKey, string> = {
   objectStorage: "Object storage",
 };
 
+const EVENTS: Record<string, string> = {
+  "deployment.succeeded": "Deployment succeeded",
+  "deployment.failed": "Deployment failed",
+  "deployment.started": "Deployment started",
+  "deployment.rolled_back": "Deployment rolled back",
+  "database.ready": "Database ready",
+  "database.backup.completed": "Database backup completed",
+  "database.backup.failed": "Database backup failed",
+  "service.crashed": "Application crashed",
+  "service.unhealthy": "Application down",
+  "alert.triggered": "Alert triggered",
+  "quota.near_limit": "Quota almost reached",
+  "spend.threshold": "Spending threshold reached",
+  "invitation.received": "Team invitation",
+  "billing.payment_succeeded": "Payment received",
+  "billing.payment_failed": "Payment failed",
+  "referral.reward": "Referral reward",
+  "domain.verified": "Domain verified",
+  "screenshot.captured": "Screenshot captured",
+};
+
+export const eventLabel = (k: string) => t(EVENTS[k] ?? k);
 export const limitLabel = (k: string) => t(LIMITS[k as PlanLimitKey] ?? k);
 export const featureLabel = (k: string) => t(FEATURES[k as PlanFeatureKey] ?? k);
 

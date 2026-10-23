@@ -3,11 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { del, download, get, patch, post, put } from "../lib/api";
+import { LogOut } from "lucide-react";
 import { setLanguage } from "../lib/i18n";
 import { useSession } from "../lib/session";
 import { Alert, Badge, Button, Card, CodeField, cx, ConfirmDialog, Field, Input, LoadingRows, Modal, PageHeader, Select, Tabs, Toggle, timeAgo, useToast } from "../components/ui";
 import { ApiKeys } from "./TeamSettings";
 import { t } from "../lib/i18n";
+import { eventLabel } from "../lib/labels";
 import { useTheme, type Theme } from "../lib/theme";
 
 type Tab = "profile" | "security" | "sessions" | "notifications" | "apikeys" | "appearance" | "privacy";
@@ -144,23 +146,27 @@ type Prefs = Record<string, { email?: boolean; web?: boolean } | { start: string
 
 function NotificationPrefs() {
   const toast = useToast();
-  const q = useQuery({ queryKey: ["notif-prefs"], queryFn: () => get<{ events: string[]; preferences: Prefs }>("/account/notification-preferences") });
+  const { me } = useSession();
+  const q = useQuery({ queryKey: ["notif-prefs"], queryFn: () => get<{ events: string[]; emailDefaults?: string[]; preferences: Prefs }>("/account/notification-preferences") });
   const [prefs, setPrefs] = useState<Prefs | null>(null);
   if (q.isLoading) return <LoadingRows />;
   const p = prefs ?? q.data!.preferences ?? {};
   const ev = (k: string) => (p[k] as { email?: boolean; web?: boolean } | undefined) ?? {};
+  // Without a saved choice, an event is emailed only if the platform emails it by default.
+  const emailOn = (k: string) => ev(k).email ?? (q.data!.emailDefaults ?? []).includes(k);
   const quiet = p.quietHours as { start: string; end: string; timezone: string } | null | undefined;
   const set = (k: string, v: Prefs[string]) => setPrefs({ ...p, [k]: v });
   return (
     <Card title={t("Notifications")} actions={<Button size="sm" variant="primary" onClick={() => put("/account/notification-preferences", { preferences: p }).then(() => toast("success", t("Preferences saved"))).catch((e) => toast("error", e.message))}>{t("Save")}</Button>} padded={false}>
+      <p className="border-b border-line px-4 py-3 text-xs text-muted">{t("Emails go to {{email}}. Crashes, failed deployments and outages include the last log lines and a diagnosis.", { email: me?.user.email ?? "" })}</p>
       <table className="w-full text-sm">
         <thead className="text-left text-xs text-muted"><tr><th className="p-3">{t("Event")}</th><th className="p-3">{t("In app")}</th><th className="p-3">{t("Email")}</th></tr></thead>
         <tbody>
           {q.data!.events.map((k) => (
             <tr key={k} className="border-t border-line">
-              <td className="p-3 font-mono text-xs">{k}</td>
+              <td className="p-3">{eventLabel(k)}</td>
               <td className="p-3"><Toggle checked={ev(k).web !== false} onChange={(v) => set(k, { ...ev(k), web: v })} /></td>
-              <td className="p-3"><Toggle checked={ev(k).email !== false} onChange={(v) => set(k, { ...ev(k), email: v })} /></td>
+              <td className="p-3"><Toggle checked={emailOn(k)} onChange={(v) => set(k, { ...ev(k), email: v })} /></td>
             </tr>
           ))}
         </tbody>
@@ -248,7 +254,14 @@ export default function Account() {
   const [tab, setTab] = useState<Tab>("profile");
   return (
     <>
-      <PageHeader title={t("nav.account")} />
+      <PageHeader
+        title={t("nav.account")}
+        actions={
+          <Button onClick={() => post("/auth/logout").finally(() => (window.location.href = "/login"))}>
+            <LogOut className="size-4" /> {t("nav.logout")}
+          </Button>
+        }
+      />
       <Tabs<Tab>
         value={tab}
         onChange={setTab}

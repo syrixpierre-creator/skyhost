@@ -13,7 +13,8 @@ const saved = (() => {
 
 void i18n.use(initReactI18next).init({
   resources: { en: { translation: en }, fr: { translation: fr } },
-  lng: saved ?? (navigator.language?.startsWith("fr") ? "fr" : "en"),
+  // English unless the user picked another language.
+  lng: saved ?? "en",
   fallbackLng: "en",
   interpolation: { escapeValue: false },
   returnNull: false,

@@ -221,7 +221,7 @@ export async function processBuild(deploymentId: string) {
     const files = repoDir ? { "package.json": await readSmall(repoDir, join(config.rootDir ?? ".", "package.json")), "requirements.txt": await readSmall(repoDir, join(config.rootDir ?? ".", "requirements.txt")) } : {};
     const diag = cancelled ? [] : analyzeErrors(log.text.join("\n"), { packageManager: config.packageManager, port: config.port, memoryMb: config.resources?.memoryMb, files: Object.fromEntries(Object.entries(files).filter(([, v]) => v !== undefined)) as Record<string, string> });
     await setDeploymentState(deploymentId, { status: cancelled ? "cancelled" : "failed", error: err.message.slice(0, 2000), errorAnalysis: diag, finishedAt: new Date(), buildSeconds: Math.round((Date.now() - started) / 1000) });
-    if (!cancelled) await deploymentFailedNotice(deploymentId, svc.name, teamId, svc.projectId, err.message, diag[0]?.problem);
+    if (!cancelled) await deploymentFailedNotice(deploymentId, svc.name, teamId, svc.projectId, err.message, diag[0], log.text.slice(-40).join("\n"));
   } finally {
     cancelControllers.delete(deploymentId);
     await redis().del(`sh:cancel:${deploymentId}`);
@@ -229,12 +229,14 @@ export async function processBuild(deploymentId: string) {
   }
 }
 
-export async function deploymentFailedNotice(deploymentId: string, serviceName: string, teamId: string, projectId: string, error: string, problem?: string) {
+export async function deploymentFailedNotice(deploymentId: string, serviceName: string, teamId: string, projectId: string, error: string, diag?: { problem: string; cause: string; suggestedFix: string }, logs?: string) {
   await notify({
     teamId,
     event: "deployment.failed",
     title: `Deployment of ${serviceName} failed`,
-    body: problem ? `${problem}. ${error}`.slice(0, 500) : error.slice(0, 500),
+    body: `${diag ? `${diag.problem}. ` : ""}${error}`.slice(0, 500) + " The previous version keeps running.",
+    details: diag ? [["Cause", diag.cause], ["Suggested fix", diag.suggestedFix]] : undefined,
+    logs,
     link: `/projects/${projectId}/deployments/${deploymentId}`,
     payload: { deploymentId, service: serviceName },
   });

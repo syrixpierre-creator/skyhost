@@ -137,7 +137,7 @@ export async function processRelease(deploymentId: string) {
     for (const c of created) await removeContainer(c, { graceSeconds: 1 });
     const diag = analyzeErrors(`${log.text.join("\n")}\n${logs}`, { port: config.port, memoryMb: config.resources?.memoryMb, packageManager: config.packageManager });
     await setDeploymentState(dep.id, { status: err.message === "Deployment cancelled" ? "cancelled" : "failed", error: err.message.slice(0, 2000), errorAnalysis: diag, finishedAt: new Date() });
-    await deploymentFailedNotice(dep.id, svc.name, teamId, projectId, err.message, diag[0]?.problem);
+    await deploymentFailedNotice(dep.id, svc.name, teamId, projectId, err.message, diag[0], `${log.text.slice(-20).join("\n")}\n${logs}`);
   }
 }
 

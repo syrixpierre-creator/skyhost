@@ -16,10 +16,25 @@ export interface NotifyInput {
   payload?: Record<string, unknown>;
   /** Restrict in-app/email notification to these users (e.g. invitation target). */
   userIds?: string[];
+  /** Email only: labelled facts (cause, fix…) and a log excerpt. */
+  details?: Array<[string, string]>;
+  logs?: string;
 }
 
-/** Events members receive by email unless they opt out. */
-const EMAIL_BY_DEFAULT = new Set<string>(["deployment.failed", "database.backup.failed", "service.crashed", "billing.payment_failed", "spend.threshold", "quota.near_limit", "alert.triggered"]);
+/** Events members receive by email unless they opt out: failures, outages, money and security. */
+export const EMAIL_BY_DEFAULT: readonly string[] = [
+  "deployment.failed",
+  "deployment.rolled_back",
+  "service.crashed",
+  "service.unhealthy",
+  "database.backup.failed",
+  "alert.triggered",
+  "billing.payment_failed",
+  "billing.payment_succeeded",
+  "spend.threshold",
+  "quota.near_limit",
+  "invitation.received",
+];
 
 interface UserPrefs {
   [event: string]: { email?: boolean; web?: boolean } | unknown;
@@ -53,9 +68,11 @@ export async function notify(input: NotifyInput) {
       const [n] = await db.insert(notifications).values({ userId: m.userId, teamId: input.teamId, type: input.event, title: input.title, body: input.body, link: input.link }).returning();
       await publish(`user:${m.userId}`, { type: "notification", notification: n });
     }
-    const wantsEmail = p.email ?? EMAIL_BY_DEFAULT.has(input.event);
-    if (wantsEmail && !inQuietHours(prefs.quietHours)) {
-      const { text, html } = renderEmail(input.title, [input.body], link ? { label: "Open in SKYHOST", url: link } : undefined);
+    const wantsEmail = p.email ?? EMAIL_BY_DEFAULT.includes(input.event);
+    // Failures and outages are urgent: quiet hours only hold back the other emails.
+    const urgent = ["deployment.failed", "service.crashed", "service.unhealthy", "billing.payment_failed"].includes(input.event);
+    if (wantsEmail && (urgent || !inQuietHours(prefs.quietHours))) {
+      const { text, html } = renderEmail(input.title, [input.body], link ? { label: "Open in SKYHOST", url: link } : undefined, { details: input.details, code: input.logs });
       await enqueue("notify", { email: m.email, subject: `[SKYHOST] ${input.title}`, text, html });
     }
   }

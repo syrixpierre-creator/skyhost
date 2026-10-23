@@ -2,10 +2,12 @@
  * End-to-end tests against real infrastructure: Docker (BuildKit, containers, networks), Traefik as the edge
  * proxy, PostgreSQL databases, Playwright screenshots. Workers run in-process with the same code as production.
  */
-import { execFileSync } from "node:child_process";
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { execFile, execFileSync, spawn } from "node:child_process";
+import { promisify } from "node:util";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { request } from "node:http";
 import { tmpdir } from "node:os";
+import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
@@ -50,6 +52,15 @@ async function until<T>(fn: () => Promise<T | null | undefined | false>, timeout
     await new Promise((r) => setTimeout(r, 1000));
   }
   throw new Error(`Timed out waiting for ${label}${last ? `: ${(last as Error).message}` : ""}`);
+}
+
+/** After go-live the previous container drains for SKYHOST_PROXY_SWITCH_DELAY_MS, so wait for the new version only. */
+async function servedVersion(host: string, match: (body: { version?: string; greeting?: string | null }) => boolean) {
+  return until(async () => {
+    const r = await viaProxy(host);
+    const body = r.status === 200 ? JSON.parse(r.body) : null;
+    return body && match(body) ? body : null;
+  }, 20_000, "the new version behind the proxy");
 }
 
 async function waitDeployment(id: string, statuses = ["live", "failed", "cancelled"]) {
@@ -281,10 +292,59 @@ describe("SmartDeploy end to end", () => {
     const d = await waitDeployment(JSON.parse(res.body).deployment.id);
     expect(d.status).toBe("live");
     expect(d.trigger).toBe("cli");
-    expect(JSON.parse((await viaProxy(host)).body).version).toBe("v3-zip");
+    expect((await servedVersion(host, (b) => b.version === "v3-zip")).version).toBe("v3-zip");
     await u.client.post(`/api/v1/api-keys/${key.body.apiKey.id}/revoke`);
     expect((await send()).statusCode).toBe(401);
   });
+
+  it("4. CLI: device login -> link -> deploy -> env set -> redeploy -> logs -> shell -> rollback", async () => {
+    // The API runs in this process, so the CLI is always spawned asynchronously.
+    const run = promisify(execFile);
+    const cliDir = fileURLToPath(new URL("../../../cli", import.meta.url));
+    await run("node", ["build.mjs"], { cwd: cliDir });
+    const bin = join(cliDir, "dist/skyhost.js");
+    const home = await mkdtemp(join(tmpdir(), "sh-cli-home-"));
+    const cwd = await mkdtemp(join(tmpdir(), "sh-cli-app-"));
+    const env = { ...process.env, SKYHOST_CONFIG_DIR: home, NO_COLOR: "1", SKYHOST_API_URL: "", SKYHOST_TOKEN: "" };
+    const cli = (...args: string[]) => run("node", [bin, ...args], { cwd, env, timeout: 300_000 }).then((r) => r.stdout);
+
+    // Device flow: the CLI prints a code, the signed-in user approves it, the CLI receives its key.
+    const login = spawn("node", [bin, "login", "--api-url", `http://127.0.0.1:${API_PORT}`, "--no-browser"], { cwd, env });
+    let out = "";
+    login.stdout.on("data", (d) => (out += d));
+    const code = await until(async () => /confirm the code (\S+)/.exec(out)?.[1], 15_000, "CLI user code");
+    expect((await u.client.post("/api/v1/auth/cli/approve", { userCode: code, teamId: u.teamId })).status).toBe(200);
+    await new Promise((resolve) => login.on("exit", resolve));
+    expect(out).toContain("Logged in as");
+    expect(await cli("whoami")).toContain(u.email);
+
+    const project = (await u.client.get(`/api/v1/projects/${projectId}`)).body;
+    await cli("link", "--project", project.project.name, "--service", project.services.find((s: { id: string }) => s.id === serviceId).name);
+
+    await writeFile(join(cwd, "package.json"), JSON.stringify({ name: "e2e-app", scripts: { start: "node server.js" } }));
+    await writeFile(join(cwd, "server.js"), APP("v4-cli"));
+    await writeFile(join(cwd, ".env"), "LOCAL_SECRET=must-not-be-uploaded\n");
+    await mkdir(join(cwd, "node_modules/junk"), { recursive: true });
+    await writeFile(join(cwd, "node_modules/junk/index.js"), "");
+    const deployOut = await cli("deploy");
+    expect(deployOut).toMatch(/Uploading 2 files/);
+    expect(deployOut).toContain("Live at");
+    expect((await servedVersion(host, (b) => b.version === "v4-cli")).version).toBe("v4-cli");
+
+    expect(await cli("env", "set", "GREETING=from-cli")).toContain("1 variable(s) saved");
+    expect(await cli("env", "list")).toContain("GREETING=from-cli");
+    await cli("redeploy");
+    expect(await servedVersion(host, (b) => b.greeting === "from-cli")).toMatchObject({ version: "v4-cli", greeting: "from-cli" });
+
+    expect(await cli("status")).toMatch(/running|live/);
+    expect(await cli("deployments")).toContain("cli");
+    expect(await cli("logs", "--tail", "50")).toBeTypeOf("string");
+    expect(await cli("shell", "-c", "node --version")).toMatch(/^v\d+/);
+    await expect(cli("shell", "-c", "cat /etc/shadow")).rejects.toThrow();
+
+    await cli("rollback");
+    expect((await servedVersion(host, (b) => b.version !== "v4-cli")).version).toBe("v3-zip");
+  }, 600_000);
 
   it("secure shell runs only allowed commands inside the service container", async () => {
     const { runShellCommand } = await import("@skyhost/engine");

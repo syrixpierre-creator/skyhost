@@ -1,0 +1,29 @@
+{
+  "name": "@skyhost/cli",
+  "version": "0.1.0",
+  "description": "SKYHOST command line interface",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "skyhost": "dist/skyhost.js"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "ws": "8.22.0",
+    "yazl": "3.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@types/ws": "8.18.2",
+    "@types/yazl": "3.3.1",
+    "esbuild": "0.28.2",
+    "typescript": "5.9.3",
+    "vitest": "3.2.7",
+    "yauzl": "3.2.1",
+    "@types/yauzl": "2.10.3"
+  }
+}

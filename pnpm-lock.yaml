@@ -114,6 +114,40 @@ importers:
         specifier: 3.3.1
         version: 3.3.1
 
+  apps/cli:
+    dependencies:
+      ws:
+        specifier: 8.22.0
+        version: 8.22.0
+      yazl:
+        specifier: 3.3.1
+        version: 3.3.1
+    devDependencies:
+      '@types/node':
+        specifier: 22.20.5
+        version: 22.20.5
+      '@types/ws':
+        specifier: 8.18.2
+        version: 8.18.2
+      '@types/yauzl':
+        specifier: 2.10.3
+        version: 2.10.3
+      '@types/yazl':
+        specifier: 3.3.1
+        version: 3.3.1
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 3.2.7
+        version: 3.2.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.1)(yaml@2.9.1)
+      yauzl:
+        specifier: 3.2.1
+        version: 3.2.1
+
   apps/web:
     dependencies:
       '@skyhost/shared':

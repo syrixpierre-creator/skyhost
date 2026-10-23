@@ -5,6 +5,7 @@ import { formatCents } from "@skyhost/shared";
 import { get, post, put } from "../lib/api";
 import { useSession } from "../lib/session";
 import { Alert, Button, Card, CodeField, EmptyState, ErrorState, Field, Input, LoadingRows, Modal, PageHeader, Select, StatusBadge, timeAgo, useToast } from "../components/ui";
+import { t } from "../lib/i18n";
 
 interface ReferralData {
   code: string;
@@ -47,13 +48,13 @@ export default function Referrals() {
   if (q.isLoading) return <LoadingRows rows={5} />;
   if (q.error) return <ErrorState error={q.error} onRetry={() => q.refetch()} />;
   const d = q.data!;
-  const reward = d.program.rewardType === "percent" ? `${d.program.percent}% of every payment for ${d.program.recurringMonths} months` : `${formatCents(d.program.fixedCents)} per paying customer`;
+  const reward = d.program.rewardType === "percent" ? t("{{percent}}% of every payment for {{months}} months", { percent: d.program.percent, months: d.program.recurringMonths }) : t("{{amount}} per paying customer", { amount: formatCents(d.program.fixedCents) });
   return (
     <>
-      <PageHeader title={t("nav.referrals")} subtitle={`Earn ${reward}.${d.program.refereeBonusCents ? ` Your friends get ${formatCents(d.program.refereeBonusCents)} of credits.` : ""}`} />
-      <Card title="Your referral link" className="mb-6">
+      <PageHeader title={t("nav.referrals")} subtitle={`${t("Earn {{reward}}.", { reward })}${d.program.refereeBonusCents ? ` ${t("Your friends get {{amount}} of credits.", { amount: formatCents(d.program.refereeBonusCents) })}` : ""}`} />
+      <Card title={t("Your referral link")} className="mb-6">
         <CodeField value={d.link} />
-        <p className="mt-2 text-xs text-muted">Rewards are confirmed after the refund window. Self-referrals and duplicate accounts are rejected.</p>
+        <p className="mt-2 text-xs text-muted">{t("Rewards are confirmed after the refund window. Self-referrals and duplicate accounts are rejected.")}</p>
       </Card>
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4 lg:grid-cols-7">
         {[
@@ -71,16 +72,16 @@ export default function Referrals() {
           </div>
         ))}
       </div>
-      <Card title="Payout" className="mb-6" actions={<Button size="sm" onClick={() => setDetails(true)}>Payout details</Button>}>
+      <Card title={t("Payout")} className="mb-6" actions={<Button size="sm" onClick={() => setDetails(true)}>{t("Payout details")}</Button>}>
         <div className="flex flex-wrap items-center gap-3 text-sm">
-          <span>Minimum payout: {formatCents(d.minPayoutCents)}.</span>
-          <span className="text-muted">{d.payoutDetails ? `External payouts go to your ${METHOD_LABEL[d.payoutDetails.method as keyof typeof METHOD_LABEL] ?? d.payoutDetails.method} account.` : "Add payout details to receive money outside SKYHOST."}</span>
-          <Button variant="primary" size="sm" disabled={d.availableCents < d.minPayoutCents} onClick={() => setPayout(true)}>Request payout</Button>
+          <span>{t("Minimum payout:")} {formatCents(d.minPayoutCents)}.</span>
+          <span className="text-muted">{d.payoutDetails ? t("External payouts go to your {{method}} account.", { method: t(METHOD_LABEL[d.payoutDetails.method as keyof typeof METHOD_LABEL] ?? d.payoutDetails.method) }) : t("Add payout details to receive money outside SKYHOST.")}</span>
+          <Button variant="primary" size="sm" disabled={d.availableCents < d.minPayoutCents} onClick={() => setPayout(true)}>{t("Request payout")}</Button>
         </div>
       </Card>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Rewards" padded={false}>
-          {d.rewards.length === 0 ? <EmptyState title="No rewards yet" description="Share your link: rewards appear when a referred team pays." /> : (
+        <Card title={t("Rewards")} padded={false}>
+          {d.rewards.length === 0 ? <EmptyState title={t("No rewards yet")} description={t("Share your link: rewards appear when a referred team pays.")} /> : (
             <table className="w-full text-sm">
               <tbody>
                 {d.rewards.map((r) => (
@@ -95,14 +96,14 @@ export default function Referrals() {
             </table>
           )}
         </Card>
-        <Card title="Payouts" padded={false}>
-          {d.payouts.length === 0 ? <EmptyState title="No payouts yet" /> : (
+        <Card title={t("Payouts")} padded={false}>
+          {d.payouts.length === 0 ? <EmptyState title={t("No payouts yet")} /> : (
             <table className="w-full text-sm">
               <tbody>
                 {d.payouts.map((p) => (
                   <tr key={p.id} className="border-t border-line first:border-0">
                     <td className="p-3 font-medium">{formatCents(p.amountCents)}</td>
-                    <td className="p-3">{METHOD_LABEL[p.method as keyof typeof METHOD_LABEL] ?? p.method}</td>
+                    <td className="p-3">{t(METHOD_LABEL[p.method as keyof typeof METHOD_LABEL] ?? p.method)}</td>
                     <td className="p-3"><StatusBadge status={p.status} /></td>
                     <td className="p-3 text-muted">{timeAgo(p.createdAt)}</td>
                   </tr>
@@ -112,31 +113,31 @@ export default function Referrals() {
           )}
         </Card>
       </div>
-      <Modal open={payout} onClose={() => setPayout(false)} title={`Pay out ${formatCents(d.availableCents)}`} footer={<><Button onClick={() => setPayout(false)}>Cancel</Button><Button variant="primary" loading={request.isPending} onClick={() => request.mutate()}>Confirm</Button></>}>
+      <Modal open={payout} onClose={() => setPayout(false)} title={t("Pay out {{amount}}", { amount: formatCents(d.availableCents) })} footer={<><Button onClick={() => setPayout(false)}>{t("Cancel")}</Button><Button variant="primary" loading={request.isPending} onClick={() => request.mutate()}>{t("Confirm")}</Button></>}>
         <div className="space-y-3">
-          <Field label="Method">
+          <Field label={t("Method")}>
             <Select value={method} onChange={(e) => setMethod(e.target.value as typeof method)}>
-              {d.payoutMethods.map((m) => <option key={m} value={m}>{METHOD_LABEL[m]}</option>)}
+              {d.payoutMethods.map((m) => <option key={m} value={m}>{t(METHOD_LABEL[m])}</option>)}
             </Select>
           </Field>
           {method === "credit" && (
-            <Field label="Credit this team">
+            <Field label={t("Credit this team")}>
               <Select value={teamId} onChange={(e) => setTeamId(e.target.value)}>{teams.map((tm) => <option key={tm.id} value={tm.id}>{tm.name}</option>)}</Select>
             </Field>
           )}
-          {method !== "credit" && !d.payoutDetails && <Alert kind="warn">Add your payout details first.</Alert>}
-          {method !== "credit" && <p className="text-xs text-muted">External payouts are reviewed and sent by the SKYHOST team.</p>}
+          {method !== "credit" && !d.payoutDetails && <Alert kind="warn">{t("Add your payout details first.")}</Alert>}
+          {method !== "credit" && <p className="text-xs text-muted">{t("External payouts are reviewed and sent by the SKYHOST team.")}</p>}
         </div>
       </Modal>
-      <Modal open={details} onClose={() => setDetails(false)} title="Payout details" footer={<><Button onClick={() => setDetails(false)}>Cancel</Button><Button variant="primary" onClick={() => put("/account/payout", dMethod === "paypal" ? { method: dMethod, email: dValue } : { method: dMethod, accountId: dValue }).then(() => { setDetails(false); void q.refetch(); toast("success", "Payout details saved"); }).catch((e) => toast("error", e.message))}>Save</Button></>}>
+      <Modal open={details} onClose={() => setDetails(false)} title={t("Payout details")} footer={<><Button onClick={() => setDetails(false)}>{t("Cancel")}</Button><Button variant="primary" onClick={() => put("/account/payout", dMethod === "paypal" ? { method: dMethod, email: dValue } : { method: dMethod, accountId: dValue }).then(() => { setDetails(false); void q.refetch(); toast("success", t("Payout details saved")); }).catch((e) => toast("error", e.message))}>{t("Save")}</Button></>}>
         <div className="space-y-3">
-          <Field label="Method">
+          <Field label={t("Method")}>
             <Select value={dMethod} onChange={(e) => setDMethod(e.target.value as typeof dMethod)}>
-              <option value="paypal">PayPal</option>
-              <option value="stripe_connect">Stripe Connect</option>
+              <option value="paypal">{t("PayPal")}</option>
+              <option value="stripe_connect">{t("Stripe Connect")}</option>
             </Select>
           </Field>
-          <Field label={dMethod === "paypal" ? "PayPal email" : "Stripe account id"}><Input value={dValue} onChange={(e) => setDValue(e.target.value)} placeholder={dMethod === "paypal" ? "you@example.com" : "acct_..."} /></Field>
+          <Field label={dMethod === "paypal" ? t("PayPal email") : t("Stripe account id")}><Input value={dValue} onChange={(e) => setDValue(e.target.value)} placeholder={dMethod === "paypal" ? "you@example.com" : "acct_..."} /></Field>
         </div>
       </Modal>
     </>

@@ -5,6 +5,8 @@ import { Database, Plus, Rocket } from "lucide-react";
 import { get } from "../lib/api";
 import { useRealtimeInvalidate, useSession } from "../lib/session";
 import { Button, EmptyState, ErrorState, LoadingRows, PageHeader, StatusBadge, timeAgo, Meter, Card } from "../components/ui";
+import { t } from "../lib/i18n";
+import { limitLabel } from "../lib/labels";
 
 interface ProjectRow {
   id: string;
@@ -41,8 +43,8 @@ export default function Dashboard() {
           {q.data && !q.data.projects.length && (
             <EmptyState
               icon={<Rocket className="size-8" />}
-              title="Deploy your first project"
-              description="Connect GitHub, pick a repository and SKYHOST analyzes, configures and deploys it for you."
+              title={t("Deploy your first project")}
+              description={t("Connect GitHub, pick a repository and SKYHOST analyzes, configures and deploys it for you.")}
               action={
                 <Link to="/new">
                   <Button variant="primary">{t("deploy.fromGithub")}</Button>
@@ -73,20 +75,20 @@ export default function Dashboard() {
                       <StatusBadge status={d.status} />
                     </li>
                   ))}
-                  {!p.services.length && !p.databases.length && <li className="text-sm text-faint">Empty project</li>}
+                  {!p.services.length && !p.databases.length && <li className="text-sm text-faint">{t("Empty project")}</li>}
                 </ul>
               </Link>
             ))}
           </div>
         </div>
-        <Card title={`Usage · ${usage.data?.plan.name ?? ""}`} actions={<Link to="/billing" className="text-xs text-accent">Upgrade</Link>}>
+        <Card title={t("Usage · {{plan}}", { plan: usage.data?.plan.name ?? "" })} actions={<Link to="/billing" className="text-xs text-accent">{t("Upgrade")}</Link>}>
           {usage.isLoading ? (
             <LoadingRows rows={3} />
           ) : (
             <div className="space-y-3">
               {usage.data?.items
                 .filter((i) => ["projects", "services", "databases", "buildMinutes", "deploysPerDay", "customDomains"].includes(i.key))
-                .map((i) => <Meter key={i.key} value={i.current} max={i.limit} label={i.label} />)}
+                .map((i) => <Meter key={i.key} value={i.current} max={i.limit} label={limitLabel(i.key)} />)}
             </div>
           )}
         </Card>

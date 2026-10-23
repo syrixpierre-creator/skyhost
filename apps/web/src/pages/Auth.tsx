@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { get, post } from "../lib/api";
 import { useSession } from "../lib/session";
 import { Alert, Button, Field, Input } from "../components/ui";
+import { t } from "../lib/i18n";
 
 function deviceId() {
   try {
@@ -31,7 +32,7 @@ function Shell({ title, children, footer }: { title: string; children: ReactNode
           {children}
         </div>
         {footer && <div className="mt-4 text-center text-sm text-muted">{footer}</div>}
-        <p className="mt-8 text-center text-xs text-faint">SKYHOST by SYRIX VISION COMPANY</p>
+        <p className="mt-8 text-center text-xs text-faint">{t("SKYHOST by SYRIX VISION COMPANY")}</p>
       </div>
     </div>
   );
@@ -121,23 +122,23 @@ export default function Auth({ mode }: { mode: "login" | "signup" | "forgot" | "
     }
   };
 
-  if (mode === "referral") return <Shell title="Joining SKYHOST…"><p className="text-sm text-muted">Redirecting…</p></Shell>;
+  if (mode === "referral") return <Shell title={t("Joining SKYHOST…")}><p className="text-sm text-muted">{t("Redirecting…")}</p></Shell>;
 
   if (mode === "verify")
     return (
-      <Shell title="Email verification">
+      <Shell title={t("Email verification")}>
         {info && <Alert kind="success">{info}</Alert>}
         {error && <Alert kind="error">{error}</Alert>}
-        {!info && !error && <p className="text-sm text-muted">Verifying…</p>}
+        {!info && !error && <p className="text-sm text-muted">{t("Verifying…")}</p>}
         <Link to="/" className="mt-4 block text-sm text-accent">
-          Go to the dashboard
+          {t("Go to the dashboard")}
         </Link>
       </Shell>
     );
 
   if (mode === "forgot")
     return (
-      <Shell title="Reset your password" footer={<Link to="/login" className="text-accent">{t("auth.login")}</Link>}>
+      <Shell title={t("Reset your password")} footer={<Link to="/login" className="text-accent">{t("auth.login")}</Link>}>
         {info ? (
           <Alert kind="success">{info}</Alert>
         ) : (
@@ -150,7 +151,7 @@ export default function Auth({ mode }: { mode: "login" | "signup" | "forgot" | "
             </Field>
             {error && <Alert kind="error">{error}</Alert>}
             <Button variant="primary" className="w-full" loading={busy}>
-              Send reset link
+              {t("Send reset link")}
             </Button>
           </form>
         )}
@@ -159,7 +160,7 @@ export default function Auth({ mode }: { mode: "login" | "signup" | "forgot" | "
 
   if (mode === "reset")
     return (
-      <Shell title="Choose a new password">
+      <Shell title={t("Choose a new password")}>
         {info ? (
           <Alert kind="success">
             {info} <Link to="/login" className="text-accent">{t("auth.login")}</Link>
@@ -169,7 +170,7 @@ export default function Auth({ mode }: { mode: "login" | "signup" | "forgot" | "
             await post("/auth/reset-password", { token: params.get("token"), password });
             setInfo("Password updated. All devices were signed out.");
           })} className="space-y-4">
-            <Field label={t("auth.password")} hint="At least 10 characters, letters and numbers">
+            <Field label={t("auth.password")} hint={t("At least 10 characters, letters and numbers")}>
               <Input type="password" required minLength={10} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
             </Field>
             {error && <Alert kind="error">{error}</Alert>}
@@ -221,14 +222,14 @@ export default function Auth({ mode }: { mode: "login" | "signup" | "forgot" | "
           <Field label={t("auth.email")}>
             <Input type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
-          <Field label={t("auth.password")} hint="At least 10 characters, letters and numbers">
+          <Field label={t("auth.password")} hint={t("At least 10 characters, letters and numbers")}>
             <Input type="password" required minLength={10} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
           </Field>
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" checked={terms} onChange={(e) => setTerms(e.target.checked)} className="mt-0.5" required />
             <span>
               {t("auth.terms")} (
-              <Link to="/terms" className="text-accent" target="_blank">terms</Link>, <Link to="/privacy" className="text-accent" target="_blank">privacy</Link>)
+              <Link to="/terms" className="text-accent" target="_blank">{t("terms")}</Link>, <Link to="/privacy" className="text-accent" target="_blank">{t("privacy")}</Link>)
             </span>
           </label>
           {error && <Alert kind="error">{error}</Alert>}

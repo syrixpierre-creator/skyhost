@@ -25,7 +25,7 @@ gVisor, `SKYHOST_CONTAINER_RUNTIME=runc`.
 | Command | What it runs |
 | --- | --- |
 | `pnpm typecheck` | TypeScript in every package |
-| `pnpm test` | Unit tests (shared, analyzer with its fixture corpus, engine, CLI) and API integration tests against PostgreSQL and Redis |
+| `pnpm test` | Unit tests (shared, analyzer with its fixture corpus, engine, CLI), API integration tests against PostgreSQL and Redis, and the dashboard translation check |
 | `pnpm --filter @skyhost/engine test` | Includes Docker tests (builds, hardened runtime, databases backup/restore, buckets) when Docker is available |
 | `pnpm test:e2e` | Full platform: real Docker builds, Traefik routing, databases, zero-downtime releases, rollbacks, screenshots, API keys and the CLI binary |
 | `pnpm test:web` | Dashboard smoke tests with Playwright against the real API and the production build |
@@ -41,8 +41,9 @@ Docker or the proxy.
   redactor.
 - Validate every input with zod, check permissions with the `authz` helpers, and audit security-relevant actions.
 - UI: one accent colour (`--color-accent`), dark mode by default and light mode, no gradients or glow.
-  User-facing strings belong in `apps/web/src/locales` (English and French). Navigation, authentication and
-  shared components are translated; several dashboard pages still contain English-only text and need migrating.
+  User-facing strings go through `t()` with English and French in `apps/web/src/locales`;
+  `pnpm --filter @skyhost/web test` fails when a `t("…")` key has no French translation. Keys are the English
+  text itself; use interpolation (`t("Deploy {{name}}", { name })`) rather than template literals.
 - Database changes: update `packages/db/src/schema.ts`, then run `pnpm db:generate` to create the next migration
   and its journal entry in `packages/db/migrations`. Never edit a migration that has been released.
 

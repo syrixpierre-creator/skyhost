@@ -9,6 +9,7 @@ import { DATABASE_ENGINES } from "@skyhost/shared";
 import { del, download, get, patch, post, put } from "../lib/api";
 import { useRealtimeInvalidate, useSession } from "../lib/session";
 import { Alert, Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, Field, Input, LoadingRows, Modal, PageHeader, Select, StatusBadge, Tabs, Toggle, timeAgo, useToast } from "../components/ui";
+import { t } from "../lib/i18n";
 
 export interface ProjectDetail {
   project: { id: string; name: string; teamId: string; description: string | null; canvas: Record<string, { x: number; y: number }>; statusPageEnabled: boolean; statusPageSlug: string | null };
@@ -75,7 +76,7 @@ function Canvas({ data, envId }: { data: ProjectDetail; envId: string }) {
     },
     [canEdit, data.project.id],
   );
-  if (!nodes.length) return <EmptyState title="This project is empty" description="Add a service or a database to get started." />;
+  if (!nodes.length) return <EmptyState title={t("This project is empty")} description={t("Add a service or a database to get started.")} />;
   return (
     <div className="h-[560px] overflow-hidden rounded-lg border border-line bg-panel-2">
       <ReactFlow
@@ -126,7 +127,7 @@ function AddMenu({ data, onDone }: { data: ProjectDetail; onDone: () => void }) 
       else await post("/buckets", { projectId: data.project.id, name });
     },
     onSuccess: () => {
-      toast("success", "Created");
+      toast("success", t("Created"));
       setOpen(null);
       setName("");
       setValue("");
@@ -137,31 +138,31 @@ function AddMenu({ data, onDone }: { data: ProjectDetail; onDone: () => void }) 
   if (!data.permissions.includes("service:create")) return null;
   return (
     <>
-      <Button variant="primary" onClick={() => setOpen("service")}><Plus className="size-4" /> Service</Button>
-      <Button onClick={() => setOpen("database")}><Database className="size-4" /> Database</Button>
-      <Button onClick={() => setOpen("bucket")}><HardDrive className="size-4" /> Bucket</Button>
-      <Modal open={!!open} onClose={() => setOpen(null)} title={`New ${open}`} footer={<Button variant="primary" loading={m.isPending} onClick={() => m.mutate()}>Create</Button>}>
+      <Button variant="primary" onClick={() => setOpen("service")}><Plus className="size-4" /> {t("Service")}</Button>
+      <Button onClick={() => setOpen("database")}><Database className="size-4" /> {t("Database")}</Button>
+      <Button onClick={() => setOpen("bucket")}><HardDrive className="size-4" /> {t("Bucket")}</Button>
+      <Modal open={!!open} onClose={() => setOpen(null)} title={open === "service" ? t("New service") : open === "database" ? t("New database") : t("New bucket")} footer={<Button variant="primary" loading={m.isPending} onClick={() => m.mutate()}>{t("Create")}</Button>}>
         <div className="space-y-4">
           {err && <Alert kind="error">{err}</Alert>}
-          <Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder={open === "database" ? "db" : open === "bucket" ? "uploads" : "api"} /></Field>
+          <Field label={t("Name")}><Input value={name} onChange={(e) => setName(e.target.value)} placeholder={open === "database" ? "db" : open === "bucket" ? "uploads" : "api"} /></Field>
           {open === "service" && (
             <>
               <div className="flex gap-2">
-                <Button size="sm" variant={kind === "git" ? "primary" : "secondary"} onClick={() => setKind("git")}>Git repository</Button>
-                <Button size="sm" variant={kind === "image" ? "primary" : "secondary"} onClick={() => setKind("image")}>Docker image</Button>
-                <Link to="/new" className="ml-auto text-sm text-accent">GitHub / ZIP…</Link>
+                <Button size="sm" variant={kind === "git" ? "primary" : "secondary"} onClick={() => setKind("git")}>{t("Git repository")}</Button>
+                <Button size="sm" variant={kind === "image" ? "primary" : "secondary"} onClick={() => setKind("image")}>{t("Docker image")}</Button>
+                <Link to="/new" className="ml-auto text-sm text-accent">{t("GitHub / ZIP…")}</Link>
               </div>
-              <Field label={kind === "git" ? "Public HTTPS URL" : "Image"}><Input value={value} onChange={(e) => setValue(e.target.value)} placeholder={kind === "git" ? "https://github.com/owner/repo" : "redis:7"} /></Field>
-              <Field label="Type">
+              <Field label={kind === "git" ? t("Public HTTPS URL") : t("Image")}><Input value={value} onChange={(e) => setValue(e.target.value)} placeholder={kind === "git" ? "https://github.com/owner/repo" : "redis:7"} /></Field>
+              <Field label={t("Type")}>
                 <Select value={type} onChange={(e) => setType(e.target.value)}>
                   {["web", "static", "worker", "private", "cron", "job"].map((x) => <option key={x}>{x}</option>)}
                 </Select>
               </Field>
-              {type === "cron" && <Field label="Schedule (cron, UTC)"><Input className="font-mono" value={schedule} onChange={(e) => setSchedule(e.target.value)} /></Field>}
+              {type === "cron" && <Field label={t("Schedule (cron, UTC)")}><Input className="font-mono" value={schedule} onChange={(e) => setSchedule(e.target.value)} /></Field>}
             </>
           )}
           {open === "database" && (
-            <Field label="Engine">
+            <Field label={t("Engine")}>
               <Select value={engine} onChange={(e) => setEngine(e.target.value)}>
                 {DATABASE_ENGINES.map((x) => <option key={x}>{x}</option>)}
               </Select>
@@ -186,27 +187,27 @@ function EnvironmentsCard({ data, refetch }: { data: ProjectDetail; refetch: () 
     onSuccess: () => {
       setOpen(false);
       refetch();
-      toast("success", "Environment created");
+      toast("success", t("Environment created"));
     },
     onError: (e) => toast("error", (e as Error).message),
   });
   return (
-    <Card title="Environments" actions={<Button size="sm" onClick={() => setOpen(true)}>+ Environment</Button>}>
+    <Card title={t("Environments")} actions={<Button size="sm" onClick={() => setOpen(true)}>{t("+ Environment")}</Button>}>
       <ul className="space-y-2 text-sm">
         {data.environments.map((e) => (
           <li key={e.id} className="flex items-center justify-between">
             <span>{e.name} <Badge>{e.type}</Badge></span>
-            {e.type !== "production" && <Button size="sm" variant="ghost" onClick={() => del(`/environments/${e.id}`).then(refetch)}>Delete</Button>}
+            {e.type !== "production" && <Button size="sm" variant="ghost" onClick={() => del(`/environments/${e.id}`).then(refetch)}>{t("Delete")}</Button>}
           </li>
         ))}
       </ul>
-      <Modal open={open} onClose={() => setOpen(false)} title="New environment" footer={<Button variant="primary" loading={create.isPending} onClick={() => create.mutate()}>Create</Button>}>
+      <Modal open={open} onClose={() => setOpen(false)} title={t("New environment")} footer={<Button variant="primary" loading={create.isPending} onClick={() => create.mutate()}>{t("Create")}</Button>}>
         <div className="space-y-4">
-          <Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
-          <Field label="Type"><Select value={type} onChange={(e) => setType(e.target.value)}>{["staging", "development", "preview"].map((x) => <option key={x}>{x}</option>)}</Select></Field>
-          <Field label="Copy variables from" hint="Preview environments never receive production secrets."><Select value={cloneFrom} onChange={(e) => setCloneFrom(e.target.value)}><option value="">Nothing</option>{data.environments.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</Select></Field>
-          <Toggle checked={cloneDbs} onChange={setCloneDbs} label="Clone databases (copy the data)" />
-          {cloneDbs && <Toggle checked={anonymize} onChange={setAnonymize} label="Anonymize personal data (emails, names, phones…)" />}
+          <Field label={t("Name")}><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
+          <Field label={t("Type")}><Select value={type} onChange={(e) => setType(e.target.value)}>{["staging", "development", "preview"].map((x) => <option key={x}>{x}</option>)}</Select></Field>
+          <Field label={t("Copy variables from")} hint={t("Preview environments never receive production secrets.")}><Select value={cloneFrom} onChange={(e) => setCloneFrom(e.target.value)}><option value="">{t("Nothing")}</option>{data.environments.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</Select></Field>
+          <Toggle checked={cloneDbs} onChange={setCloneDbs} label={t("Clone databases (copy the data)")} />
+          {cloneDbs && <Toggle checked={anonymize} onChange={setAnonymize} label={t("Anonymize personal data (emails, names, phones…)")} />}
         </div>
       </Modal>
     </Card>
@@ -223,31 +224,31 @@ function SettingsTab({ data, refetch }: { data: ProjectDetail; refetch: () => vo
   const [target, setTarget] = useState("");
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Card title="General">
+      <Card title={t("General")}>
         <div className="space-y-4">
-          <Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
-          <Field label="Description"><Input value={desc} onChange={(e) => setDesc(e.target.value)} /></Field>
+          <Field label={t("Name")}><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
+          <Field label={t("Description")}><Input value={desc} onChange={(e) => setDesc(e.target.value)} /></Field>
           <div className="flex gap-2">
-            <Button variant="primary" onClick={() => patch(`/projects/${data.project.id}`, { name, description: desc || null }).then(() => { toast("success", "Saved"); refetch(); }).catch((e) => toast("error", e.message))}>Save</Button>
-            <Button onClick={() => download(`/projects/${data.project.id}/export`)}>Export skyhost.json</Button>
+            <Button variant="primary" onClick={() => patch(`/projects/${data.project.id}`, { name, description: desc || null }).then(() => { toast("success", t("Saved")); refetch(); }).catch((e) => toast("error", e.message))}>{t("Save")}</Button>
+            <Button onClick={() => download(`/projects/${data.project.id}/export`)}>{t("Export skyhost.json")}</Button>
           </div>
         </div>
       </Card>
       <EnvironmentsCard data={data} refetch={refetch} />
-      <Card title="Transfer project">
-        <p className="mb-3 text-sm text-muted">Move this project and its services, databases and buckets to another team you administer.</p>
+      <Card title={t("Transfer project")}>
+        <p className="mb-3 text-sm text-muted">{t("Move this project and its services, databases and buckets to another team you administer.")}</p>
         <div className="flex gap-2">
           <Select value={target} onChange={(e) => setTarget(e.target.value)}>
-            <option value="">Choose a team</option>
+            <option value="">{t("Choose a team")}</option>
             {teams.filter((t) => t.id !== data.project.teamId && ["owner", "admin"].includes(t.role)).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </Select>
-          <Button disabled={!target} onClick={() => post(`/projects/${data.project.id}/transfer`, { targetTeamId: target }).then(() => { toast("success", "Project transferred"); nav("/"); }).catch((e) => toast("error", e.message))}>Transfer</Button>
+          <Button disabled={!target} onClick={() => post(`/projects/${data.project.id}/transfer`, { targetTeamId: target }).then(() => { toast("success", t("Project transferred")); nav("/"); }).catch((e) => toast("error", e.message))}>{t("Transfer")}</Button>
         </div>
       </Card>
-      <Card title="Danger zone" className="border-red-500/30">
-        <p className="mb-3 text-sm text-muted">Deleting the project stops every service and deletes its databases. Databases with deletion protection block this action.</p>
-        <Button variant="danger" onClick={() => setConfirm(true)}>Delete project</Button>
-        <ConfirmDialog open={confirm} onClose={() => setConfirm(false)} title="Delete project" description="This cannot be undone." typeToConfirm={data.project.name} onConfirm={() => del(`/projects/${data.project.id}`, { confirmName: data.project.name }).then(() => nav("/")).catch((e) => toast("error", e.message))} />
+      <Card title={t("Danger zone")} className="border-red-500/30">
+        <p className="mb-3 text-sm text-muted">{t("Deleting the project stops every service and deletes its databases. Databases with deletion protection block this action.")}</p>
+        <Button variant="danger" onClick={() => setConfirm(true)}>{t("Delete project")}</Button>
+        <ConfirmDialog open={confirm} onClose={() => setConfirm(false)} title={t("Delete project")} description={t("This cannot be undone.")} typeToConfirm={data.project.name} onConfirm={() => del(`/projects/${data.project.id}`, { confirmName: data.project.name }).then(() => nav("/")).catch((e) => toast("error", e.message))} />
       </Card>
     </div>
   );
@@ -263,10 +264,10 @@ function UptimeTab({ data }: { data: ProjectDetail }) {
   const add = useMutation({ mutationFn: () => post(`/projects/${data.project.id}/uptime`, { name, url }), onSuccess: () => qc.invalidateQueries({ queryKey: ["uptime"] }), onError: (e) => toast("error", (e as Error).message) });
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-      <Card title="Uptime checks">
+      <Card title={t("Uptime checks")}>
         {q.isLoading ? <LoadingRows /> : q.data?.checks.length ? (
           <table className="w-full text-sm">
-            <thead className="text-left text-xs text-muted"><tr><th className="pb-2">Name</th><th>Status</th><th>24h</th><th>Last check</th><th /></tr></thead>
+            <thead className="text-left text-xs text-muted"><tr><th className="pb-2">{t("Name")}</th><th>{t("Status")}</th><th>24h</th><th>{t("Last check")}</th><th /></tr></thead>
             <tbody>
               {q.data.checks.map((c) => (
                 <tr key={c.id} className="border-t border-line">
@@ -274,23 +275,23 @@ function UptimeTab({ data }: { data: ProjectDetail }) {
                   <td><StatusBadge status={c.lastStatus ?? "pending"} /></td>
                   <td>{c.uptime24h ?? "–"}%</td>
                   <td className="text-muted">{timeAgo(c.lastCheckedAt)}</td>
-                  <td><Button size="sm" variant="ghost" onClick={() => del(`/uptime/${c.id}`).then(() => qc.invalidateQueries({ queryKey: ["uptime"] }))}>Remove</Button></td>
+                  <td><Button size="sm" variant="ghost" onClick={() => del(`/uptime/${c.id}`).then(() => qc.invalidateQueries({ queryKey: ["uptime"] }))}>{t("Remove")}</Button></td>
                 </tr>
               ))}
             </tbody>
           </table>
-        ) : <EmptyState title="No checks" description="SKYHOST checks your URLs from outside every minute." />}
+        ) : <EmptyState title={t("No checks")} description={t("SKYHOST checks your URLs from outside every minute.")} />}
         <div className="mt-4 flex gap-2">
           <Input value={name} onChange={(e) => setName(e.target.value)} className="w-40" />
           <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://…" />
-          <Button onClick={() => add.mutate()} loading={add.isPending}>Add</Button>
+          <Button onClick={() => add.mutate()} loading={add.isPending}>{t("Add")}</Button>
         </div>
       </Card>
-      <Card title="Public status page">
+      <Card title={t("Public status page")}>
         <div className="space-y-3">
-          <Field label="Address"><Input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="my-app" /></Field>
-          <Button onClick={() => put(`/projects/${data.project.id}/status-page`, { enabled: true, slug: slug || undefined }).then((r: any) => toast("success", `Published at ${r.statusPage.url}`)).catch((e) => toast("error", e.message))}>Publish</Button>
-          {data.project.statusPageEnabled && data.project.statusPageSlug && <a className="block text-sm text-accent" href={`/status/${data.project.statusPageSlug}`} target="_blank" rel="noreferrer">View status page</a>}
+          <Field label={t("Address")}><Input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder={t("my-app")} /></Field>
+          <Button onClick={() => put(`/projects/${data.project.id}/status-page`, { enabled: true, slug: slug || undefined }).then((r: any) => toast("success", t("Published at {{url}}", { url: r.statusPage.url }))).catch((e) => toast("error", e.message))}>{t("Publish")}</Button>
+          {data.project.statusPageEnabled && data.project.statusPageSlug && <a className="block text-sm text-accent" href={`/status/${data.project.statusPageSlug}`} target="_blank" rel="noreferrer">{t("View status page")}</a>}
         </div>
       </Card>
     </div>
@@ -300,7 +301,7 @@ function UptimeTab({ data }: { data: ProjectDetail }) {
 function ChangelogTab({ projectId }: { projectId: string }) {
   const q = useQuery({ queryKey: ["changelog", projectId], queryFn: () => get<{ entries: Array<{ date: string; service: string; commit: string; message: string; author: string; deploymentId: string }> }>(`/projects/${projectId}/changelog`) });
   if (q.isLoading) return <LoadingRows />;
-  if (!q.data?.entries.length) return <EmptyState title="No releases yet" description="Every live deployment adds its commit to the changelog." />;
+  if (!q.data?.entries.length) return <EmptyState title={t("No releases yet")} description={t("Every live deployment adds its commit to the changelog.")} />;
   const days = [...new Set(q.data.entries.map((e) => e.date))];
   return (
     <div className="space-y-4">
@@ -338,7 +339,7 @@ export default function Project() {
         subtitle={data.project.description}
         actions={
           <>
-            <Select value={envId} onChange={(e) => setEnvId(e.target.value)} className="w-44" aria-label="Environment">
+            <Select value={envId} onChange={(e) => setEnvId(e.target.value)} className="w-44" aria-label={t("Environment")}>
               {data.environments.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
             </Select>
             <AddMenu data={data} onDone={() => q.refetch()} />

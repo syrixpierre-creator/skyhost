@@ -1,5 +1,6 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useSession } from "./lib/session";
 import { Layout } from "./components/Layout";
 import { Skeleton } from "./components/ui";
@@ -38,8 +39,10 @@ function Protected({ children }: { children: ReactNode }) {
 }
 
 export function App() {
+  // Strings translated with the module-level t() refresh when the whole tree remounts on a language change.
+  const { i18n } = useTranslation();
   return (
-    <Suspense fallback={<Loading />}>
+    <Suspense key={i18n.language} fallback={<Loading />}>
       <Routes>
         <Route path="/login" element={<Auth mode="login" />} />
         <Route path="/signup" element={<Auth mode="signup" />} />

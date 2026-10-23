@@ -7,6 +7,7 @@ import type { Template } from "@skyhost/shared";
 import { get, post } from "../lib/api";
 import { useSession } from "../lib/session";
 import { Badge, Button, ErrorState, Field, Input, LoadingRows, Modal, PageHeader, useToast } from "../components/ui";
+import { t } from "../lib/i18n";
 
 export default function Templates() {
   const { t } = useTranslation();
@@ -27,7 +28,7 @@ export default function Templates() {
   const list = q.data!.templates.filter((x) => !filter || `${x.name} ${x.description} ${x.tags.join(" ")}`.toLowerCase().includes(filter.toLowerCase()));
   return (
     <>
-      <PageHeader title={t("nav.templates")} subtitle="Start from a working stack: services, databases and variables are created and deployed for you." actions={<Input placeholder="Filter templates" value={filter} onChange={(e) => setFilter(e.target.value)} />} />
+      <PageHeader title={t("nav.templates")} subtitle={t("Start from a working stack: services, databases and variables are created and deployed for you.")} actions={<Input placeholder={t("Filter templates")} value={filter} onChange={(e) => setFilter(e.target.value)} />} />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {list.map((tpl) => (
           <div key={tpl.id} className="flex flex-col rounded-lg border border-line bg-panel p-4">
@@ -38,13 +39,13 @@ export default function Templates() {
               {tpl.databases.map((d) => <Badge key={d.name}><Database className="mr-1 inline size-3" />{d.engine}</Badge>)}
             </div>
             <div className="flex flex-wrap gap-1 text-xs text-faint">{tpl.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>
-            <Button variant="primary" className="mt-3" onClick={() => { setChosen(tpl); setName(tpl.name); }}>Deploy</Button>
+            <Button variant="primary" className="mt-3" onClick={() => { setChosen(tpl); setName(tpl.name); }}>{t("Deploy")}</Button>
           </div>
         ))}
       </div>
-      <Modal open={!!chosen} onClose={() => setChosen(null)} title={`Deploy ${chosen?.name}`} footer={<><Button onClick={() => setChosen(null)}>Cancel</Button><Button variant="primary" loading={deploy.isPending} onClick={() => deploy.mutate()}>Deploy</Button></>}>
-        <Field label="Project name"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
-        <p className="mt-3 text-sm text-muted">Creates {chosen?.services.length} service(s) and {chosen?.databases.length} database(s) in {team?.name}. Generated secrets are stored encrypted.</p>
+      <Modal open={!!chosen} onClose={() => setChosen(null)} title={t("Deploy {{name}}", { name: chosen?.name })} footer={<><Button onClick={() => setChosen(null)}>{t("Cancel")}</Button><Button variant="primary" loading={deploy.isPending} onClick={() => deploy.mutate()}>{t("Deploy")}</Button></>}>
+        <Field label={t("Project name")}><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
+        <p className="mt-3 text-sm text-muted">{t("Creates")} {chosen?.services.length} {t("service(s) and")} {chosen?.databases.length} {t("database(s) in")} {team?.name}{t(". Generated secrets are stored encrypted.")}</p>
       </Modal>
     </>
   );

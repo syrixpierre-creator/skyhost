@@ -7,6 +7,7 @@ import { DATABASE_ENGINES } from "@skyhost/shared";
 import { api, get, post } from "../lib/api";
 import { useSession } from "../lib/session";
 import { Alert, Badge, Button, Card, cx, EmptyState, ErrorState, Field, Input, LoadingRows, PageHeader, Select, Toggle, useToast } from "../components/ui";
+import { t } from "../lib/i18n";
 
 type SourceTab = "github" | "gitlab" | "bitbucket" | "git" | "zip" | "image" | "empty";
 
@@ -99,15 +100,15 @@ function RepoPicker({ installation, onPick }: { installation: Installation; onPi
               <span className="flex items-center gap-2">
                 <FolderGit2 className="size-4 text-muted" /> {r.fullName}
               </span>
-              {r.private && <Badge>private</Badge>}
+              {r.private && <Badge>{t("private")}</Badge>}
             </button>
           </li>
         ))}
-        {repos.data && !list.length && <li className="px-3 py-6 text-center text-sm text-muted">No repository matches.</li>}
+        {repos.data && !list.length && <li className="px-3 py-6 text-center text-sm text-muted">{t("No repository matches.")}</li>}
       </ul>
       {repo && (
         <div className="flex items-end gap-2">
-          <Field label={<span className="flex items-center gap-1"><GitBranch className="size-3.5" /> Branch</span>} className="flex-1">
+          <Field label={<span className="flex items-center gap-1"><GitBranch className="size-3.5" /> {t("Branch")}</span>} className="flex-1">
             <Select value={branch} onChange={(e) => setBranch(e.target.value)}>
               {(branches.data?.branches ?? [branch]).map((b) => (
                 <option key={b}>{b}</option>
@@ -115,7 +116,7 @@ function RepoPicker({ installation, onPick }: { installation: Installation; onPi
             </Select>
           </Field>
           <Button variant="primary" disabled={!branch} onClick={() => onPick(repo, branch)}>
-            Analyze
+            {t("Analyze")}
           </Button>
         </div>
       )}
@@ -186,7 +187,7 @@ export default function NewProject() {
       return post<{ projectId: string }>("/projects/launch", { teamId: team!.id, projectName: projectName || undefined, source, services, databases: dbs.filter((d) => d.enabled).map((d) => ({ name: d.name, engine: d.engine, connectTo })) });
     },
     onSuccess: (r) => {
-      toast("success", "Deployment started");
+      toast("success", t("Deployment started"));
       nav(`/projects/${r.projectId}`);
     },
     onError: (e) => setError((e as Error).message),
@@ -217,9 +218,9 @@ export default function NewProject() {
   };
 
   const tabs: Array<{ id: SourceTab; label: string; icon: React.ReactNode }> = [
-    { id: "github", label: "GitHub", icon: <Github className="size-4" /> },
-    { id: "gitlab", label: "GitLab", icon: <Gitlab className="size-4" /> },
-    { id: "bitbucket", label: "Bitbucket", icon: <FolderGit2 className="size-4" /> },
+    { id: "github", label: t("GitHub"), icon: <Github className="size-4" /> },
+    { id: "gitlab", label: t("GitLab"), icon: <Gitlab className="size-4" /> },
+    { id: "bitbucket", label: t("Bitbucket"), icon: <FolderGit2 className="size-4" /> },
     { id: "git", label: t("deploy.fromUrl"), icon: <Globe className="size-4" /> },
     { id: "zip", label: t("deploy.fromZip"), icon: <FileArchive className="size-4" /> },
     { id: "image", label: t("deploy.fromImage"), icon: <Container className="size-4" /> },
@@ -233,7 +234,7 @@ export default function NewProject() {
 
   return (
     <>
-      <PageHeader title={t("deploy.title")} subtitle="Connect a repository and SKYHOST detects how to build and run it." actions={<Link to="/templates"><Button><Boxes className="size-4" /> {t("deploy.fromTemplate")}</Button></Link>} />
+      <PageHeader title={t("deploy.title")} subtitle={t("Connect a repository and SKYHOST detects how to build and run it.")} actions={<Link to="/templates"><Button><Boxes className="size-4" /> {t("deploy.fromTemplate")}</Button></Link>} />
       {error && <div className="mb-4"><Alert kind="error">{error}</Alert></div>}
 
       {!analysis && (
@@ -260,9 +261,9 @@ export default function NewProject() {
                 if (!list.length)
                   return (
                     <EmptyState
-                      title={`Connect ${tab === "github" ? "GitHub" : tab === "gitlab" ? "GitLab" : "Bitbucket"}`}
-                      description={configured ? "Grant SKYHOST access to the repositories you want to deploy. You choose exactly which repositories are shared." : "This provider is not configured on this SKYHOST installation. Ask your administrator, or deploy from a public Git URL."}
-                      action={configured ? <a href={connectUrl}><Button variant="primary">Connect</Button></a> : <Button onClick={() => setTab("git")}>{t("deploy.fromUrl")}</Button>}
+                      title={t("Connect {{provider}}", { provider: tab === "github" ? "GitHub" : tab === "gitlab" ? "GitLab" : "Bitbucket" })}
+                      description={configured ? t("Grant SKYHOST access to the repositories you want to deploy. You choose exactly which repositories are shared.") : t("This provider is not configured on this SKYHOST installation. Ask your administrator, or deploy from a public Git URL.")}
+                      action={configured ? <a href={connectUrl}><Button variant="primary">{t("Connect")}</Button></a> : <Button onClick={() => setTab("git")}>{t("deploy.fromUrl")}</Button>}
                     />
                   );
                 const current = list.find((i) => i.id === instId) ?? list[0]!;
@@ -274,7 +275,7 @@ export default function NewProject() {
                           <option key={i.id} value={i.id}>{i.accountLogin}</option>
                         ))}
                       </Select>
-                      <a href={connectUrl} className="text-sm text-accent">+ Add account</a>
+                      <a href={connectUrl} className="text-sm text-accent">{t("+ Add account")}</a>
                     </div>
                     <RepoPicker installation={current} onPick={(repo, branch) => analyze.mutate({ kind: tab, repo, branch, installationId: current.id })} />
                   </div>
@@ -282,30 +283,30 @@ export default function NewProject() {
               })()
             ) : tab === "git" ? (
               <form onSubmit={(e) => { e.preventDefault(); analyze.mutate({ kind: "git", url: gitUrl }); }} className="space-y-4">
-                <Field label="Repository URL" hint="Public HTTPS URL, e.g. https://github.com/vercel/next-learn">
+                <Field label={t("Repository URL")} hint={t("Public HTTPS URL, e.g. https://github.com/vercel/next-learn")}>
                   <Input required type="url" placeholder="https://github.com/owner/repo" value={gitUrl} onChange={(e) => setGitUrl(e.target.value)} />
                 </Field>
-                <Button variant="primary">Analyze</Button>
+                <Button variant="primary">{t("Analyze")}</Button>
               </form>
             ) : tab === "zip" ? (
               <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed border-line px-6 py-12 text-center text-sm text-muted hover:border-faint">
                 <FileArchive className="size-8" />
-                Drop a ZIP of your project here or click to choose (max 100 MB)
+                {t("Drop a ZIP of your project here or click to choose (max 100 MB)")}
                 <input type="file" accept=".zip,application/zip" className="hidden" onChange={(e) => e.target.files?.[0] && void uploadZip(e.target.files[0])} />
               </label>
             ) : tab === "image" ? (
               <form onSubmit={(e) => { e.preventDefault(); deployImage.mutate(); }} className="space-y-4">
-                <Field label="Image" hint="From Docker Hub or any public registry, e.g. ghcr.io/owner/app:1.2">
-                  <Input required placeholder="nginx:alpine" value={image} onChange={(e) => setImage(e.target.value)} />
+                <Field label={t("Image")} hint={t("From Docker Hub or any public registry, e.g. ghcr.io/owner/app:1.2")}>
+                  <Input required placeholder={t("nginx:alpine")} value={image} onChange={(e) => setImage(e.target.value)} />
                 </Field>
-                <Field label="Port">
+                <Field label={t("Port")}>
                   <Input value={imagePort} onChange={(e) => setImagePort(e.target.value)} inputMode="numeric" />
                 </Field>
                 <Button variant="primary" loading={deployImage.isPending}>{t("deploy.deploy")}</Button>
               </form>
             ) : (
               <form onSubmit={(e) => { e.preventDefault(); emptyProject.mutate(); }} className="space-y-4">
-                <Field label="Project name">
+                <Field label={t("Project name")}>
                   <Input required value={projectName} onChange={(e) => setProjectName(e.target.value)} />
                 </Field>
                 <Button variant="primary" loading={emptyProject.isPending}>{t("common.create")}</Button>
@@ -329,10 +330,10 @@ export default function NewProject() {
             }
           >
             <div className="grid gap-4 text-sm sm:grid-cols-4">
-              <div><div className="text-xs text-muted">Stack</div><div className="font-medium">{analysis.framework ?? analysis.runtime}{analysis.version ? ` · ${analysis.version}` : ""}</div></div>
-              <div><div className="text-xs text-muted">Package manager</div><div className="font-medium">{analysis.packageManager ?? "–"}</div></div>
-              <div><div className="text-xs text-muted">Type</div><div className="font-medium">{analysis.serviceType}</div></div>
-              <div><div className="text-xs text-muted">Port</div><div className="font-medium">{analysis.port ?? "–"}</div></div>
+              <div><div className="text-xs text-muted">{t("Stack")}</div><div className="font-medium">{analysis.framework ?? analysis.runtime}{analysis.version ? ` · ${analysis.version}` : ""}</div></div>
+              <div><div className="text-xs text-muted">{t("Package manager")}</div><div className="font-medium">{analysis.packageManager ?? "–"}</div></div>
+              <div><div className="text-xs text-muted">{t("Type")}</div><div className="font-medium">{analysis.serviceType}</div></div>
+              <div><div className="text-xs text-muted">{t("Port")}</div><div className="font-medium">{analysis.port ?? "–"}</div></div>
             </div>
             {showExplain && (
               <ul className="mt-4 list-disc space-y-1 rounded-md bg-panel-2 p-4 pl-8 text-sm text-muted">
@@ -343,37 +344,37 @@ export default function NewProject() {
             {analysis.suggestions.map((s) => <div key={s.message} className="mt-3"><Alert kind="info"><strong>{s.file}:</strong> {s.message}</Alert></div>)}
             <div className="mt-4 flex items-center gap-3">
               <Toggle checked={advanced} onChange={setAdvanced} label={advanced ? t("deploy.advanced") : t("deploy.simple")} />
-              {!advanced && analysis.confidence === "high" && <span className="text-xs text-muted">Everything is configured automatically. You can change it later.</span>}
+              {!advanced && analysis.confidence === "high" && <span className="text-xs text-muted">{t("Everything is configured automatically. You can change it later.")}</span>}
             </div>
           </Card>
 
-          <Card title="Project">
-            <Field label="Project name"><Input value={projectName} onChange={(e) => setProjectName(e.target.value)} /></Field>
+          <Card title={t("Project")}>
+            <Field label={t("Project name")}><Input value={projectName} onChange={(e) => setProjectName(e.target.value)} /></Field>
           </Card>
 
           {drafts.map((d, i) => (
-            <Card key={i} title={<span className="flex items-center gap-2">{drafts.length > 1 && <input type="checkbox" checked={d.enabled} onChange={(e) => update(i, { enabled: e.target.checked })} />} Service <code className="font-mono text-xs text-muted">{d.rootDir}</code></span>}>
+            <Card key={i} title={<span className="flex items-center gap-2">{drafts.length > 1 && <input type="checkbox" checked={d.enabled} onChange={(e) => update(i, { enabled: e.target.checked })} />} {t("Service")} <code className="font-mono text-xs text-muted">{d.rootDir}</code></span>}>
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Name"><Input value={d.name} onChange={(e) => update(i, { name: e.target.value })} /></Field>
-                <Field label="Type">
+                <Field label={t("Name")}><Input value={d.name} onChange={(e) => update(i, { name: e.target.value })} /></Field>
+                <Field label={t("Type")}>
                   <Select value={d.type} onChange={(e) => update(i, { type: e.target.value })}>
                     {["web", "static", "worker", "private", "docker", "cron"].map((x) => <option key={x}>{x}</option>)}
                   </Select>
                 </Field>
                 {advanced && (
                   <>
-                    <Field label="Root directory"><Input value={d.rootDir} onChange={(e) => update(i, { rootDir: e.target.value })} /></Field>
-                    <Field label="Port"><Input value={d.port} onChange={(e) => update(i, { port: e.target.value })} inputMode="numeric" /></Field>
-                    <Field label="Install command"><Input className="font-mono" value={d.installCommand} onChange={(e) => update(i, { installCommand: e.target.value })} /></Field>
-                    <Field label="Build command"><Input className="font-mono" value={d.buildCommand} onChange={(e) => update(i, { buildCommand: e.target.value })} /></Field>
-                    <Field label="Start command"><Input className="font-mono" value={d.startCommand} onChange={(e) => update(i, { startCommand: e.target.value })} /></Field>
-                    <Field label="Output directory"><Input className="font-mono" value={d.outputDirectory} onChange={(e) => update(i, { outputDirectory: e.target.value })} /></Field>
+                    <Field label={t("Root directory")}><Input value={d.rootDir} onChange={(e) => update(i, { rootDir: e.target.value })} /></Field>
+                    <Field label={t("Port")}><Input value={d.port} onChange={(e) => update(i, { port: e.target.value })} inputMode="numeric" /></Field>
+                    <Field label={t("Install command")}><Input className="font-mono" value={d.installCommand} onChange={(e) => update(i, { installCommand: e.target.value })} /></Field>
+                    <Field label={t("Build command")}><Input className="font-mono" value={d.buildCommand} onChange={(e) => update(i, { buildCommand: e.target.value })} /></Field>
+                    <Field label={t("Start command")}><Input className="font-mono" value={d.startCommand} onChange={(e) => update(i, { startCommand: e.target.value })} /></Field>
+                    <Field label={t("Output directory")}><Input className="font-mono" value={d.outputDirectory} onChange={(e) => update(i, { outputDirectory: e.target.value })} /></Field>
                   </>
                 )}
               </div>
               {(d.variables.length > 0 || advanced) && (
                 <div className="mt-4">
-                  <div className="mb-2 text-sm font-medium">Variables</div>
+                  <div className="mb-2 text-sm font-medium">{t("Variables")}</div>
                   <div className="space-y-2">
                     {d.variables.map((v, j) => (
                       <div key={j} className="flex gap-2">
@@ -381,7 +382,7 @@ export default function NewProject() {
                         <Input className={cx("flex-1 font-mono", v.required && !v.value && "border-amber-500")} type={v.secret ? "password" : "text"} placeholder={v.required ? "required" : ""} value={v.value} onChange={(e) => update(i, { variables: d.variables.map((x, k) => (k === j ? { ...x, value: e.target.value } : x)) })} />
                       </div>
                     ))}
-                    <Button size="sm" variant="ghost" onClick={() => update(i, { variables: [...d.variables, { key: "", value: "", secret: false, required: false }] })}>+ Add variable</Button>
+                    <Button size="sm" variant="ghost" onClick={() => update(i, { variables: [...d.variables, { key: "", value: "", secret: false, required: false }] })}>{t("+ Add variable")}</Button>
                   </div>
                 </div>
               )}
@@ -389,7 +390,7 @@ export default function NewProject() {
           ))}
 
           {(dbs.length > 0 || advanced) && (
-            <Card title="Databases" actions={advanced && <Select className="w-40" onChange={(e) => { if (e.target.value) setDbs([...dbs, { engine: e.target.value, name: e.target.value === "postgres" ? "db" : e.target.value, enabled: true }]); e.target.value = ""; }}><option value="">+ Add database</option>{DATABASE_ENGINES.map((x) => <option key={x}>{x}</option>)}</Select>}>
+            <Card title={t("Databases")} actions={advanced && <Select className="w-40" onChange={(e) => { if (e.target.value) setDbs([...dbs, { engine: e.target.value, name: e.target.value === "postgres" ? "db" : e.target.value, enabled: true }]); e.target.value = ""; }}><option value="">{t("+ Add database")}</option>{DATABASE_ENGINES.map((x) => <option key={x}>{x}</option>)}</Select>}>
               {dbs.length ? (
                 <ul className="space-y-2">
                   {dbs.map((d, i) => (
@@ -397,16 +398,16 @@ export default function NewProject() {
                       <input type="checkbox" checked={d.enabled} onChange={(e) => setDbs(dbs.map((x, j) => (j === i ? { ...x, enabled: e.target.checked } : x)))} />
                       <Badge>{d.engine}</Badge>
                       <Input className="w-40" value={d.name} onChange={(e) => setDbs(dbs.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
-                      <span className="text-muted">{analysis.databaseDetected.find((x) => x.engine === d.engine)?.reason ?? "Added manually"} · connected automatically</span>
+                      <span className="text-muted">{analysis.databaseDetected.find((x) => x.engine === d.engine)?.reason ?? t("Added manually")} {t("· connected automatically")}</span>
                     </li>
                   ))}
                 </ul>
-              ) : <p className="text-sm text-muted">No database needed.</p>}
+              ) : <p className="text-sm text-muted">{t("No database needed.")}</p>}
             </Card>
           )}
 
           {analysis.compose && (
-            <Alert kind="info">A docker-compose file describes {analysis.compose.length} services ({analysis.compose.map((c) => c.name).join(", ")}). Database services are replaced by managed databases above; other services are created from their build directories.</Alert>
+            <Alert kind="info">{t("A docker-compose file describes")} {analysis.compose.length} {t("services (")}{analysis.compose.map((c) => c.name).join(", ")}{t("). Database services are replaced by managed databases above; other services are created from their build directories.")}</Alert>
           )}
 
           <div className="flex items-center justify-end gap-2">
@@ -415,7 +416,7 @@ export default function NewProject() {
               {t("deploy.deploy")}
             </Button>
           </div>
-          {missingRequired && <p className="text-right text-xs text-amber-500">Some required variables are empty: the app may fail to start. You can fill them later.</p>}
+          {missingRequired && <p className="text-right text-xs text-amber-500">{t("Some required variables are empty: the app may fail to start. You can fill them later.")}</p>}
         </div>
       )}
     </>

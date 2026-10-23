@@ -11,7 +11,7 @@
   "scripts": {
     "build": "pnpm -r --filter=./apps/* run build",
     "typecheck": "pnpm -r run typecheck",
-    "test": "pnpm -r --filter=!./apps/web run test",
+    "test": "pnpm -r run test",
     "test:e2e": "pnpm --filter @skyhost/api run test:e2e",
     "test:web": "pnpm --filter @skyhost/web run test:e2e",
     "lint": "pnpm -r run typecheck",

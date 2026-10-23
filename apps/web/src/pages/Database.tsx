@@ -8,6 +8,7 @@ import { del, download, get, patch, post } from "../lib/api";
 import { useRealtimeInvalidate } from "../lib/session";
 import { MetricChart, bytesFmt } from "../components/Charts";
 import { Alert, Badge, Button, Card, CodeField, ConfirmDialog, EmptyState, ErrorState, Field, Input, LoadingRows, PageHeader, Select, StatusBadge, Tabs, Textarea, Toggle, timeAgo, useToast } from "../components/ui";
+import { t } from "../lib/i18n";
 
 interface Db {
   id: string;
@@ -55,7 +56,7 @@ function DataBrowser({ db }: { db: Db }) {
   };
   return (
     <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
-      <Card title={db.engine === "mongodb" ? "Collections" : db.engine === "redis" ? "Keys" : "Tables"} padded={false}>
+      <Card title={db.engine === "mongodb" ? t("Collections") : db.engine === "redis" ? t("Keys") : t("Tables")} padded={false}>
         <ul className="max-h-[480px] overflow-y-auto py-1 text-sm">
           {tables.data?.tables.map((t) => (
             <li key={t}>
@@ -72,16 +73,16 @@ function DataBrowser({ db }: { db: Db }) {
               </button>
             </li>
           ))}
-          {tables.data && !tables.data.tables.length && <li className="px-3 py-2 text-xs text-muted">Empty</li>}
+          {tables.data && !tables.data.tables.length && <li className="px-3 py-2 text-xs text-muted">{t("Empty")}</li>}
         </ul>
       </Card>
       <div className="space-y-3">
-        <Alert kind="info">Read-only: queries run with a dedicated read-only user. Writes are rejected by the database.</Alert>
-        {db.engine === "mongodb" && <Field label="Collection"><Input value={collection} onChange={(e) => setCollection(e.target.value)} /></Field>}
-        <Textarea rows={5} className="font-mono text-xs" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Query" spellCheck={false} />
+        <Alert kind="info">{t("Read-only: queries run with a dedicated read-only user. Writes are rejected by the database.")}</Alert>
+        {db.engine === "mongodb" && <Field label={t("Collection")}><Input value={collection} onChange={(e) => setCollection(e.target.value)} /></Field>}
+        <Textarea rows={5} className="font-mono text-xs" value={query} onChange={(e) => setQuery(e.target.value)} aria-label={t("Query")} spellCheck={false} />
         <div className="flex gap-2">
-          <Button variant="primary" loading={run.isPending} onClick={() => run.mutate()}><Play className="size-3.5" /> Run</Button>
-          {run.data?.result && <Button onClick={exportCsv}>Export CSV</Button>}
+          <Button variant="primary" loading={run.isPending} onClick={() => run.mutate()}><Play className="size-3.5" /> {t("Run")}</Button>
+          {run.data?.result && <Button onClick={exportCsv}>{t("Export CSV")}</Button>}
         </div>
         {run.error && <Alert kind="error">{(run.error as Error).message}</Alert>}
         {run.data?.result && (
@@ -90,7 +91,7 @@ function DataBrowser({ db }: { db: Db }) {
               <thead className="bg-panel text-left"><tr>{run.data.result.columns.map((c) => <th key={c} className="px-2 py-1.5 font-medium">{c}</th>)}</tr></thead>
               <tbody className="font-mono">{run.data.result.rows.map((r, i) => <tr key={i} className="border-t border-line">{r.map((c, j) => <td key={j} className="max-w-xs truncate px-2 py-1">{c ?? <span className="text-faint">NULL</span>}</td>)}</tr>)}</tbody>
             </table>
-            {run.data.result.truncated && <p className="px-2 py-1 text-xs text-muted">Showing the first 500 rows.</p>}
+            {run.data.result.truncated && <p className="px-2 py-1 text-xs text-muted">{t("Showing the first 500 rows.")}</p>}
           </div>
         )}
         {run.data?.documents && <pre className="max-h-[480px] overflow-auto rounded-lg border border-line bg-panel p-3 font-mono text-xs">{JSON.stringify(run.data.documents, null, 2)}</pre>}
@@ -108,10 +109,10 @@ function Backups({ db }: { db: Db }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-between">
-        <p className="text-sm text-muted">Backups are encrypted and verified by a test restore before they are marked completed. Schedule: <code className="font-mono">{db.backupSchedule}</code> (UTC), kept {db.backupRetentionDays} days.</p>
-        <Button variant="primary" onClick={() => post(`/databases/${db.id}/backups`).then(() => qc.invalidateQueries({ queryKey: ["backups"] })).catch((e) => toast("error", e.message))}>Back up now</Button>
+        <p className="text-sm text-muted">{t("Backups are encrypted and verified by a test restore before they are marked completed. Schedule:")} <code className="font-mono">{db.backupSchedule}</code> {t("(UTC), kept")} {db.backupRetentionDays} {t("days.")}</p>
+        <Button variant="primary" onClick={() => post(`/databases/${db.id}/backups`).then(() => qc.invalidateQueries({ queryKey: ["backups"] })).catch((e) => toast("error", e.message))}>{t("Back up now")}</Button>
       </div>
-      {q.isLoading ? <LoadingRows /> : !q.data?.backups.length ? <EmptyState title="No backups yet" /> : (
+      {q.isLoading ? <LoadingRows /> : !q.data?.backups.length ? <EmptyState title={t("No backups yet")} /> : (
         <div className="divide-y divide-line rounded-lg border border-line bg-panel">
           {q.data.backups.map((b) => (
             <div key={b.id} className="flex flex-wrap items-center gap-3 px-4 py-2 text-sm">
@@ -119,22 +120,22 @@ function Backups({ db }: { db: Db }) {
               <span>{new Date(b.createdAt).toLocaleString()}</span>
               <Badge>{b.kind}</Badge>
               {b.sizeBytes != null && <span className="text-muted">{formatBytes(b.sizeBytes)}</span>}
-              {b.verifiedAt && <span className="text-xs text-green-500">restore-tested</span>}
+              {b.verifiedAt && <span className="text-xs text-green-500">{t("restore-tested")}</span>}
               {b.error && <span className="text-xs text-red-500">{b.error}</span>}
               <span className="ml-auto flex gap-1">
-                {b.status === "completed" && <Button size="sm" variant="ghost" onClick={() => download(`/backups/${b.id}/download`)}>Download</Button>}
-                {b.status === "completed" && <Button size="sm" onClick={() => setRestore(b.id)}>Restore</Button>}
+                {b.status === "completed" && <Button size="sm" variant="ghost" onClick={() => download(`/backups/${b.id}/download`)}>{t("Download")}</Button>}
+                {b.status === "completed" && <Button size="sm" onClick={() => setRestore(b.id)}>{t("Restore")}</Button>}
               </span>
             </div>
           ))}
         </div>
       )}
       {!!q.data?.restores.length && (
-        <Card title="Restores">
+        <Card title={t("Restores")}>
           <ul className="space-y-1 text-sm">{q.data.restores.map((r) => <li key={r.id}><StatusBadge status={r.status === "running" ? "restoring" : r.status} label={r.status} /> {timeAgo(r.createdAt)} {r.error && <span className="text-red-500">{r.error}</span>}</li>)}</ul>
         </Card>
       )}
-      <ConfirmDialog open={!!restore} onClose={() => setRestore(null)} title="Restore backup" description="The current data is replaced by the backup. SKYHOST takes a safety backup first." typeToConfirm={db.name} confirmText="Restore" onConfirm={() => post(`/backups/${restore}/restore`, { confirmName: db.name }).then(() => { setRestore(null); toast("success", "Restore started"); void qc.invalidateQueries({ queryKey: ["backups"] }); }).catch((e) => toast("error", e.message))} />
+      <ConfirmDialog open={!!restore} onClose={() => setRestore(null)} title={t("Restore backup")} description={t("The current data is replaced by the backup. SKYHOST takes a safety backup first.")} typeToConfirm={db.name} confirmText={t("Restore")} onConfirm={() => post(`/backups/${restore}/restore`, { confirmName: db.name }).then(() => { setRestore(null); toast("success", t("Restore started")); void qc.invalidateQueries({ queryKey: ["backups"] }); }).catch((e) => toast("error", e.message))} />
     </div>
   );
 }
@@ -156,14 +157,14 @@ export default function Database() {
   const [settings, setSettings] = useState<Partial<Db> | null>(null);
   const [confirm, setConfirm] = useState(false);
   const chart = useMemo(() => (metrics.data?.samples ?? []).map((s) => ({ ...s, label: new Date(s.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) })), [metrics.data]);
-  const save = useMutation({ mutationFn: (body: Partial<Db>) => patch(`/databases/${databaseId}`, body), onSuccess: () => { toast("success", "Saved"); void q.refetch(); }, onError: (e) => toast("error", (e as Error).message) });
+  const save = useMutation({ mutationFn: (body: Partial<Db>) => patch(`/databases/${databaseId}`, body), onSuccess: () => { toast("success", t("Saved")); void q.refetch(); }, onError: (e) => toast("error", (e as Error).message) });
   if (q.isLoading) return <LoadingRows rows={5} />;
   if (q.error) return <ErrorState error={q.error} />;
   const db = q.data!.database;
   const s = settings ?? db;
   return (
     <>
-      <PageHeader breadcrumbs={<Link to={`/projects/${projectId}`}>Project</Link>} title={<span className="flex items-center gap-3">{db.name} <StatusBadge status={db.status} /></span>} subtitle={`${db.engine} ${db.version} · ${db.regionId} · ${db.internalHost}:${db.port}`} />
+      <PageHeader breadcrumbs={<Link to={`/projects/${projectId}`}>{t("Project")}</Link>} title={<span className="flex items-center gap-3">{db.name} <StatusBadge status={db.status} /></span>} subtitle={`${db.engine} ${db.version} · ${db.regionId} · ${db.internalHost}:${db.port}`} />
       {db.error && <div className="mb-4"><Alert kind="error">{db.error}</Alert></div>}
       <Tabs
         tabs={[
@@ -182,76 +183,76 @@ export default function Database() {
       />
       {tab === "overview" && (
         <div className="grid gap-4 md:grid-cols-3">
-          <Card title="Database"><dl className="space-y-2 text-sm"><div><dt className="text-xs text-muted">Engine</dt><dd>{db.engine} {db.version}</dd></div><div><dt className="text-xs text-muted">Storage</dt><dd>{db.storageMb} MB</dd></div><div><dt className="text-xs text-muted">Ready since</dt><dd>{timeAgo(db.readyAt)}</dd></div></dl></Card>
-          <Card title="Network"><dl className="space-y-2 text-sm"><div><dt className="text-xs text-muted">Private host</dt><dd className="font-mono text-xs">{db.internalHost}:{db.port}</dd></div><div><dt className="text-xs text-muted">Public access</dt><dd>{db.publicAccess ? `Enabled (port ${db.publicPort ?? "…"})` : "Disabled"}</dd></div></dl></Card>
-          <Card title="Health"><dl className="space-y-2 text-sm"><div><dt className="text-xs text-muted">Uptime (24h)</dt><dd>{metrics.data?.uptimePercent ?? "–"}%</dd></div><div><dt className="text-xs text-muted">Connected services</dt><dd>{q.data!.connections.length}</dd></div></dl></Card>
+          <Card title={t("Database")}><dl className="space-y-2 text-sm"><div><dt className="text-xs text-muted">{t("Engine")}</dt><dd>{db.engine} {db.version}</dd></div><div><dt className="text-xs text-muted">{t("Storage")}</dt><dd>{db.storageMb} MB</dd></div><div><dt className="text-xs text-muted">{t("Ready since")}</dt><dd>{timeAgo(db.readyAt)}</dd></div></dl></Card>
+          <Card title={t("Network")}><dl className="space-y-2 text-sm"><div><dt className="text-xs text-muted">{t("Private host")}</dt><dd className="font-mono text-xs">{db.internalHost}:{db.port}</dd></div><div><dt className="text-xs text-muted">{t("Public access")}</dt><dd>{db.publicAccess ? `Enabled (port ${db.publicPort ?? "…"})` : t("Disabled")}</dd></div></dl></Card>
+          <Card title={t("Health")}><dl className="space-y-2 text-sm"><div><dt className="text-xs text-muted">{t("Uptime (24h)")}</dt><dd>{metrics.data?.uptimePercent ?? "–"}%</dd></div><div><dt className="text-xs text-muted">{t("Connected services")}</dt><dd>{q.data!.connections.length}</dd></div></dl></Card>
         </div>
       )}
       {tab === "connections" && (
-        <Card title="Connected services">
+        <Card title={t("Connected services")}>
           <ul className="mb-4 space-y-2 text-sm">
             {q.data!.connections.map((c) => (
               <li key={c.serviceId} className="flex items-center justify-between">
                 <span>{c.serviceName} <code className="ml-2 font-mono text-xs text-muted">{c.variableName}</code></span>
-                <Button size="sm" variant="ghost" onClick={() => del(`/databases/${db.id}/connections/${c.serviceId}`).then(() => q.refetch())}>Disconnect</Button>
+                <Button size="sm" variant="ghost" onClick={() => del(`/databases/${db.id}/connections/${c.serviceId}`).then(() => q.refetch())}>{t("Disconnect")}</Button>
               </li>
             ))}
-            {!q.data!.connections.length && <li className="text-muted">No service uses this database yet.</li>}
+            {!q.data!.connections.length && <li className="text-muted">{t("No service uses this database yet.")}</li>}
           </ul>
           <div className="flex flex-wrap items-end gap-2">
-            <Field label="Service"><Select value={connectTo} onChange={(e) => setConnectTo(e.target.value)}><option value="">Choose…</option>{project.data?.services.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</Select></Field>
-            <Field label="Variable name"><Input value={varName} placeholder={db.engine === "mongodb" ? "MONGODB_URI" : db.engine === "redis" ? "REDIS_URL" : "DATABASE_URL"} onChange={(e) => setVarName(e.target.value.toUpperCase())} /></Field>
-            <Button disabled={!connectTo} onClick={() => post(`/databases/${db.id}/connections`, { serviceId: connectTo, variableName: varName || undefined }).then(() => { toast("success", "Connected. Redeploy the service to inject the URL."); void q.refetch(); }).catch((e) => toast("error", e.message))}>Connect</Button>
+            <Field label={t("Service")}><Select value={connectTo} onChange={(e) => setConnectTo(e.target.value)}><option value="">{t("Choose…")}</option>{project.data?.services.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</Select></Field>
+            <Field label={t("Variable name")}><Input value={varName} placeholder={db.engine === "mongodb" ? "MONGODB_URI" : db.engine === "redis" ? "REDIS_URL" : "DATABASE_URL"} onChange={(e) => setVarName(e.target.value.toUpperCase())} /></Field>
+            <Button disabled={!connectTo} onClick={() => post(`/databases/${db.id}/connections`, { serviceId: connectTo, variableName: varName || undefined }).then(() => { toast("success", t("Connected. Redeploy the service to inject the URL.")); void q.refetch(); }).catch((e) => toast("error", e.message))}>{t("Connect")}</Button>
           </div>
         </Card>
       )}
       {tab === "credentials" && (
-        <Card title="Credentials" actions={<Button size="sm" onClick={() => post(`/databases/${db.id}/rotate-credentials`).then(() => toast("success", "Rotating the password. Redeploy connected services afterwards."))}>Rotate password</Button>}>
+        <Card title={t("Credentials")} actions={<Button size="sm" onClick={() => post(`/databases/${db.id}/rotate-credentials`).then(() => toast("success", t("Rotating the password. Redeploy connected services afterwards.")))}>{t("Rotate password")}</Button>}>
           {creds.isLoading ? <LoadingRows /> : creds.data && (
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Host"><CodeField value={creds.data.credentials.host} /></Field>
-              <Field label="Port"><CodeField value={String(creds.data.credentials.port)} /></Field>
-              <Field label="Database"><CodeField value={creds.data.credentials.dbName} /></Field>
-              <Field label="Username"><CodeField value={creds.data.credentials.username} /></Field>
-              <Field label="Password"><CodeField value={creds.data.credentials.password} secret /></Field>
-              <Field label="Internal URL" className="sm:col-span-2"><CodeField value={creds.data.credentials.connectionUrl} secret /></Field>
-              {creds.data.credentials.publicUrl && <Field label="Public URL" className="sm:col-span-2"><CodeField value={creds.data.credentials.publicUrl} secret /></Field>}
+              <Field label={t("Host")}><CodeField value={creds.data.credentials.host} /></Field>
+              <Field label={t("Port")}><CodeField value={String(creds.data.credentials.port)} /></Field>
+              <Field label={t("Database")}><CodeField value={creds.data.credentials.dbName} /></Field>
+              <Field label={t("Username")}><CodeField value={creds.data.credentials.username} /></Field>
+              <Field label={t("Password")}><CodeField value={creds.data.credentials.password} secret /></Field>
+              <Field label={t("Internal URL")} className="sm:col-span-2"><CodeField value={creds.data.credentials.connectionUrl} secret /></Field>
+              {creds.data.credentials.publicUrl && <Field label={t("Public URL")} className="sm:col-span-2"><CodeField value={creds.data.credentials.publicUrl} secret /></Field>}
             </div>
           )}
         </Card>
       )}
       {tab === "data" && <DataBrowser db={db} />}
       {tab === "backups" && <Backups db={db} />}
-      {tab === "metrics" && (chart.length ? <div className="grid gap-4 lg:grid-cols-2"><MetricChart data={chart} dataKey="cpuPercent" title="CPU" unit="%" /><MetricChart data={chart} dataKey="memoryBytes" title="Memory" formatter={bytesFmt} /><MetricChart data={chart} dataKey="diskBytes" title="Storage" formatter={bytesFmt} color="#ca8a04" /><MetricChart data={chart} dataKey="requests" title="Connections" color="#16a34a" /></div> : <EmptyState title="No metrics yet" />)}
-      {tab === "logs" && <pre className="h-[480px] overflow-auto rounded-lg border border-line bg-[#07080a] p-3 font-mono text-xs text-zinc-300">{logs.data?.lines.join("\n") ?? "Loading…"}</pre>}
+      {tab === "metrics" && (chart.length ? <div className="grid gap-4 lg:grid-cols-2"><MetricChart data={chart} dataKey="cpuPercent" title="CPU" unit="%" /><MetricChart data={chart} dataKey="memoryBytes" title={t("Memory")} formatter={bytesFmt} /><MetricChart data={chart} dataKey="diskBytes" title={t("Storage")} formatter={bytesFmt} color="#ca8a04" /><MetricChart data={chart} dataKey="requests" title={t("Connections")} color="#16a34a" /></div> : <EmptyState title={t("No metrics yet")} />)}
+      {tab === "logs" && <pre className="h-[480px] overflow-auto rounded-lg border border-line bg-[#07080a] p-3 font-mono text-xs text-zinc-300">{logs.data?.lines.join("\n") ?? t("Loading…")}</pre>}
       {tab === "settings" && (
         <div className="grid gap-4 lg:grid-cols-2">
-          <Card title="Backups">
+          <Card title={t("Backups")}>
             <div className="space-y-3">
-              <Toggle checked={!!s.backupsEnabled} onChange={(v) => setSettings({ ...s, backupsEnabled: v })} label="Automatic backups" />
-              <Field label="Schedule (cron, UTC)"><Input className="font-mono" value={s.backupSchedule} onChange={(e) => setSettings({ ...s, backupSchedule: e.target.value })} /></Field>
-              <Field label="Retention (days)"><Input value={s.backupRetentionDays} onChange={(e) => setSettings({ ...s, backupRetentionDays: Number(e.target.value) })} /></Field>
-              <Button onClick={() => save.mutate({ backupsEnabled: s.backupsEnabled, backupSchedule: s.backupSchedule, backupRetentionDays: s.backupRetentionDays })}>Save</Button>
+              <Toggle checked={!!s.backupsEnabled} onChange={(v) => setSettings({ ...s, backupsEnabled: v })} label={t("Automatic backups")} />
+              <Field label={t("Schedule (cron, UTC)")}><Input className="font-mono" value={s.backupSchedule} onChange={(e) => setSettings({ ...s, backupSchedule: e.target.value })} /></Field>
+              <Field label={t("Retention (days)")}><Input value={s.backupRetentionDays} onChange={(e) => setSettings({ ...s, backupRetentionDays: Number(e.target.value) })} /></Field>
+              <Button onClick={() => save.mutate({ backupsEnabled: s.backupsEnabled, backupSchedule: s.backupSchedule, backupRetentionDays: s.backupRetentionDays })}>{t("Save")}</Button>
             </div>
           </Card>
-          <Card title="Public access">
+          <Card title={t("Public access")}>
             <div className="space-y-3">
-              <p className="text-sm text-muted">Disabled by default. Services always connect through the private network.</p>
-              <Toggle checked={!!s.publicAccess} onChange={(v) => setSettings({ ...s, publicAccess: v })} label="Allow TCP connections from the internet" />
-              <Field label="Allowed IPs / CIDR (comma separated)"><Input value={(s.ipAllowlist ?? []).join(", ")} onChange={(e) => setSettings({ ...s, ipAllowlist: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) })} /></Field>
-              <Button onClick={() => save.mutate({ publicAccess: s.publicAccess, ipAllowlist: s.ipAllowlist })}>Save</Button>
+              <p className="text-sm text-muted">{t("Disabled by default. Services always connect through the private network.")}</p>
+              <Toggle checked={!!s.publicAccess} onChange={(v) => setSettings({ ...s, publicAccess: v })} label={t("Allow TCP connections from the internet")} />
+              <Field label={t("Allowed IPs / CIDR (comma separated)")}><Input value={(s.ipAllowlist ?? []).join(", ")} onChange={(e) => setSettings({ ...s, ipAllowlist: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) })} /></Field>
+              <Button onClick={() => save.mutate({ publicAccess: s.publicAccess, ipAllowlist: s.ipAllowlist })}>{t("Save")}</Button>
             </div>
           </Card>
         </div>
       )}
       {tab === "danger" && (
-        <Card title="Danger zone" className="border-red-500/30">
+        <Card title={t("Danger zone")} className="border-red-500/30">
           <div className="space-y-4">
-            <Toggle checked={db.deletionProtection} onChange={(v) => save.mutate({ deletionProtection: v })} label="Deletion protection" />
-            <Button variant="danger" disabled={db.deletionProtection} onClick={() => setConfirm(true)}>Delete database</Button>
-            {db.deletionProtection && <p className="text-xs text-muted">Disable deletion protection to delete this database.</p>}
+            <Toggle checked={db.deletionProtection} onChange={(v) => save.mutate({ deletionProtection: v })} label={t("Deletion protection")} />
+            <Button variant="danger" disabled={db.deletionProtection} onClick={() => setConfirm(true)}>{t("Delete database")}</Button>
+            {db.deletionProtection && <p className="text-xs text-muted">{t("Disable deletion protection to delete this database.")}</p>}
           </div>
-          <ConfirmDialog open={confirm} onClose={() => setConfirm(false)} title="Delete database" description="The container and its data volume are deleted. Existing backups are kept until they expire." typeToConfirm={db.name} onConfirm={() => del(`/databases/${db.id}`, { confirmName: db.name }).then(() => nav(`/projects/${projectId}`)).catch((e) => toast("error", e.message))} />
+          <ConfirmDialog open={confirm} onClose={() => setConfirm(false)} title={t("Delete database")} description={t("The container and its data volume are deleted. Existing backups are kept until they expire.")} typeToConfirm={db.name} onConfirm={() => del(`/databases/${db.id}`, { confirmName: db.name }).then(() => nav(`/projects/${projectId}`)).catch((e) => toast("error", e.message))} />
         </Card>
       )}
     </>

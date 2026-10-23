@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { clsx } from "clsx";
 import { AlertTriangle, Check, Copy, Inbox, Loader2, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { t } from "../lib/i18n";
 
 export const cx = clsx;
 
@@ -245,7 +246,7 @@ export function Modal({ open, onClose, title, children, footer, wide }: { open: 
       <div ref={ref} role="dialog" aria-modal="true" className={cx("w-full rounded-lg border border-line bg-panel shadow-xl", wide ? "max-w-3xl" : "max-w-lg")}>
         <div className="flex items-center justify-between border-b border-line px-4 py-3">
           <h2 className="text-sm font-semibold">{title}</h2>
-          <button onClick={onClose} className="text-muted hover:text-fg" aria-label="Close">
+          <button onClick={onClose} className="text-muted hover:text-fg" aria-label={t("Close")}>
             <X className="size-4" />
           </button>
         </div>
@@ -279,7 +280,7 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, description, co
       <div className="space-y-3 text-sm text-muted">
         <div>{description}</div>
         {typeToConfirm && (
-          <Field label={<span>Type <code className="rounded bg-panel-2 px-1 font-mono text-fg">{typeToConfirm}</code> to confirm</span>}>
+          <Field label={<span>{t("Type")} <code className="rounded bg-panel-2 px-1 font-mono text-fg">{typeToConfirm}</code> {t("to confirm")}</span>}>
             <Input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
           </Field>
         )}
@@ -346,7 +347,7 @@ export function CodeField({ value, secret }: { value: string; secret?: boolean }
       <code className="flex-1 truncate font-mono text-xs">{show ? value : "•".repeat(Math.min(value.length, 32))}</code>
       {secret && (
         <Button size="sm" variant="ghost" onClick={() => setShow(!show)}>
-          {show ? "Hide" : "Show"}
+          {show ? t("Hide") : t("Show")}
         </Button>
       )}
       <CopyButton value={value} />

@@ -7,6 +7,7 @@ import { setLanguage } from "../lib/i18n";
 import { useSession } from "../lib/session";
 import { Alert, Badge, Button, Card, CodeField, ConfirmDialog, Field, Input, LoadingRows, Modal, PageHeader, Select, Tabs, Toggle, timeAgo, useToast } from "../components/ui";
 import { ApiKeys } from "./TeamSettings";
+import { t } from "../lib/i18n";
 
 type Tab = "profile" | "security" | "sessions" | "notifications" | "apikeys" | "privacy";
 
@@ -20,22 +21,22 @@ function Profile() {
     onSuccess: () => {
       void setLanguage(locale as "en" | "fr");
       refresh();
-      toast("success", "Profile saved");
+      toast("success", t("Profile saved"));
     },
     onError: (e) => toast("error", (e as Error).message),
   });
   return (
-    <Card title="Profile" className="max-w-xl">
+    <Card title={t("Profile")} className="max-w-xl">
       <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
-        <Field label="Email" hint={me!.user.emailVerified ? "Verified" : "Not verified yet: check your inbox"}><Input value={me!.user.email} disabled /></Field>
-        <Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} required /></Field>
-        <Field label="Language">
+        <Field label={t("Email")} hint={me!.user.emailVerified ? t("Verified") : t("Not verified yet: check your inbox")}><Input value={me!.user.email} disabled /></Field>
+        <Field label={t("Name")}><Input value={name} onChange={(e) => setName(e.target.value)} required /></Field>
+        <Field label={t("Language")}>
           <Select value={locale} onChange={(e) => setLocale(e.target.value)}>
-            <option value="en">English</option>
-            <option value="fr">Français</option>
+            <option value="en">{t("English")}</option>
+            <option value="fr">{t("Français")}</option>
           </Select>
         </Field>
-        <Button variant="primary" loading={save.isPending}>Save</Button>
+        <Button variant="primary" loading={save.isPending}>{t("Save")}</Button>
       </form>
     </Card>
   );
@@ -57,24 +58,24 @@ function Security() {
 
   const changePw = useMutation({
     mutationFn: () => post("/account/password", { currentPassword: current || undefined, newPassword: next }),
-    onSuccess: () => { setCurrent(""); setNext(""); toast("success", "Password changed. Other devices were signed out."); },
+    onSuccess: () => { setCurrent(""); setNext(""); toast("success", t("Password changed. Other devices were signed out.")); },
     onError: (e) => toast("error", (e as Error).message),
   });
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Card title="Password">
+      <Card title={t("Password")}>
         <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); changePw.mutate(); }}>
-          <Field label="Current password"><Input type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} /></Field>
-          <Field label="New password" hint="At least 10 characters"><Input type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} minLength={10} required /></Field>
-          <Button variant="primary" loading={changePw.isPending}>Change password</Button>
+          <Field label={t("Current password")}><Input type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} /></Field>
+          <Field label={t("New password")} hint={t("At least 10 characters")}><Input type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} minLength={10} required /></Field>
+          <Button variant="primary" loading={changePw.isPending}>{t("Change password")}</Button>
         </form>
       </Card>
-      <Card title={<span className="flex items-center gap-2">Two-factor authentication {enabled ? <Badge className="text-green-500">Enabled</Badge> : <Badge>Disabled</Badge>}</span>}>
+      <Card title={<span className="flex items-center gap-2">{t("Two-factor authentication")} {enabled ? <Badge className="text-green-500">{t("Enabled")}</Badge> : <Badge>{t("Disabled")}</Badge>}</span>}>
         {!enabled && !setup && (
           <div className="space-y-3 text-sm">
-            <p className="text-muted">Protect your account with a code from an authenticator app (1Password, Authy, Google Authenticator…).</p>
-            <Button variant="primary" onClick={() => post<{ secret: string; qrDataUrl: string }>("/account/2fa/setup").then(setSetup).catch((e) => toast("error", e.message))}>Set up 2FA</Button>
+            <p className="text-muted">{t("Protect your account with a code from an authenticator app (1Password, Authy, Google Authenticator…).")}</p>
+            <Button variant="primary" onClick={() => post<{ secret: string; qrDataUrl: string }>("/account/2fa/setup").then(setSetup).catch((e) => toast("error", e.message))}>{t("Set up 2FA")}</Button>
           </div>
         )}
         {!enabled && setup && (
@@ -82,34 +83,34 @@ function Security() {
             e.preventDefault();
             void post<{ recoveryCodes: string[] }>("/account/2fa/enable", { code }).then((r) => { setCodes(r.recoveryCodes); setSetup(null); setCode(""); refresh(); }).catch((er) => toast("error", er.message));
           }}>
-            <p>Scan this QR code with your authenticator app, then enter the 6-digit code.</p>
-            <img src={setup.qrDataUrl} alt="2FA QR code" className="size-44 rounded bg-white p-2" />
-            <Field label="Or enter this key manually"><CodeField value={setup.secret} /></Field>
-            <Field label="Code"><Input inputMode="numeric" pattern="\d{6}" maxLength={6} value={code} onChange={(e) => setCode(e.target.value)} required /></Field>
-            <Button variant="primary">Enable</Button>
+            <p>{t("Scan this QR code with your authenticator app, then enter the 6-digit code.")}</p>
+            <img src={setup.qrDataUrl} alt={t("2FA QR code")} className="size-44 rounded bg-white p-2" />
+            <Field label={t("Or enter this key manually")}><CodeField value={setup.secret} /></Field>
+            <Field label={t("Code")}><Input inputMode="numeric" pattern="\d{6}" maxLength={6} value={code} onChange={(e) => setCode(e.target.value)} required /></Field>
+            <Button variant="primary">{t("Enable")}</Button>
           </form>
         )}
         {enabled && (
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => { setRegen(true); setDisableCode(""); }}>New recovery codes</Button>
-            <Button variant="danger" onClick={() => { setDisable(true); setDisableCode(""); setDisablePw(""); }}>Disable 2FA</Button>
+            <Button onClick={() => { setRegen(true); setDisableCode(""); }}>{t("New recovery codes")}</Button>
+            <Button variant="danger" onClick={() => { setDisable(true); setDisableCode(""); setDisablePw(""); }}>{t("Disable 2FA")}</Button>
           </div>
         )}
       </Card>
-      <Modal open={!!codes} onClose={() => setCodes(null)} title="Save your recovery codes" footer={<Button variant="primary" onClick={() => setCodes(null)}>I saved them</Button>}>
-        <Alert kind="warn">Each code works once if you lose your device. They are shown only now.</Alert>
+      <Modal open={!!codes} onClose={() => setCodes(null)} title={t("Save your recovery codes")} footer={<Button variant="primary" onClick={() => setCodes(null)}>{t("I saved them")}</Button>}>
+        <Alert kind="warn">{t("Each code works once if you lose your device. They are shown only now.")}</Alert>
         <pre className="mt-3 grid grid-cols-2 gap-1 rounded bg-panel-2 p-3 font-mono text-sm">{codes?.map((c) => <span key={c}>{c}</span>)}</pre>
-        <Button className="mt-2" size="sm" onClick={() => void navigator.clipboard.writeText(codes!.join("\n"))}>Copy all</Button>
+        <Button className="mt-2" size="sm" onClick={() => void navigator.clipboard.writeText(codes!.join("\n"))}>{t("Copy all")}</Button>
       </Modal>
-      <Modal open={disable} onClose={() => setDisable(false)} title="Disable two-factor authentication" footer={<><Button onClick={() => setDisable(false)}>Cancel</Button><Button variant="danger" onClick={() => post("/account/2fa/disable", { password: disablePw || undefined, code: disableCode }).then(() => { setDisable(false); refresh(); toast("success", "2FA disabled"); }).catch((e) => toast("error", e.message))}>Disable</Button></>}>
+      <Modal open={disable} onClose={() => setDisable(false)} title={t("Disable two-factor authentication")} footer={<><Button onClick={() => setDisable(false)}>{t("Cancel")}</Button><Button variant="danger" onClick={() => post("/account/2fa/disable", { password: disablePw || undefined, code: disableCode }).then(() => { setDisable(false); refresh(); toast("success", t("2FA disabled")); }).catch((e) => toast("error", e.message))}>{t("Disable")}</Button></>}>
         <div className="space-y-3">
-          <Field label="Password"><Input type="password" value={disablePw} onChange={(e) => setDisablePw(e.target.value)} /></Field>
-          <Field label="Authenticator code"><Input value={disableCode} onChange={(e) => setDisableCode(e.target.value)} /></Field>
+          <Field label={t("Password")}><Input type="password" value={disablePw} onChange={(e) => setDisablePw(e.target.value)} /></Field>
+          <Field label={t("Authenticator code")}><Input value={disableCode} onChange={(e) => setDisableCode(e.target.value)} /></Field>
         </div>
       </Modal>
-      <Modal open={regen} onClose={() => setRegen(false)} title="Generate new recovery codes" footer={<><Button onClick={() => setRegen(false)}>Cancel</Button><Button variant="primary" onClick={() => post<{ recoveryCodes: string[] }>("/account/2fa/recovery-codes", { code: disableCode }).then((r) => { setRegen(false); setCodes(r.recoveryCodes); }).catch((e) => toast("error", e.message))}>Generate</Button></>}>
-        <p className="mb-3 text-sm text-muted">Your previous recovery codes stop working.</p>
-        <Field label="Authenticator code"><Input value={disableCode} onChange={(e) => setDisableCode(e.target.value)} /></Field>
+      <Modal open={regen} onClose={() => setRegen(false)} title={t("Generate new recovery codes")} footer={<><Button onClick={() => setRegen(false)}>{t("Cancel")}</Button><Button variant="primary" onClick={() => post<{ recoveryCodes: string[] }>("/account/2fa/recovery-codes", { code: disableCode }).then((r) => { setRegen(false); setCodes(r.recoveryCodes); }).catch((e) => toast("error", e.message))}>{t("Generate")}</Button></>}>
+        <p className="mb-3 text-sm text-muted">{t("Your previous recovery codes stop working.")}</p>
+        <Field label={t("Authenticator code")}><Input value={disableCode} onChange={(e) => setDisableCode(e.target.value)} /></Field>
       </Modal>
     </div>
   );
@@ -120,16 +121,16 @@ function Sessions() {
   const q = useQuery({ queryKey: ["sessions"], queryFn: () => get<{ sessions: Array<{ id: string; userAgent: string | null; ip: string | null; createdAt: string; lastSeenAt: string; current: boolean; impersonation: boolean }> }>("/account/sessions") });
   if (q.isLoading) return <LoadingRows />;
   return (
-    <Card title="Active sessions" actions={<Button size="sm" onClick={() => post("/account/sessions/revoke-others").then(() => { void q.refetch(); toast("success", "Other sessions signed out"); })}>Sign out other devices</Button>} padded={false}>
+    <Card title={t("Active sessions")} actions={<Button size="sm" onClick={() => post("/account/sessions/revoke-others").then(() => { void q.refetch(); toast("success", t("Other sessions signed out")); })}>{t("Sign out other devices")}</Button>} padded={false}>
       <table className="w-full text-sm">
-        <thead className="text-left text-xs text-muted"><tr><th className="p-3">Device</th><th className="p-3">IP</th><th className="p-3">Last active</th><th className="p-3" /></tr></thead>
+        <thead className="text-left text-xs text-muted"><tr><th className="p-3">{t("Device")}</th><th className="p-3">IP</th><th className="p-3">{t("Last active")}</th><th className="p-3" /></tr></thead>
         <tbody>
           {q.data?.sessions.map((s) => (
             <tr key={s.id} className="border-t border-line">
-              <td className="max-w-md truncate p-3" title={s.userAgent ?? ""}>{s.userAgent ?? "Unknown"} {s.current && <Badge className="ml-1 text-accent">This device</Badge>} {s.impersonation && <Badge className="ml-1 text-amber-500">Support</Badge>}</td>
+              <td className="max-w-md truncate p-3" title={s.userAgent ?? ""}>{s.userAgent ?? t("Unknown")} {s.current && <Badge className="ml-1 text-accent">{t("This device")}</Badge>} {s.impersonation && <Badge className="ml-1 text-amber-500">{t("Support")}</Badge>}</td>
               <td className="p-3 font-mono text-xs">{s.ip ?? "–"}</td>
               <td className="p-3 text-muted">{timeAgo(s.lastSeenAt)}</td>
-              <td className="p-3 text-right">{!s.current && <Button size="sm" onClick={() => del(`/account/sessions/${s.id}`).then(() => q.refetch())}>Revoke</Button>}</td>
+              <td className="p-3 text-right">{!s.current && <Button size="sm" onClick={() => del(`/account/sessions/${s.id}`).then(() => q.refetch())}>{t("Revoke")}</Button>}</td>
             </tr>
           ))}
         </tbody>
@@ -150,9 +151,9 @@ function NotificationPrefs() {
   const quiet = p.quietHours as { start: string; end: string; timezone: string } | null | undefined;
   const set = (k: string, v: Prefs[string]) => setPrefs({ ...p, [k]: v });
   return (
-    <Card title="Notifications" actions={<Button size="sm" variant="primary" onClick={() => put("/account/notification-preferences", { preferences: p }).then(() => toast("success", "Preferences saved")).catch((e) => toast("error", e.message))}>Save</Button>} padded={false}>
+    <Card title={t("Notifications")} actions={<Button size="sm" variant="primary" onClick={() => put("/account/notification-preferences", { preferences: p }).then(() => toast("success", t("Preferences saved"))).catch((e) => toast("error", e.message))}>{t("Save")}</Button>} padded={false}>
       <table className="w-full text-sm">
-        <thead className="text-left text-xs text-muted"><tr><th className="p-3">Event</th><th className="p-3">In app</th><th className="p-3">Email</th></tr></thead>
+        <thead className="text-left text-xs text-muted"><tr><th className="p-3">{t("Event")}</th><th className="p-3">{t("In app")}</th><th className="p-3">{t("Email")}</th></tr></thead>
         <tbody>
           {q.data!.events.map((k) => (
             <tr key={k} className="border-t border-line">
@@ -164,11 +165,11 @@ function NotificationPrefs() {
         </tbody>
       </table>
       <div className="flex flex-wrap items-end gap-3 border-t border-line p-4">
-        <Toggle label="Quiet hours (no emails)" checked={!!quiet} onChange={(v) => set("quietHours", v ? { start: "22:00", end: "08:00", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone } : null)} />
+        <Toggle label={t("Quiet hours (no emails)")} checked={!!quiet} onChange={(v) => set("quietHours", v ? { start: "22:00", end: "08:00", timezone: Intl.DateTimeFormat().resolvedOptions().timeZone } : null)} />
         {quiet && (
           <>
-            <Field label="From"><Input type="time" value={quiet.start} onChange={(e) => set("quietHours", { ...quiet, start: e.target.value })} /></Field>
-            <Field label="To"><Input type="time" value={quiet.end} onChange={(e) => set("quietHours", { ...quiet, end: e.target.value })} /></Field>
+            <Field label={t("From")}><Input type="time" value={quiet.start} onChange={(e) => set("quietHours", { ...quiet, start: e.target.value })} /></Field>
+            <Field label={t("To")}><Input type="time" value={quiet.end} onChange={(e) => set("quietHours", { ...quiet, end: e.target.value })} /></Field>
             <span className="pb-2 text-xs text-muted">{quiet.timezone}</span>
           </>
         )}
@@ -189,16 +190,16 @@ function Privacy() {
   });
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <Card title="Export your data">
-        <p className="mb-3 text-sm text-muted">Download a JSON file with your profile, teams, sessions, API keys, connected accounts, notifications and audit history.</p>
-        <Button onClick={() => download("/account/export")}>Download my data</Button>
+      <Card title={t("Export your data")}>
+        <p className="mb-3 text-sm text-muted">{t("Download a JSON file with your profile, teams, sessions, API keys, connected accounts, notifications and audit history.")}</p>
+        <Button onClick={() => download("/account/export")}>{t("Download my data")}</Button>
       </Card>
-      <Card title="Delete your account">
-        <p className="mb-3 text-sm text-muted">Your personal data is anonymized. Invoices and audit records are kept as required by law. Transfer or delete teams you own first.</p>
-        <Field label="Password" className="mb-3"><Input type="password" value={pw} onChange={(e) => setPw(e.target.value)} /></Field>
-        <Button variant="danger" onClick={() => setOpen(true)}>Delete my account</Button>
+      <Card title={t("Delete your account")}>
+        <p className="mb-3 text-sm text-muted">{t("Your personal data is anonymized. Invoices and audit records are kept as required by law. Transfer or delete teams you own first.")}</p>
+        <Field label={t("Password")} className="mb-3"><Input type="password" value={pw} onChange={(e) => setPw(e.target.value)} /></Field>
+        <Button variant="danger" onClick={() => setOpen(true)}>{t("Delete my account")}</Button>
       </Card>
-      <ConfirmDialog open={open} onClose={() => setOpen(false)} onConfirm={() => remove.mutate()} loading={remove.isPending} title="Delete your account" description="This cannot be undone." typeToConfirm="DELETE" confirmText="Delete account" />
+      <ConfirmDialog open={open} onClose={() => setOpen(false)} onConfirm={() => remove.mutate()} loading={remove.isPending} title={t("Delete your account")} description={t("This cannot be undone.")} typeToConfirm="DELETE" confirmText={t("Delete account")} />
     </div>
   );
 }
@@ -213,12 +214,12 @@ export default function Account() {
         value={tab}
         onChange={setTab}
         tabs={[
-          { id: "profile", label: "Profile" },
-          { id: "security", label: "Security" },
-          { id: "sessions", label: "Sessions" },
-          { id: "notifications", label: "Notifications" },
-          { id: "apikeys", label: "API keys" },
-          { id: "privacy", label: "Privacy" },
+          { id: "profile", label: t("Profile") },
+          { id: "security", label: t("Security") },
+          { id: "sessions", label: t("Sessions") },
+          { id: "notifications", label: t("Notifications") },
+          { id: "apikeys", label: t("API keys") },
+          { id: "privacy", label: t("Privacy") },
         ]}
       />
       <div className="mt-6">

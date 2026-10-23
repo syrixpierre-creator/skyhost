@@ -5,6 +5,7 @@ import { Eye, EyeOff, Lock, Trash2 } from "lucide-react";
 import { findDuplicates, isValidEnvKey, parseEnvJson, toEnvJson, type EnvPair } from "@skyhost/shared";
 import { download, get, post, put } from "../lib/api";
 import { Alert, Badge, Button, cx, Input, Modal, Select, Textarea, useToast } from "./ui";
+import { t } from "../lib/i18n";
 
 interface Row {
   key: string;
@@ -110,7 +111,7 @@ export function VariablesEditor({ environmentId, serviceId, onRedeploy }: { envi
       setImportText("");
       setDirty(false);
       void qc.invalidateQueries({ queryKey: ["variables", environmentId, serviceId] });
-      toast("success", `Imported ${r.changed.length} variables`);
+      toast("success", t("Imported {{count}} variables", { count: r.changed.length }));
       if (r.changed.length) setNeedsRedeploy(true);
     },
     onError: (e) => toast("error", (e as Error).message),
@@ -126,7 +127,7 @@ export function VariablesEditor({ environmentId, serviceId, onRedeploy }: { envi
       {needsRedeploy && (
         <Alert kind="info">
           <div className="flex items-center justify-between gap-3">
-            <span>Variables changed. They apply to new deployments.</span>
+            <span>{t("Variables changed. They apply to new deployments.")}</span>
             {onRedeploy && <Button size="sm" variant="primary" onClick={() => { onRedeploy(); setNeedsRedeploy(false); }}>{t("vars.redeploy")}</Button>}
           </div>
         </Alert>
@@ -141,12 +142,12 @@ export function VariablesEditor({ environmentId, serviceId, onRedeploy }: { envi
         </div>
         {q.data?.canRevealSecrets && (
           <Button size="sm" variant="ghost" onClick={() => setReveal(!reveal)} disabled={dirty}>
-            {reveal ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />} {reveal ? "Hide secrets" : "Reveal secrets"}
+            {reveal ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />} {reveal ? t("Hide secrets") : t("Reveal secrets")}
           </Button>
         )}
         <div className="ml-auto flex gap-2">
           <Button size="sm" onClick={() => setImportOpen(true)}>{t("vars.import")}</Button>
-          <Button size="sm" onClick={() => download(`/environments/${environmentId}/variables/export?format=env${serviceId ? `&serviceId=${serviceId}` : ""}`)}>{t("vars.export")} .env</Button>
+          <Button size="sm" onClick={() => download(`/environments/${environmentId}/variables/export?format=env${serviceId ? `&serviceId=${serviceId}` : ""}`)}>{t("vars.export")} {t(".env")}</Button>
           <Button size="sm" onClick={() => download(`/environments/${environmentId}/variables/export?format=json${serviceId ? `&serviceId=${serviceId}` : ""}`)}>JSON</Button>
           <Button size="sm" variant="primary" loading={save.isPending} onClick={() => save.mutate()} disabled={!dirty && mode === "table"}>{t("common.save")}</Button>
         </div>
@@ -157,9 +158,9 @@ export function VariablesEditor({ environmentId, serviceId, onRedeploy }: { envi
           <table className="w-full text-sm">
             <thead className="border-b border-line bg-panel text-left text-xs text-muted">
               <tr>
-                <th className="px-3 py-2 font-medium">Key</th>
-                <th className="px-3 py-2 font-medium">Value</th>
-                <th className="w-40 px-3 py-2 font-medium">Options</th>
+                <th className="px-3 py-2 font-medium">{t("Key")}</th>
+                <th className="px-3 py-2 font-medium">{t("Value")}</th>
+                <th className="w-40 px-3 py-2 font-medium">{t("Options")}</th>
                 <th className="w-10" />
               </tr>
             </thead>
@@ -171,48 +172,48 @@ export function VariablesEditor({ environmentId, serviceId, onRedeploy }: { envi
                   </td>
                   <td className="px-3 py-1.5">
                     {r.sealed && r.masked ? (
-                      <span className="flex items-center gap-1 text-xs text-muted"><Lock className="size-3" /> Sealed — type to replace</span>
+                      <span className="flex items-center gap-1 text-xs text-muted"><Lock className="size-3" /> {t("Sealed — type to replace")}</span>
                     ) : null}
-                    <Input className="h-8 font-mono" type={r.secret && !reveal && r.masked ? "password" : "text"} value={r.masked ? "" : r.value} placeholder={r.masked ? "••••••••  (unchanged)" : ""} disabled={r.managed} onChange={(e) => edit(i, { value: e.target.value })} />
+                    <Input className="h-8 font-mono" type={r.secret && !reveal && r.masked ? "password" : "text"} value={r.masked ? "" : r.value} placeholder={r.masked ? t("••••••••  (unchanged)") : ""} disabled={r.managed} onChange={(e) => edit(i, { value: e.target.value })} />
                   </td>
                   <td className="px-3 py-1.5">
                     <div className="flex items-center gap-3 text-xs">
                       <label className="flex items-center gap-1"><input type="checkbox" checked={r.secret} disabled={r.sealed} onChange={(e) => edit(i, { secret: e.target.checked })} /> {t("vars.secret")}</label>
-                      <label className="flex items-center gap-1" title="Sealed values can never be read again"><input type="checkbox" checked={r.sealed} disabled={r.sealed && r.masked} onChange={(e) => edit(i, { sealed: e.target.checked, secret: e.target.checked || r.secret })} /> {t("vars.sealed")}</label>
-                      {r.managed && <Badge>managed</Badge>}
+                      <label className="flex items-center gap-1" title={t("Sealed values can never be read again")}><input type="checkbox" checked={r.sealed} disabled={r.sealed && r.masked} onChange={(e) => edit(i, { sealed: e.target.checked, secret: e.target.checked || r.secret })} /> {t("vars.sealed")}</label>
+                      {r.managed && <Badge>{t("managed")}</Badge>}
                     </div>
                   </td>
                   <td className="px-2">
                     {!r.managed && (
-                      <button onClick={() => { setDirty(true); setRows(rows.filter((_, j) => j !== i)); }} className="text-muted hover:text-red-500" aria-label="Delete variable">
+                      <button onClick={() => { setDirty(true); setRows(rows.filter((_, j) => j !== i)); }} className="text-muted hover:text-red-500" aria-label={t("Delete variable")}>
                         <Trash2 className="size-4" />
                       </button>
                     )}
                   </td>
                 </tr>
               ))}
-              {!rows.length && <tr><td colSpan={4} className="px-3 py-6 text-center text-muted">No variables yet.</td></tr>}
+              {!rows.length && <tr><td colSpan={4} className="px-3 py-6 text-center text-muted">{t("No variables yet.")}</td></tr>}
             </tbody>
           </table>
           <div className="border-t border-line p-2">
-            <Button size="sm" variant="ghost" onClick={() => { setDirty(true); setRows([...rows, { key: "", value: "", secret: false, sealed: false, masked: false }]); }}>+ Add variable</Button>
+            <Button size="sm" variant="ghost" onClick={() => { setDirty(true); setRows([...rows, { key: "", value: "", secret: false, sealed: false, masked: false }]); }}>{t("+ Add variable")}</Button>
             <span className="ml-2 text-xs text-muted">{"Reference other services with ${{service.KEY}}, e.g. ${{db.DATABASE_URL}}"}</span>
           </div>
         </div>
       ) : (
         <div>
-          <Textarea rows={16} className="font-mono text-xs" value={json} onChange={(e) => { setDirty(true); setJson(e.target.value); }} spellCheck={false} aria-label="Variables JSON" />
-          {jsonIssues.length ? jsonIssues.map((i, k) => <p key={k} className="text-xs text-red-500">{i.message}</p>) : <p className="text-xs text-green-500">Valid JSON · {parseEnvJson(json).pairs.length} variables</p>}
+          <Textarea rows={16} className="font-mono text-xs" value={json} onChange={(e) => { setDirty(true); setJson(e.target.value); }} spellCheck={false} aria-label={t("Variables JSON")} />
+          {jsonIssues.length ? jsonIssues.map((i, k) => <p key={k} className="text-xs text-red-500">{i.message}</p>) : <p className="text-xs text-green-500">{t("Valid JSON ·")} {parseEnvJson(json).pairs.length} {t("variables")}</p>}
         </div>
       )}
       {tableIssues.length > 0 && mode === "table" && tableIssues.map((m) => <p key={m} className="text-xs text-red-500">{m}</p>)}
 
       {!!suggested.data?.suggestions.length && (
         <div className="rounded-lg border border-dashed border-line p-3">
-          <div className="mb-2 text-sm font-medium">Detected in your code</div>
+          <div className="mb-2 text-sm font-medium">{t("Detected in your code")}</div>
           <div className="flex flex-wrap gap-2">
             {suggested.data.suggestions.map((s) => (
-              <button key={s.key} onClick={() => { setDirty(true); setRows((rs) => (rs.some((r) => r.key === s.key) ? rs : [...rs, { key: s.key, value: s.defaultValue ?? "", secret: /SECRET|TOKEN|KEY|PASSWORD/.test(s.key), sealed: false, masked: false }])); }} className="rounded border border-line px-2 py-1 font-mono text-xs hover:bg-panel-2" title={`From ${s.source}`}>
+              <button key={s.key} onClick={() => { setDirty(true); setRows((rs) => (rs.some((r) => r.key === s.key) ? rs : [...rs, { key: s.key, value: s.defaultValue ?? "", secret: /SECRET|TOKEN|KEY|PASSWORD/.test(s.key), sealed: false, masked: false }])); }} className="rounded border border-line px-2 py-1 font-mono text-xs hover:bg-panel-2" title={t("From {{source}}", { source: s.source })}>
                 + {s.key}{s.required && <span className="text-amber-500"> *</span>}
               </button>
             ))}
@@ -220,13 +221,13 @@ export function VariablesEditor({ environmentId, serviceId, onRedeploy }: { envi
         </div>
       )}
 
-      <Modal open={importOpen} onClose={() => setImportOpen(false)} title="Import variables" footer={<Button variant="primary" loading={doImport.isPending} onClick={() => doImport.mutate()}>{t("vars.import")}</Button>}>
+      <Modal open={importOpen} onClose={() => setImportOpen(false)} title={t("Import variables")} footer={<Button variant="primary" loading={doImport.isPending} onClick={() => doImport.mutate()}>{t("vars.import")}</Button>}>
         <div className="space-y-3">
           <Select value={importFormat} onChange={(e) => setImportFormat(e.target.value as "env" | "json")} className="w-40">
-            <option value="env">.env</option>
+            <option value="env">{t(".env")}</option>
             <option value="json">JSON</option>
           </Select>
-          <Textarea rows={10} className="font-mono text-xs" placeholder={importFormat === "env" ? "KEY=value\nOTHER=\"quoted value\"" : '{"KEY": "value"}'} value={importText} onChange={(e) => setImportText(e.target.value)} />
+          <Textarea rows={10} className="font-mono text-xs" placeholder={importFormat === "env" ? t("KEY=value\nOTHER=\"quoted value\"") : "{\"KEY\": \"value\"}"} value={importText} onChange={(e) => setImportText(e.target.value)} />
           <input type="file" accept=".env,.json,text/plain,application/json" onChange={(e) => e.target.files?.[0]?.text().then(setImportText)} className="text-sm" />
         </div>
       </Modal>

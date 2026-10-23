@@ -4,8 +4,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { formatCents } from "@skyhost/shared";
 import { download, get, post, put } from "../lib/api";
+import { featureLabel, limitLabel, limitValue } from "../lib/labels";
 import { useSession } from "../lib/session";
 import { Alert, Badge, Button, Card, cx, EmptyState, ErrorState, Field, Input, LoadingRows, Meter, Modal, PageHeader, Select, StatusBadge, timeAgo, useToast } from "../components/ui";
+import { t } from "../lib/i18n";
 
 interface Plan {
   id: string;
@@ -36,15 +38,7 @@ interface Overview {
 }
 
 const SALES_EMAIL = import.meta.env.VITE_SALES_EMAIL as string | undefined;
-const HIGHLIGHT_LIMITS = ["projects", "services", "databases", "cpu", "memoryMb", "storageGb", "deploysPerDay", "teamMembers"];
-
-function limitText(k: string, v: number) {
-  if (v >= 1_000_000) return "Unlimited";
-  if (k === "memoryMb") return v >= 1024 ? `${v / 1024} GB RAM` : `${v} MB RAM`;
-  if (k === "cpu") return `${v} vCPU`;
-  if (k === "storageGb") return `${v} GB storage`;
-  return `${v}`;
-}
+const HIGHLIGHT_LIMITS = ["projects", "services", "databases", "cpu", "memoryMb", "storageMb", "deploysPerDay", "members"];
 
 export default function Billing() {
   const { t } = useTranslation();
@@ -67,14 +61,14 @@ export default function Billing() {
     const token = params.get("token");
     if (params.get("paypal") === "return" && token) {
       void post(`/teams/${team!.id}/billing/paypal/capture`, { orderId: token })
-        .then(() => toast("success", "Payment received. Credits added."))
+        .then(() => toast("success", t("Payment received. Credits added.")))
         .catch((e) => toast("error", e.message))
         .finally(() => { setParams({}); void qc.invalidateQueries({ queryKey: ["billing"] }); refresh(); });
     } else if (params.get("checkout") === "success" || params.get("credits") === "success") {
-      toast("success", "Payment submitted. Your account updates as soon as the provider confirms it.");
+      toast("success", t("Payment submitted. Your account updates as soon as the provider confirms it."));
       setParams({});
     } else if (params.get("credits") === "pending") {
-      toast("info", "Mobile Money payment pending: credits are added once the operator confirms it.");
+      toast("info", t("Mobile Money payment pending: credits are added once the operator confirms it."));
       setParams({});
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -89,7 +83,7 @@ export default function Billing() {
   const redirect = (r: { url?: string; switched?: boolean; ok?: boolean; message?: string }) => {
     if (r.url) window.location.href = r.url;
     else {
-      toast("success", r.message ?? "Plan updated");
+      toast("success", r.message ?? t("Plan updated"));
       setCheckout(null);
       void qc.invalidateQueries({ queryKey: ["billing"] });
       refresh();
@@ -119,44 +113,44 @@ export default function Billing() {
 
   return (
     <>
-      <PageHeader title={t("nav.billing")} subtitle={`${team!.name} · ${o.usage.plan.name} plan`} actions={canManage && sub?.provider === "stripe" && <Button onClick={() => post<{ url: string }>(`/teams/${team!.id}/billing/portal`).then(redirect).catch((e) => toast("error", e.message))}>Manage cards</Button>} />
-      {!p.paymentsEnabled && <div className="mb-4"><Alert kind="info">Online payments are not enabled on this SKYHOST instance. Your administrator can assign plans.</Alert></div>}
-      {o.status === "past_due" && <div className="mb-4"><Alert kind="error">Your last payment failed. Update your payment method{o.graceEndsAt ? ` before ${new Date(o.graceEndsAt).toLocaleDateString()}` : ""} to avoid service interruption.</Alert></div>}
-      {sub?.cancelAtPeriodEnd && <div className="mb-4"><Alert kind="warn">Your subscription ends on {sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toLocaleDateString() : "the end of the period"}. You will move to the free plan.</Alert></div>}
+      <PageHeader title={t("nav.billing")} subtitle={t("{{team}} · {{plan}} plan", { team: team!.name, plan: o.usage.plan.name })} actions={canManage && sub?.provider === "stripe" && <Button onClick={() => post<{ url: string }>(`/teams/${team!.id}/billing/portal`).then(redirect).catch((e) => toast("error", e.message))}>{t("Manage cards")}</Button>} />
+      {!p.paymentsEnabled && <div className="mb-4"><Alert kind="info">{t("Online payments are not enabled on this SKYHOST instance. Your administrator can assign plans.")}</Alert></div>}
+      {o.status === "past_due" && <div className="mb-4"><Alert kind="error">{t("Your last payment failed. Update your payment method")}{o.graceEndsAt ? ` before ${new Date(o.graceEndsAt).toLocaleDateString()}` : ""} {t("to avoid service interruption.")}</Alert></div>}
+      {sub?.cancelAtPeriodEnd && <div className="mb-4"><Alert kind="warn">{t("Your subscription ends on")} {sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toLocaleDateString() : t("the end of the period")}{t(". You will move to the free plan.")}</Alert></div>}
 
       <div className="mb-6 grid gap-4 md:grid-cols-3">
-        <Card title="Current plan">
+        <Card title={t("Current plan")}>
           <div className="text-2xl font-semibold">{o.usage.plan.name}</div>
-          <div className="mt-1 text-sm text-muted">{sub ? <>via {sub.provider} · <StatusBadge status={sub.status} />{sub.currentPeriodEnd && ` · renews ${new Date(sub.currentPeriodEnd).toLocaleDateString()}`}</> : "No subscription"}</div>
-          {canManage && sub?.status === "active" && !sub.cancelAtPeriodEnd && <Button size="sm" className="mt-3" onClick={() => post(`/teams/${team!.id}/billing/cancel`).then(() => { toast("success", "Subscription will end at the end of the period"); void ov.refetch(); }).catch((e) => toast("error", e.message))}>Cancel subscription</Button>}
+          <div className="mt-1 text-sm text-muted">{sub ? <>{t("via")} {sub.provider} · <StatusBadge status={sub.status} />{sub.currentPeriodEnd && ` · renews ${new Date(sub.currentPeriodEnd).toLocaleDateString()}`}</> : t("No subscription")}</div>
+          {canManage && sub?.status === "active" && !sub.cancelAtPeriodEnd && <Button size="sm" className="mt-3" onClick={() => post(`/teams/${team!.id}/billing/cancel`).then(() => { toast("success", t("Subscription will end at the end of the period")); void ov.refetch(); }).catch((e) => toast("error", e.message))}>{t("Cancel subscription")}</Button>}
         </Card>
-        <Card title="Prepaid credits">
+        <Card title={t("Prepaid credits")}>
           <div className="text-2xl font-semibold">{formatCents(o.creditBalanceCents)}</div>
-          <div className="mt-1 text-sm text-muted">Use credits to pay for a plan without a card.</div>
-          {canManage && p.paymentsEnabled && <Button size="sm" className="mt-3" onClick={() => setCredits(true)}>Add credits</Button>}
+          <div className="mt-1 text-sm text-muted">{t("Use credits to pay for a plan without a card.")}</div>
+          {canManage && p.paymentsEnabled && <Button size="sm" className="mt-3" onClick={() => setCredits(true)}>{t("Add credits")}</Button>}
         </Card>
-        <Card title="Spend cap">
-          <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); void put(`/teams/${team!.id}/spend-cap`, { spendCapCents: cap === "" ? null : Math.round(Number(cap) * 100), action: capAction }).then(() => toast("success", "Spend cap saved")).catch((er) => toast("error", er.message)); }}>
+        <Card title={t("Spend cap")}>
+          <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); void put(`/teams/${team!.id}/spend-cap`, { spendCapCents: cap === "" ? null : Math.round(Number(cap) * 100), action: capAction }).then(() => toast("success", t("Spend cap saved"))).catch((er) => toast("error", er.message)); }}>
             <div className="flex gap-2">
-              <Input type="number" min={0} step="1" placeholder="No cap" value={cap} onChange={(e) => setCap(e.target.value)} aria-label="Monthly cap in USD" disabled={!canManage} />
-              <Select value={capAction} onChange={(e) => setCapAction(e.target.value)} disabled={!canManage} aria-label="When reached">
-                <option value="alert">Alert only</option>
-                <option value="block_deploys">Block deploys</option>
-                <option value="pause_services">Pause services</option>
+              <Input type="number" min={0} step="1" placeholder={t("No cap")} value={cap} onChange={(e) => setCap(e.target.value)} aria-label={t("Monthly cap in USD")} disabled={!canManage} />
+              <Select value={capAction} onChange={(e) => setCapAction(e.target.value)} disabled={!canManage} aria-label={t("When reached")}>
+                <option value="alert">{t("Alert only")}</option>
+                <option value="block_deploys">{t("Block deploys")}</option>
+                <option value="pause_services">{t("Pause services")}</option>
               </Select>
             </div>
-            {canManage && <Button size="sm">Save</Button>}
+            {canManage && <Button size="sm">{t("Save")}</Button>}
           </form>
         </Card>
       </div>
 
-      <Card title="Usage this period" className="mb-6">
+      <Card title={t("Usage this period")} className="mb-6">
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {o.usage.items.map((i) => <Meter key={i.key} value={i.current} max={i.limit} label={i.label} />)}
+          {o.usage.items.map((i) => <Meter key={i.key} value={i.current} max={i.limit} label={limitLabel(i.key)} />)}
         </div>
       </Card>
 
-      <h2 className="mb-3 text-lg font-semibold">Plans</h2>
+      <h2 className="mb-3 text-lg font-semibold">{t("Plans")}</h2>
       <div className="mb-8 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         {p.plans.map((plan) => {
           const current = plan.id === currentPlanId;
@@ -164,18 +158,18 @@ export default function Billing() {
             <div key={plan.id} className={cx("flex flex-col rounded-lg border bg-panel p-4", current ? "border-accent" : "border-line")}>
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold">{plan.name}</h3>
-                {current && <Badge className="text-accent">Current</Badge>}
+                {current && <Badge className="text-accent">{t("Current")}</Badge>}
               </div>
-              <div className="my-3 text-2xl font-semibold">{plan.isContactSales ? "Custom" : plan.isFree ? "Free" : <>{formatCents(plan.priceCents, plan.currency.toUpperCase())}<span className="text-sm font-normal text-muted">/{plan.interval}</span></>}</div>
+              <div className="my-3 text-2xl font-semibold">{plan.isContactSales ? t("Custom") : plan.isFree ? t("Free") : <>{formatCents(plan.priceCents, plan.currency.toUpperCase())}<span className="text-sm font-normal text-muted">/{plan.interval}</span></>}</div>
               <ul className="mb-4 flex-1 space-y-1 text-sm text-muted">
-                {HIGHLIGHT_LIMITS.filter((k) => k in plan.limits).map((k) => <li key={k}>{limitText(k, plan.limits[k]!)} {["cpu", "memoryMb", "storageGb"].includes(k) ? "" : k.replace(/([A-Z])/g, " $1").toLowerCase()}</li>)}
-                {Object.entries(plan.features).filter(([, v]) => v).slice(0, 5).map(([k]) => <li key={k}>✓ {k.replace(/([A-Z])/g, " $1").toLowerCase()}</li>)}
+                {HIGHLIGHT_LIMITS.filter((k) => k in plan.limits).map((k) => <li key={k}>{limitLabel(k)}: {limitValue(k, plan.limits[k]!)}</li>)}
+                {Object.entries(plan.features).filter(([, v]) => v).slice(0, 5).map(([k]) => <li key={k}>✓ {featureLabel(k)}</li>)}
               </ul>
               {plan.isContactSales ? (
-                SALES_EMAIL ? <a href={`mailto:${SALES_EMAIL}`} className="text-center text-sm text-accent">Contact sales</a> : <span className="text-center text-sm text-muted">Contact the platform administrator</span>
+                SALES_EMAIL ? <a href={`mailto:${SALES_EMAIL}`} className="text-center text-sm text-accent">{t("Contact sales")}</a> : <span className="text-center text-sm text-muted">{t("Contact the platform administrator")}</span>
               ) : (
                 <Button variant={current ? "secondary" : "primary"} disabled={current || !canManage || (!plan.isFree && !p.paymentsEnabled)} onClick={() => (plan.isFree ? subscribe.mutate({ plan, provider: "stripe" }) : setCheckout(plan))}>
-                  {current ? "Current plan" : plan.isFree ? "Switch to free" : plan.trialDays && !sub ? `Start ${plan.trialDays}-day trial` : "Choose"}
+                  {current ? t("Current plan") : plan.isFree ? t("Switch to free") : plan.trialDays && !sub ? `Start ${plan.trialDays}-day trial` : t("Choose")}
                 </Button>
               )}
             </div>
@@ -184,8 +178,8 @@ export default function Billing() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Invoices" padded={false}>
-          {o.invoices.length === 0 ? <EmptyState title="No invoices yet" /> : (
+        <Card title={t("Invoices")} padded={false}>
+          {o.invoices.length === 0 ? <EmptyState title={t("No invoices yet")} /> : (
             <table className="w-full text-sm">
               <tbody>
                 {o.invoices.map((i) => (
@@ -201,8 +195,8 @@ export default function Billing() {
             </table>
           )}
         </Card>
-        <Card title="Credit history" padded={false}>
-          {o.credits.length === 0 ? <EmptyState title="No credit movements" /> : (
+        <Card title={t("Credit history")} padded={false}>
+          {o.credits.length === 0 ? <EmptyState title={t("No credit movements")} /> : (
             <table className="w-full text-sm">
               <tbody>
                 {o.credits.map((c) => (
@@ -218,27 +212,27 @@ export default function Billing() {
         </Card>
       </div>
 
-      <Modal open={!!checkout} onClose={() => setCheckout(null)} title={`Subscribe to ${checkout?.name}`}>
+      <Modal open={!!checkout} onClose={() => setCheckout(null)} title={t("Subscribe to {{name}}", { name: checkout?.name })}>
         {checkout && (
           <div className="space-y-3 text-sm">
-            <p>{formatCents(checkout.priceCents, checkout.currency.toUpperCase())} per {checkout.interval}. Taxes are calculated from your billing country. You can cancel at any time.</p>
+            <p>{formatCents(checkout.priceCents, checkout.currency.toUpperCase())} {t("per")} {checkout.interval}{t(". Taxes are calculated from your billing country. You can cancel at any time.")}</p>
             <div className="grid gap-2">
-              <Button variant="primary" disabled={!checkout.providers.stripe || !p.providers.stripe} loading={subscribe.isPending} onClick={() => subscribe.mutate({ plan: checkout, provider: "stripe" })}>Pay by card (Stripe)</Button>
-              <Button disabled={!checkout.providers.paypal || !p.providers.paypal} onClick={() => subscribe.mutate({ plan: checkout, provider: "paypal" })}>Pay with PayPal</Button>
-              <Button disabled={o.creditBalanceCents < checkout.priceCents} onClick={() => subscribe.mutate({ plan: checkout, provider: "credits" })}>Pay one month with credits ({formatCents(o.creditBalanceCents)} available)</Button>
+              <Button variant="primary" disabled={!checkout.providers.stripe || !p.providers.stripe} loading={subscribe.isPending} onClick={() => subscribe.mutate({ plan: checkout, provider: "stripe" })}>{t("Pay by card (Stripe)")}</Button>
+              <Button disabled={!checkout.providers.paypal || !p.providers.paypal} onClick={() => subscribe.mutate({ plan: checkout, provider: "paypal" })}>{t("Pay with PayPal")}</Button>
+              <Button disabled={o.creditBalanceCents < checkout.priceCents} onClick={() => subscribe.mutate({ plan: checkout, provider: "credits" })}>{t("Pay one month with credits (")}{formatCents(o.creditBalanceCents)} {t("available)")}</Button>
             </div>
-            {!p.providers.stripe && !p.providers.paypal && <Alert kind="warn">No payment provider is configured on this instance yet.</Alert>}
+            {!p.providers.stripe && !p.providers.paypal && <Alert kind="warn">{t("No payment provider is configured on this instance yet.")}</Alert>}
           </div>
         )}
       </Modal>
-      <Modal open={credits} onClose={() => setCredits(false)} title="Add prepaid credits" footer={<><Button onClick={() => setCredits(false)}>Cancel</Button><Button variant="primary" loading={buyCredits.isPending} disabled={Number(amount) < 5} onClick={() => buyCredits.mutate()}>Continue to payment</Button></>}>
+      <Modal open={credits} onClose={() => setCredits(false)} title={t("Add prepaid credits")} footer={<><Button onClick={() => setCredits(false)}>{t("Cancel")}</Button><Button variant="primary" loading={buyCredits.isPending} disabled={Number(amount) < 5} onClick={() => buyCredits.mutate()}>{t("Continue to payment")}</Button></>}>
         <div className="space-y-3">
-          <Field label="Amount (USD)" hint="Minimum 5 USD"><Input type="number" min={5} step={1} value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
-          <Field label="Payment method">
+          <Field label={t("Amount (USD)")} hint={t("Minimum 5 USD")}><Input type="number" min={5} step={1} value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
+          <Field label={t("Payment method")}>
             <Select value={creditProvider} onChange={(e) => setCreditProvider(e.target.value as typeof creditProvider)}>
-              <option value="stripe" disabled={!p.providers.stripe}>Card (Stripe)</option>
-              <option value="paypal" disabled={!p.providers.paypal}>PayPal</option>
-              <option value="mobile_money" disabled={!p.providers.mobileMoney}>Mobile Money (Flutterwave)</option>
+              <option value="stripe" disabled={!p.providers.stripe}>{t("Card (Stripe)")}</option>
+              <option value="paypal" disabled={!p.providers.paypal}>{t("PayPal")}</option>
+              <option value="mobile_money" disabled={!p.providers.mobileMoney}>{t("Mobile Money (Flutterwave)")}</option>
             </Select>
           </Field>
         </div>

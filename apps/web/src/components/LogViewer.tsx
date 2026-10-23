@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, Pause, Play } from "lucide-react";
 import { Button, cx, Input, Select } from "./ui";
+import { t } from "../lib/i18n";
 
 export interface LogLine {
   id?: string | number;
@@ -28,19 +29,19 @@ export function LogViewer({ lines, height = 480, onDownload, live }: { lines: Lo
   return (
     <div className="overflow-hidden rounded-lg border border-line">
       <div className="flex flex-wrap items-center gap-2 border-b border-line bg-panel px-3 py-2">
-        <Input placeholder="Search logs…" value={q} onChange={(e) => setQ(e.target.value)} className="h-8 max-w-xs" />
+        <Input placeholder={t("Search logs…")} value={q} onChange={(e) => setQ(e.target.value)} className="h-8 max-w-xs" />
         <Select value={level} onChange={(e) => setLevel(e.target.value)} className="h-8 w-32">
-          <option value="">All levels</option>
-          <option value="error">Errors</option>
-          <option value="warn">Warnings</option>
-          <option value="info">Info</option>
+          <option value="">{t("All levels")}</option>
+          <option value="error">{t("Errors")}</option>
+          <option value="warn">{t("Warnings")}</option>
+          <option value="info">{t("Info")}</option>
         </Select>
-        {live && <span className="flex items-center gap-1.5 text-xs text-green-500"><span className="size-1.5 animate-pulse rounded-full bg-green-500" /> Live</span>}
-        <span className="ml-auto text-xs text-muted">{filtered.length} lines</span>
-        <Button size="sm" variant="ghost" onClick={() => setFollow(!follow)} aria-label="Auto-scroll">
-          {follow ? <Pause className="size-3.5" /> : <Play className="size-3.5" />} {follow ? "Following" : "Paused"}
+        {live && <span className="flex items-center gap-1.5 text-xs text-green-500"><span className="size-1.5 animate-pulse rounded-full bg-green-500" /> {t("Live")}</span>}
+        <span className="ml-auto text-xs text-muted">{filtered.length} {t("lines")}</span>
+        <Button size="sm" variant="ghost" onClick={() => setFollow(!follow)} aria-label={t("Auto-scroll")}>
+          {follow ? <Pause className="size-3.5" /> : <Play className="size-3.5" />} {follow ? t("Following") : t("Paused")}
         </Button>
-        {onDownload && <Button size="sm" variant="ghost" onClick={onDownload}><Download className="size-3.5" /> Download</Button>}
+        {onDownload && <Button size="sm" variant="ghost" onClick={onDownload}><Download className="size-3.5" /> {t("Download")}</Button>}
       </div>
       <div
         ref={ref}
@@ -63,7 +64,7 @@ export function LogViewer({ lines, height = 480, onDownload, live }: { lines: Lo
             </div>
           );
         })}
-        {!filtered.length && <div className="text-zinc-600">No log lines yet.</div>}
+        {!filtered.length && <div className="text-zinc-600">{t("No log lines yet.")}</div>}
       </div>
     </div>
   );

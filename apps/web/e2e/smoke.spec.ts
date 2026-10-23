@@ -57,9 +57,9 @@ test("sign up, dashboard, theme and language", async ({ page }) => {
   await page.reload();
   await expect(page.locator("html")).not.toHaveClass(/dark/);
   // French translation
-  await page.getByRole("button", { name: "Language" }).click();
+  await page.getByRole("button", { name: /^(Language|Langue)$/ }).click();
   await expect(page.getByRole("link", { name: "Facturation" })).toBeVisible();
-  await page.getByRole("button", { name: "Language" }).click();
+  await page.getByRole("button", { name: /^(Language|Langue)$/ }).click();
   await expect(page.getByRole("link", { name: "Billing" })).toBeVisible();
 });
 
@@ -117,6 +117,21 @@ test("regular users cannot open the administration console", async ({ page }) =>
   await expect(page.getByRole("link", { name: "Admin" })).toHaveCount(0);
   await page.goto("/admin");
   await expect(page.getByText("reserved to SKYHOST administrators")).toBeVisible();
+});
+
+test("the dashboard is fully usable in French", async ({ page }) => {
+  await login(page);
+  await page.getByRole("button", { name: /^(Language|Langue)$/ }).click();
+  await page.goto("/billing");
+  await expect(page.getByText("Consommation sur la période")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Plans" })).toBeVisible();
+  await page.goto("/account");
+  await page.getByRole("tab", { name: "Sécurité" }).click();
+  await expect(page.getByRole("button", { name: "Configurer la 2FA" })).toBeVisible();
+  await page.goto("/settings");
+  await expect(page.getByRole("tab", { name: "Membres" })).toBeVisible();
+  await page.getByRole("button", { name: /^(Language|Langue)$/ }).click();
+  await expect(page.getByRole("tab", { name: "Members" })).toBeVisible();
 });
 
 test("new project wizard shows the GitHub, ZIP and template sources", async ({ page }) => {

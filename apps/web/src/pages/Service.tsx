@@ -10,6 +10,7 @@ import { LogViewer, type LogLine } from "../components/LogViewer";
 import { VariablesEditor } from "../components/VariablesEditor";
 import { MetricChart, bytesFmt } from "../components/Charts";
 import { Alert, Badge, Button, Card, CodeField, ConfirmDialog, EmptyState, ErrorState, Field, Input, LoadingRows, Modal, PageHeader, Select, StatusBadge, Tabs, Textarea, Toggle, timeAgo, useToast } from "../components/ui";
+import { t } from "../lib/i18n";
 
 interface ServiceDetail {
   service: { id: string; projectId: string; name: string; slug: string; type: string; source: Record<string, string>; config: any; analysis: any; createdAt: string }; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -47,7 +48,7 @@ function DeploymentsTab({ s, envId }: { s: ServiceDetail; envId: string }) {
   const live = s.environments.find((e) => e.id === envId)?.instance?.liveDeploymentId;
   if (q.isLoading) return <LoadingRows rows={5} />;
   if (q.error) return <ErrorState error={q.error} />;
-  if (!q.data?.deployments.length) return <EmptyState title="No deployments yet" />;
+  if (!q.data?.deployments.length) return <EmptyState title={t("No deployments yet")} />;
   return (
     <div className="divide-y divide-line rounded-lg border border-line bg-panel">
       {q.data.deployments.map((d) => (
@@ -55,25 +56,25 @@ function DeploymentsTab({ s, envId }: { s: ServiceDetail; envId: string }) {
           <StatusBadge status={d.id === live ? "live" : d.status} />
           <div className="min-w-0 flex-1">
             <Link to={`/projects/${s.service.projectId}/deployments/${d.id}`} className="block truncate font-medium hover:text-accent">
-              {d.commitMessage?.split("\n")[0] ?? (d.trigger === "rollback" ? "Rollback" : d.trigger === "redeploy" ? "Redeploy" : "Deployment")}
+              {d.commitMessage?.split("\n")[0] ?? (d.trigger === "rollback" ? t("Rollback") : d.trigger === "redeploy" ? t("Redeploy") : t("Deployment"))}
             </Link>
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
               {d.commitSha && <span className="flex items-center gap-1 font-mono"><GitCommit className="size-3" />{d.commitSha.slice(0, 7)}</span>}
               {d.branch && <span>{d.branch}</span>}
               <span>{d.trigger}</span>
-              {d.commitAuthor && <span>by {d.commitAuthor}</span>}
+              {d.commitAuthor && <span>{t("by")} {d.commitAuthor}</span>}
               <span>{timeAgo(d.createdAt)}</span>
               {d.durationSeconds != null && <span>{d.durationSeconds}s</span>}
-              {d.isCanary && <Badge>canary</Badge>}
+              {d.isCanary && <Badge>{t("canary")}</Badge>}
             </div>
           </div>
           <div className="flex gap-1">
             {["queued", "building", "deploying"].includes(d.status) && s.permissions.includes("deploy:cancel") && (
-              <Button size="sm" onClick={() => post(`/deployments/${d.id}/cancel`).then(() => toast("info", "Cancelling…")).catch((e) => toast("error", e.message))}>Cancel</Button>
+              <Button size="sm" onClick={() => post(`/deployments/${d.id}/cancel`).then(() => toast("info", t("Cancelling…"))).catch((e) => toast("error", e.message))}>{t("Cancel")}</Button>
             )}
             {d.image && d.id !== live && ["superseded", "live", "stopped"].includes(d.status) && s.permissions.includes("deploy:rollback") && (
-              <Button size="sm" onClick={() => post(`/deployments/${d.id}/rollback`).then(() => toast("success", "Rollback started")).catch((e) => toast("error", e.message))}>
-                <RotateCcw className="size-3.5" /> Rollback
+              <Button size="sm" onClick={() => post(`/deployments/${d.id}/rollback`).then(() => toast("success", t("Rollback started"))).catch((e) => toast("error", e.message))}>
+                <RotateCcw className="size-3.5" /> {t("Rollback")}
               </Button>
             )}
           </div>
@@ -140,104 +141,104 @@ function SettingsTab({ s, onSaved }: { s: ServiceDetail; onSaved: () => void }) 
   const num = (v: string) => (v === "" ? undefined : Number(v));
   return (
     <div className="space-y-4">
-      <Card title="Source">
+      <Card title={t("Source")}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
-          <Field label="Source"><Input disabled value={s.service.source.repo ?? s.service.source.url ?? s.service.source.image ?? s.service.source.kind} /></Field>
-          {s.service.source.kind !== "image" && s.service.source.kind !== "zip" && <Field label="Branch"><Input value={branch} onChange={(e) => setBranch(e.target.value)} /></Field>}
-          <Field label="Root directory"><Input value={cfg.rootDir ?? "."} onChange={(e) => set("rootDir", e.target.value)} /></Field>
+          <Field label={t("Name")}><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
+          <Field label={t("Source")}><Input disabled value={s.service.source.repo ?? s.service.source.url ?? s.service.source.image ?? s.service.source.kind} /></Field>
+          {s.service.source.kind !== "image" && s.service.source.kind !== "zip" && <Field label={t("Branch")}><Input value={branch} onChange={(e) => setBranch(e.target.value)} /></Field>}
+          <Field label={t("Root directory")}><Input value={cfg.rootDir ?? "."} onChange={(e) => set("rootDir", e.target.value)} /></Field>
         </div>
         <div className="mt-4 flex flex-wrap gap-6">
-          <Toggle checked={cfg.autoDeploy} onChange={(v) => set("autoDeploy", v)} label="Auto deploy on push" />
-          <Toggle checked={cfg.waitForCi} onChange={(v) => set("waitForCi", v)} label="Wait for CI to pass" />
-          <Toggle checked={cfg.previews} onChange={(v) => set("previews", v)} label="Pull request previews" />
+          <Toggle checked={cfg.autoDeploy} onChange={(v) => set("autoDeploy", v)} label={t("Auto deploy on push")} />
+          <Toggle checked={cfg.waitForCi} onChange={(v) => set("waitForCi", v)} label={t("Wait for CI to pass")} />
+          <Toggle checked={cfg.previews} onChange={(v) => set("previews", v)} label={t("Pull request previews")} />
         </div>
       </Card>
-      <Card title="Build & start">
+      <Card title={t("Build & start")}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Runtime" hint={`Detected: ${s.service.analysis?.runtime ?? "–"}`}><Input value={cfg.runtime ?? ""} placeholder="auto" onChange={(e) => set("runtime", e.target.value || undefined)} /></Field>
-          <Field label="Runtime version"><Input value={cfg.runtimeVersion ?? ""} placeholder={s.service.analysis?.version ?? "auto"} onChange={(e) => set("runtimeVersion", e.target.value || undefined)} /></Field>
-          <Field label="Install command"><Input className="font-mono" value={cfg.installCommand ?? ""} placeholder={s.service.analysis?.installCommand ?? ""} onChange={(e) => set("installCommand", e.target.value || undefined)} /></Field>
-          <Field label="Build command"><Input className="font-mono" value={cfg.buildCommand ?? ""} placeholder={s.service.analysis?.buildCommand ?? ""} onChange={(e) => set("buildCommand", e.target.value || undefined)} /></Field>
-          <Field label="Start command"><Input className="font-mono" value={cfg.startCommand ?? ""} placeholder={s.service.analysis?.startCommand ?? ""} onChange={(e) => set("startCommand", e.target.value || undefined)} /></Field>
-          <Field label="Test command" hint="Runs after the build; a failure stops the deployment"><Input className="font-mono" value={cfg.testCommand ?? ""} onChange={(e) => set("testCommand", e.target.value || undefined)} /></Field>
-          <Field label="Dockerfile path"><Input value={cfg.dockerfilePath ?? ""} placeholder="Dockerfile" onChange={(e) => set("dockerfilePath", e.target.value || undefined)} /></Field>
-          <Field label="Output directory (static)"><Input value={cfg.outputDirectory ?? ""} placeholder={s.service.analysis?.outputDirectory ?? ""} onChange={(e) => set("outputDirectory", e.target.value || undefined)} /></Field>
-          <Field label="Port"><Input value={cfg.port ?? ""} placeholder={String(s.service.analysis?.port ?? "")} onChange={(e) => set("port", num(e.target.value))} inputMode="numeric" /></Field>
+          <Field label={t("Runtime")} hint={t("Detected: {{value}}", { value: s.service.analysis?.runtime ?? "–" })}><Input value={cfg.runtime ?? ""} placeholder={t("auto")} onChange={(e) => set("runtime", e.target.value || undefined)} /></Field>
+          <Field label={t("Runtime version")}><Input value={cfg.runtimeVersion ?? ""} placeholder={s.service.analysis?.version ?? "auto"} onChange={(e) => set("runtimeVersion", e.target.value || undefined)} /></Field>
+          <Field label={t("Install command")}><Input className="font-mono" value={cfg.installCommand ?? ""} placeholder={s.service.analysis?.installCommand ?? ""} onChange={(e) => set("installCommand", e.target.value || undefined)} /></Field>
+          <Field label={t("Build command")}><Input className="font-mono" value={cfg.buildCommand ?? ""} placeholder={s.service.analysis?.buildCommand ?? ""} onChange={(e) => set("buildCommand", e.target.value || undefined)} /></Field>
+          <Field label={t("Start command")}><Input className="font-mono" value={cfg.startCommand ?? ""} placeholder={s.service.analysis?.startCommand ?? ""} onChange={(e) => set("startCommand", e.target.value || undefined)} /></Field>
+          <Field label={t("Test command")} hint={t("Runs after the build; a failure stops the deployment")}><Input className="font-mono" value={cfg.testCommand ?? ""} onChange={(e) => set("testCommand", e.target.value || undefined)} /></Field>
+          <Field label={t("Dockerfile path")}><Input value={cfg.dockerfilePath ?? ""} placeholder={t("Dockerfile")} onChange={(e) => set("dockerfilePath", e.target.value || undefined)} /></Field>
+          <Field label={t("Output directory (static)")}><Input value={cfg.outputDirectory ?? ""} placeholder={s.service.analysis?.outputDirectory ?? ""} onChange={(e) => set("outputDirectory", e.target.value || undefined)} /></Field>
+          <Field label={t("Port")}><Input value={cfg.port ?? ""} placeholder={String(s.service.analysis?.port ?? "")} onChange={(e) => set("port", num(e.target.value))} inputMode="numeric" /></Field>
         </div>
       </Card>
-      <Card title="Resources & health">
+      <Card title={t("Resources & health")}>
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="vCPU"><Input value={cfg.resources.cpu} onChange={(e) => set("resources.cpu", Number(e.target.value))} inputMode="decimal" /></Field>
-          <Field label="Memory (MB)"><Input value={cfg.resources.memoryMb} onChange={(e) => set("resources.memoryMb", Number(e.target.value))} inputMode="numeric" /></Field>
-          <Field label="Replicas"><Input value={cfg.resources.replicas} onChange={(e) => set("resources.replicas", Number(e.target.value))} inputMode="numeric" /></Field>
-          <Field label="Health check path"><Input value={cfg.healthcheck.path} onChange={(e) => set("healthcheck.path", e.target.value)} /></Field>
-          <Field label="Interval (s)"><Input value={cfg.healthcheck.intervalSeconds} onChange={(e) => set("healthcheck.intervalSeconds", Number(e.target.value))} /></Field>
-          <Field label="Retries"><Input value={cfg.healthcheck.retries} onChange={(e) => set("healthcheck.retries", Number(e.target.value))} /></Field>
-          <Field label="Graceful shutdown (s)"><Input value={cfg.gracefulShutdownSeconds} onChange={(e) => set("gracefulShutdownSeconds", Number(e.target.value))} /></Field>
-          <Field label="Sleep after inactivity (min, 0 = never)"><Input value={cfg.sleepAfterMinutes} onChange={(e) => set("sleepAfterMinutes", Number(e.target.value))} /></Field>
+          <Field label={t("vCPU")}><Input value={cfg.resources.cpu} onChange={(e) => set("resources.cpu", Number(e.target.value))} inputMode="decimal" /></Field>
+          <Field label={t("Memory (MB)")}><Input value={cfg.resources.memoryMb} onChange={(e) => set("resources.memoryMb", Number(e.target.value))} inputMode="numeric" /></Field>
+          <Field label={t("Replicas")}><Input value={cfg.resources.replicas} onChange={(e) => set("resources.replicas", Number(e.target.value))} inputMode="numeric" /></Field>
+          <Field label={t("Health check path")}><Input value={cfg.healthcheck.path} onChange={(e) => set("healthcheck.path", e.target.value)} /></Field>
+          <Field label={t("Interval (s)")}><Input value={cfg.healthcheck.intervalSeconds} onChange={(e) => set("healthcheck.intervalSeconds", Number(e.target.value))} /></Field>
+          <Field label={t("Retries")}><Input value={cfg.healthcheck.retries} onChange={(e) => set("healthcheck.retries", Number(e.target.value))} /></Field>
+          <Field label={t("Graceful shutdown (s)")}><Input value={cfg.gracefulShutdownSeconds} onChange={(e) => set("gracefulShutdownSeconds", Number(e.target.value))} /></Field>
+          <Field label={t("Sleep after inactivity (min, 0 = never)")}><Input value={cfg.sleepAfterMinutes} onChange={(e) => set("sleepAfterMinutes", Number(e.target.value))} /></Field>
         </div>
       </Card>
       {s.service.type === "cron" && (
-        <Card title="Schedule">
+        <Card title={t("Schedule")}>
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Cron expression"><Input className="font-mono" value={cfg.cron?.schedule ?? ""} onChange={(e) => set("cron.schedule", e.target.value)} /></Field>
-            <Field label="Timezone"><Input value={cfg.cron?.timezone ?? "UTC"} onChange={(e) => set("cron.timezone", e.target.value)} /></Field>
-            <Field label="Timeout (s)"><Input value={cfg.cron?.timeoutSeconds ?? 900} onChange={(e) => set("cron.timeoutSeconds", Number(e.target.value))} /></Field>
+            <Field label={t("Cron expression")}><Input className="font-mono" value={cfg.cron?.schedule ?? ""} onChange={(e) => set("cron.schedule", e.target.value)} /></Field>
+            <Field label={t("Timezone")}><Input value={cfg.cron?.timezone ?? "UTC"} onChange={(e) => set("cron.timezone", e.target.value)} /></Field>
+            <Field label={t("Timeout (s)")}><Input value={cfg.cron?.timeoutSeconds ?? 900} onChange={(e) => set("cron.timeoutSeconds", Number(e.target.value))} /></Field>
           </div>
-          <div className="mt-3"><Toggle checked={cfg.cron?.enabled ?? true} onChange={(v) => set("cron.enabled", v)} label="Enabled" /></div>
+          <div className="mt-3"><Toggle checked={cfg.cron?.enabled ?? true} onChange={(v) => set("cron.enabled", v)} label={t("Enabled")} /></div>
         </Card>
       )}
-      <Card title="Access protection">
+      <Card title={t("Access protection")}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Mode">
+          <Field label={t("Mode")}>
             <Select value={cfg.protection.mode} onChange={(e) => set("protection.mode", e.target.value)}>
-              <option value="none">Public</option>
-              <option value="basic">Basic Auth</option>
-              <option value="password">Password page</option>
-              <option value="ip">IP allowlist</option>
+              <option value="none">{t("Public")}</option>
+              <option value="basic">{t("Basic Auth")}</option>
+              <option value="password">{t("Password page")}</option>
+              <option value="ip">{t("IP allowlist")}</option>
             </Select>
           </Field>
           {cfg.protection.mode === "basic" && (
             <>
-              <Field label="Username"><Input value={cfg.protection.basicUser ?? ""} onChange={(e) => set("protection.basicUser", e.target.value)} /></Field>
-              <Field label="Password"><Input type="password" value={cfg.protection.basicPassword ?? ""} onChange={(e) => set("protection.basicPassword", e.target.value)} /></Field>
+              <Field label={t("Username")}><Input value={cfg.protection.basicUser ?? ""} onChange={(e) => set("protection.basicUser", e.target.value)} /></Field>
+              <Field label={t("Password")}><Input type="password" value={cfg.protection.basicPassword ?? ""} onChange={(e) => set("protection.basicPassword", e.target.value)} /></Field>
             </>
           )}
-          {cfg.protection.mode === "password" && <Field label="Password"><Input type="password" value={cfg.protection.password ?? ""} onChange={(e) => set("protection.password", e.target.value)} /></Field>}
-          {cfg.protection.mode === "ip" && <Field label="Allowed IPs / CIDR (comma separated)"><Input value={(cfg.protection.ipAllowlist ?? []).join(", ")} onChange={(e) => set("protection.ipAllowlist", e.target.value.split(",").map((x: string) => x.trim()).filter(Boolean))} /></Field>}
+          {cfg.protection.mode === "password" && <Field label={t("Password")}><Input type="password" value={cfg.protection.password ?? ""} onChange={(e) => set("protection.password", e.target.value)} /></Field>}
+          {cfg.protection.mode === "ip" && <Field label={t("Allowed IPs / CIDR (comma separated)")}><Input value={(cfg.protection.ipAllowlist ?? []).join(", ")} onChange={(e) => set("protection.ipAllowlist", e.target.value.split(",").map((x: string) => x.trim()).filter(Boolean))} /></Field>}
         </div>
-        <div className="mt-3"><Toggle checked={cfg.protection.applyToPreviews} onChange={(v) => set("protection.applyToPreviews", v)} label="Also protect preview environments" /></div>
+        <div className="mt-3"><Toggle checked={cfg.protection.applyToPreviews} onChange={(v) => set("protection.applyToPreviews", v)} label={t("Also protect preview environments")} /></div>
       </Card>
-      <Card title="Firewall & rate limiting">
+      <Card title={t("Firewall & rate limiting")}>
         <div className="flex flex-wrap gap-6">
-          <Toggle checked={cfg.waf.enabled} onChange={(v) => set("waf.enabled", v)} label="Enable WAF" />
-          <Toggle checked={cfg.waf.blockBots} onChange={(v) => set("waf.blockBots", v)} label="Block bots and scanners" />
+          <Toggle checked={cfg.waf.enabled} onChange={(v) => set("waf.enabled", v)} label={t("Enable WAF")} />
+          <Toggle checked={cfg.waf.blockBots} onChange={(v) => set("waf.blockBots", v)} label={t("Block bots and scanners")} />
         </div>
         {cfg.waf.enabled && (
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <Field label="Requests per minute per IP (0 = unlimited)"><Input value={cfg.waf.rateLimitPerMinute} onChange={(e) => set("waf.rateLimitPerMinute", Number(e.target.value))} /></Field>
-            <Field label="Blocked IPs (comma separated)"><Input value={(cfg.waf.rules.find((r: any) => r.id === "block-ip")?.match.ip ?? []).join(", ")} onChange={(e) => set("waf.rules", [...cfg.waf.rules.filter((r: any) => r.id !== "block-ip"), { id: "block-ip", action: "block", match: { ip: e.target.value.split(",").map((x: string) => x.trim()).filter(Boolean) } }])} /></Field>
-            <Field label="Blocked countries (ISO codes)"><Input value={(cfg.waf.rules.find((r: any) => r.id === "block-country")?.match.country ?? []).join(", ")} onChange={(e) => set("waf.rules", [...cfg.waf.rules.filter((r: any) => r.id !== "block-country"), { id: "block-country", action: "block", match: { country: e.target.value.split(",").map((x: string) => x.trim().toUpperCase()).filter((x: string) => x.length === 2) } }])} /></Field>
+            <Field label={t("Requests per minute per IP (0 = unlimited)")}><Input value={cfg.waf.rateLimitPerMinute} onChange={(e) => set("waf.rateLimitPerMinute", Number(e.target.value))} /></Field>
+            <Field label={t("Blocked IPs (comma separated)")}><Input value={(cfg.waf.rules.find((r: any) => r.id === "block-ip")?.match.ip ?? []).join(", ")} onChange={(e) => set("waf.rules", [...cfg.waf.rules.filter((r: any) => r.id !== "block-ip"), { id: "block-ip", action: "block", match: { ip: e.target.value.split(",").map((x: string) => x.trim()).filter(Boolean) } }])} /></Field>
+            <Field label={t("Blocked countries (ISO codes)")}><Input value={(cfg.waf.rules.find((r: any) => r.id === "block-country")?.match.country ?? []).join(", ")} onChange={(e) => set("waf.rules", [...cfg.waf.rules.filter((r: any) => r.id !== "block-country"), { id: "block-country", action: "block", match: { country: e.target.value.split(",").map((x: string) => x.trim().toUpperCase()).filter((x: string) => x.length === 2) } }])} /></Field>
           </div>
         )}
       </Card>
-      <Card title="Screenshots">
+      <Card title={t("Screenshots")}>
         <div className="flex flex-wrap items-end gap-4">
-          <Toggle checked={cfg.autoScreenshots} onChange={(v) => set("autoScreenshots", v)} label="Capture after every live deployment" />
-          <Field label="Pages" className="flex-1"><Input value={(cfg.screenshotPaths ?? ["/"]).join(", ")} onChange={(e) => set("screenshotPaths", e.target.value.split(",").map((x: string) => x.trim()).filter((x: string) => x.startsWith("/")))} /></Field>
+          <Toggle checked={cfg.autoScreenshots} onChange={(v) => set("autoScreenshots", v)} label={t("Capture after every live deployment")} />
+          <Field label={t("Pages")} className="flex-1"><Input value={(cfg.screenshotPaths ?? ["/"]).join(", ")} onChange={(e) => set("screenshotPaths", e.target.value.split(",").map((x: string) => x.trim()).filter((x: string) => x.startsWith("/")))} /></Field>
         </div>
       </Card>
       {can && (
         <div className="flex justify-between">
-          <Button variant="danger" onClick={() => setConfirmDelete(true)}>Delete service</Button>
+          <Button variant="danger" onClick={() => setConfirmDelete(true)}>{t("Delete service")}</Button>
           <div className="flex gap-2">
-            <Button onClick={() => post(`/services/${s.service.id}/duplicate`, { name: `${s.service.name}-copy` }).then(() => toast("success", "Service duplicated"))}>Duplicate</Button>
-            <Button variant="primary" loading={save.isPending} onClick={() => save.mutate()}>Save changes</Button>
+            <Button onClick={() => post(`/services/${s.service.id}/duplicate`, { name: `${s.service.name}-copy` }).then(() => toast("success", t("Service duplicated")))}>{t("Duplicate")}</Button>
+            <Button variant="primary" loading={save.isPending} onClick={() => save.mutate()}>{t("Save changes")}</Button>
           </div>
         </div>
       )}
-      <ConfirmDialog open={confirmDelete} onClose={() => setConfirmDelete(false)} title="Delete service" description="Stops the service and deletes its containers and volumes." typeToConfirm={s.service.name} onConfirm={() => del(`/services/${s.service.id}`, { confirmName: s.service.name }).then(() => nav(`/projects/${s.service.projectId}`))} />
+      <ConfirmDialog open={confirmDelete} onClose={() => setConfirmDelete(false)} title={t("Delete service")} description={t("Stops the service and deletes its containers and volumes.")} typeToConfirm={s.service.name} onConfirm={() => del(`/services/${s.service.id}`, { confirmName: s.service.name }).then(() => nav(`/projects/${s.service.projectId}`))} />
     </div>
   );
 }
@@ -253,15 +254,15 @@ function DomainsTab({ s, envId }: { s: ServiceDetail; envId: string }) {
   return (
     <div className="space-y-4">
       {env?.generatedDomain && (
-        <Card title="SKYHOST domain">
+        <Card title={t("SKYHOST domain")}>
           <div className="flex items-center gap-2"><CodeField value={env.generatedDomain} />{env.url && <a href={env.url} target="_blank" rel="noreferrer"><Button size="sm"><ExternalLink className="size-3.5" /></Button></a>}</div>
-          <p className="mt-2 text-xs text-muted">Private network: <code className="font-mono">{env.internalHost}</code></p>
+          <p className="mt-2 text-xs text-muted">{t("Private network:")} <code className="font-mono">{env.internalHost}</code></p>
         </Card>
       )}
-      <Card title="Custom domains">
+      <Card title={t("Custom domains")}>
         <form onSubmit={(e) => { e.preventDefault(); add.mutate(); }} className="mb-4 flex gap-2">
           <Input placeholder="www.example.com" value={host} onChange={(e) => setHost(e.target.value.toLowerCase())} />
-          <Button variant="primary" loading={add.isPending}>Add domain</Button>
+          <Button variant="primary" loading={add.isPending}>{t("Add domain")}</Button>
         </form>
         {q.data?.domains.length ? (
           <div className="space-y-4">
@@ -270,15 +271,15 @@ function DomainsTab({ s, envId }: { s: ServiceDetail; envId: string }) {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium">{d.hostname}</span>
                   <StatusBadge status={d.status} label={{ pending: "Pending", verified: "Verified", ssl_issued: "SSL issued", error: "Error" }[d.status]} />
-                  {d.isPrimary && <Badge>primary</Badge>}
+                  {d.isPrimary && <Badge>{t("primary")}</Badge>}
                   <div className="ml-auto flex gap-1">
-                    {d.status !== "ssl_issued" && <Button size="sm" onClick={() => verify(d.id)}>Verify</Button>}
-                    <Button size="sm" variant="ghost" onClick={() => del(`/domains/${d.id}`).then(() => qc.invalidateQueries({ queryKey: ["domains"] }))}>Remove</Button>
+                    {d.status !== "ssl_issued" && <Button size="sm" onClick={() => verify(d.id)}>{t("Verify")}</Button>}
+                    <Button size="sm" variant="ghost" onClick={() => del(`/domains/${d.id}`).then(() => qc.invalidateQueries({ queryKey: ["domains"] }))}>{t("Remove")}</Button>
                   </div>
                 </div>
                 {d.status !== "ssl_issued" && (
                   <table className="mt-3 w-full text-xs">
-                    <thead className="text-left text-muted"><tr><th className="pb-1">Type</th><th>Name</th><th>Value</th><th>Purpose</th></tr></thead>
+                    <thead className="text-left text-muted"><tr><th className="pb-1">{t("Type")}</th><th>{t("Name")}</th><th>{t("Value")}</th><th>{t("Purpose")}</th></tr></thead>
                     <tbody>
                       {d.dns.records.map((r) => (
                         <tr key={r.type + r.name} className="border-t border-line font-mono">
@@ -292,7 +293,7 @@ function DomainsTab({ s, envId }: { s: ServiceDetail; envId: string }) {
               </div>
             ))}
           </div>
-        ) : <p className="text-sm text-muted">HTTPS certificates are issued automatically once DNS is verified.</p>}
+        ) : <p className="text-sm text-muted">{t("HTTPS certificates are issued automatically once DNS is verified.")}</p>}
       </Card>
     </div>
   );
@@ -307,17 +308,17 @@ function MetricsTab({ serviceId, envId }: { serviceId: string; envId: string }) 
     <div className="space-y-4">
       <div className="flex items-center gap-4 text-sm">
         <Select value={hours} onChange={(e) => setHours(Number(e.target.value))} className="w-36">
-          {[1, 6, 24, 168].map((h) => <option key={h} value={h}>Last {h < 24 ? `${h}h` : `${h / 24}d`}</option>)}
+          {[1, 6, 24, 168].map((h) => <option key={h} value={h}>{t("Last")} {h < 24 ? `${h}h` : `${h / 24}d`}</option>)}
         </Select>
-        <span>Uptime <strong>{q.data?.summary.uptimePercent ?? "–"}%</strong></span>
-        <span>Restarts <strong>{q.data?.summary.restarts ?? 0}</strong></span>
+        <span>{t("Uptime")} <strong>{q.data?.summary.uptimePercent ?? "–"}%</strong></span>
+        <span>{t("Restarts")} <strong>{q.data?.summary.restarts ?? 0}</strong></span>
       </div>
-      {!data.length ? <EmptyState title="No metrics yet" description="Metrics are sampled every minute while the service runs." /> : (
+      {!data.length ? <EmptyState title={t("No metrics yet")} description={t("Metrics are sampled every minute while the service runs.")} /> : (
         <div className="grid gap-4 lg:grid-cols-2">
           <MetricChart data={data} dataKey="cpu" title="CPU" unit="%" />
-          <MetricChart data={data} dataKey="memory" title="Memory" formatter={bytesFmt} />
-          <MetricChart data={data} dataKey="rx" title="Network in (total)" formatter={bytesFmt} color="#16a34a" />
-          <MetricChart data={data} dataKey="tx" title="Network out (total)" formatter={bytesFmt} color="#ca8a04" />
+          <MetricChart data={data} dataKey="memory" title={t("Memory")} formatter={bytesFmt} />
+          <MetricChart data={data} dataKey="rx" title={t("Network in (total)")} formatter={bytesFmt} color="#16a34a" />
+          <MetricChart data={data} dataKey="tx" title={t("Network out (total)")} formatter={bytesFmt} color="#ca8a04" />
         </div>
       )}
     </div>
@@ -338,7 +339,7 @@ function ScreenshotsTab({ s, envId }: { s: ServiceDetail; envId: string }) {
   const [description, setDescription] = useState("");
   const [compare, setCompare] = useState<string[]>([]);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
-  const shot = useMutation({ mutationFn: () => post(`/services/${s.service.id}/screenshots`, { environmentId: envId, path, viewport, fullPage, delayMs: delay, title: title || undefined, description: description || undefined }), onSuccess: () => { setCapture(false); void qc.invalidateQueries({ queryKey: ["screenshots"] }); toast("success", "Capturing…"); }, onError: (e) => toast("error", (e as Error).message) });
+  const shot = useMutation({ mutationFn: () => post(`/services/${s.service.id}/screenshots`, { environmentId: envId, path, viewport, fullPage, delayMs: delay, title: title || undefined, description: description || undefined }), onSuccess: () => { setCapture(false); void qc.invalidateQueries({ queryKey: ["screenshots"] }); toast("success", t("Capturing…")); }, onError: (e) => toast("error", (e as Error).message) });
   const upload = async (f: File) => {
     const form = new FormData();
     form.append("title", f.name);
@@ -350,13 +351,13 @@ function ScreenshotsTab({ s, envId }: { s: ServiceDetail; envId: string }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
-        <Button variant="primary" onClick={() => setCapture(true)}><Camera className="size-4" /> Capture</Button>
-        <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-line bg-panel px-3.5 text-sm hover:bg-panel-2"><Upload className="size-4" /> Upload image or video<input type="file" accept="image/*,video/mp4,video/webm" className="hidden" onChange={(e) => e.target.files?.[0] && void upload(e.target.files[0])} /></label>
-        {compare.length > 0 && <span className="self-center text-sm text-muted">Select two captures to compare ({compare.length}/2)</span>}
+        <Button variant="primary" onClick={() => setCapture(true)}><Camera className="size-4" /> {t("Capture")}</Button>
+        <label className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md border border-line bg-panel px-3.5 text-sm hover:bg-panel-2"><Upload className="size-4" /> {t("Upload image or video")}<input type="file" accept="image/*,video/mp4,video/webm" className="hidden" onChange={(e) => e.target.files?.[0] && void upload(e.target.files[0])} /></label>
+        {compare.length > 0 && <span className="self-center text-sm text-muted">{t("Select two captures to compare (")}{compare.length}/2)</span>}
       </div>
-      {shareUrl && <Alert kind="success"><div className="flex items-center gap-2">Public link: <CodeField value={shareUrl} /></div></Alert>}
+      {shareUrl && <Alert kind="success"><div className="flex items-center gap-2">{t("Public link:")} <CodeField value={shareUrl} /></div></Alert>}
       {pair && (
-        <Card title="Before / after" actions={<Button size="sm" onClick={() => setCompare([])}>Close</Button>}>
+        <Card title={t("Before / after")} actions={<Button size="sm" onClick={() => setCompare([])}>{t("Close")}</Button>}>
           <div className="grid gap-4 md:grid-cols-2">
             {pair.map((p) => (
               <figure key={p.id}><img src={p.imageUrl} alt={p.title ?? ""} className="w-full rounded border border-line" /><figcaption className="mt-1 text-xs text-muted">{p.commitSha?.slice(0, 7)} · {timeAgo(p.createdAt)}</figcaption></figure>
@@ -364,7 +365,7 @@ function ScreenshotsTab({ s, envId }: { s: ServiceDetail; envId: string }) {
           </div>
         </Card>
       )}
-      {q.isLoading ? <LoadingRows /> : !items.length ? <EmptyState icon={<Camera className="size-8" />} title="No captures yet" description="SKYHOST captures desktop and mobile views after every live deployment. You can also capture any page or upload your own." /> : (
+      {q.isLoading ? <LoadingRows /> : !items.length ? <EmptyState icon={<Camera className="size-8" />} title={t("No captures yet")} description={t("SKYHOST captures desktop and mobile views after every live deployment. You can also capture any page or upload your own.")} /> : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((x) => (
             <div key={x.id} className="overflow-hidden rounded-lg border border-line bg-panel">
@@ -377,23 +378,23 @@ function ScreenshotsTab({ s, envId }: { s: ServiceDetail; envId: string }) {
                 <p className="text-xs text-faint">{x.kind} · {x.commitSha?.slice(0, 7) ?? "upload"} · {timeAgo(x.createdAt)}</p>
                 {x.error && <p className="text-xs text-red-500">{x.error}</p>}
                 <div className="flex gap-1 pt-1">
-                  <Button size="sm" variant="ghost" onClick={() => setCompare((c) => (c.includes(x.id) ? c.filter((y) => y !== x.id) : [...c.slice(-1), x.id]))}>{compare.includes(x.id) ? "Selected" : "Compare"}</Button>
-                  {x.shared ? <Button size="sm" variant="ghost" onClick={() => del(`/screenshots/${x.id}/share`).then(() => { setShareUrl(null); void qc.invalidateQueries({ queryKey: ["screenshots"] }); })}>Revoke link</Button> : x.status === "completed" && <Button size="sm" variant="ghost" onClick={() => post<{ pageUrl: string }>(`/screenshots/${x.id}/share`, { expiresInDays: 30 }).then((r) => { setShareUrl(r.pageUrl); void qc.invalidateQueries({ queryKey: ["screenshots"] }); })}>Share</Button>}
-                  <Button size="sm" variant="ghost" onClick={() => del(`/screenshots/${x.id}`).then(() => qc.invalidateQueries({ queryKey: ["screenshots"] }))}>Delete</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setCompare((c) => (c.includes(x.id) ? c.filter((y) => y !== x.id) : [...c.slice(-1), x.id]))}>{compare.includes(x.id) ? t("Selected") : t("Compare")}</Button>
+                  {x.shared ? <Button size="sm" variant="ghost" onClick={() => del(`/screenshots/${x.id}/share`).then(() => { setShareUrl(null); void qc.invalidateQueries({ queryKey: ["screenshots"] }); })}>{t("Revoke link")}</Button> : x.status === "completed" && <Button size="sm" variant="ghost" onClick={() => post<{ pageUrl: string }>(`/screenshots/${x.id}/share`, { expiresInDays: 30 }).then((r) => { setShareUrl(r.pageUrl); void qc.invalidateQueries({ queryKey: ["screenshots"] }); })}>{t("Share")}</Button>}
+                  <Button size="sm" variant="ghost" onClick={() => del(`/screenshots/${x.id}`).then(() => qc.invalidateQueries({ queryKey: ["screenshots"] }))}>{t("Delete")}</Button>
                 </div>
               </div>
             </div>
           ))}
         </div>
       )}
-      <Modal open={capture} onClose={() => setCapture(false)} title="Capture a page" footer={<Button variant="primary" loading={shot.isPending} onClick={() => shot.mutate()}>Capture</Button>}>
+      <Modal open={capture} onClose={() => setCapture(false)} title={t("Capture a page")} footer={<Button variant="primary" loading={shot.isPending} onClick={() => shot.mutate()}>{t("Capture")}</Button>}>
         <div className="space-y-3">
-          <Field label="Path"><Input value={path} onChange={(e) => setPath(e.target.value)} /></Field>
-          <Field label="Viewport"><Select value={viewport} onChange={(e) => setViewport(e.target.value)}><option>desktop</option><option>tablet</option><option>mobile</option></Select></Field>
-          <Toggle checked={fullPage} onChange={setFullPage} label="Full page" />
-          <Field label="Wait before capture (ms)"><Input value={delay} onChange={(e) => setDelay(Number(e.target.value) || 0)} /></Field>
-          <Field label="Feature title"><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="New checkout page" /></Field>
-          <Field label="Description"><Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
+          <Field label={t("Path")}><Input value={path} onChange={(e) => setPath(e.target.value)} /></Field>
+          <Field label={t("Viewport")}><Select value={viewport} onChange={(e) => setViewport(e.target.value)}><option>{t("desktop")}</option><option>{t("tablet")}</option><option>{t("mobile")}</option></Select></Field>
+          <Toggle checked={fullPage} onChange={setFullPage} label={t("Full page")} />
+          <Field label={t("Wait before capture (ms)")}><Input value={delay} onChange={(e) => setDelay(Number(e.target.value) || 0)} /></Field>
+          <Field label={t("Feature title")}><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("New checkout page")} /></Field>
+          <Field label={t("Description")}><Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
         </div>
       </Modal>
     </div>
@@ -455,8 +456,8 @@ function ShellTab({ serviceId, envId }: { serviceId: string; envId: string }) {
           }}
           disabled={!ready}
           className="flex-1 bg-transparent outline-none"
-          placeholder={ready ? "node --version" : "connecting…"}
-          aria-label="Shell command"
+          placeholder={ready ? t("node --version") : "connecting…"}
+          aria-label={t("Shell command")}
         />
       </form>
     </div>
@@ -472,12 +473,12 @@ function JobsTab({ s, envId }: { s: ServiceDetail; envId: string }) {
   const run = useMutation({ mutationFn: () => post(`/services/${s.service.id}/jobs`, { environmentId: envId, command }), onSuccess: () => { setCommand(""); void qc.invalidateQueries({ queryKey: ["jobs"] }); }, onError: (e) => toast("error", (e as Error).message) });
   return (
     <div className="space-y-4">
-      <Card title="Run a one-off command" actions={s.service.type === "cron" && <Button size="sm" onClick={() => post(`/services/${s.service.id}/cron/run`, { environmentId: envId }).then(() => qc.invalidateQueries({ queryKey: ["jobs"] }))}><Play className="size-3.5" /> Run cron now</Button>}>
+      <Card title={t("Run a one-off command")} actions={s.service.type === "cron" && <Button size="sm" onClick={() => post(`/services/${s.service.id}/cron/run`, { environmentId: envId }).then(() => qc.invalidateQueries({ queryKey: ["jobs"] }))}><Play className="size-3.5" /> {t("Run cron now")}</Button>}>
         <form onSubmit={(e) => { e.preventDefault(); run.mutate(); }} className="flex gap-2">
-          <Input className="font-mono" placeholder="npx prisma migrate deploy" value={command} onChange={(e) => setCommand(e.target.value)} />
-          <Button variant="primary" loading={run.isPending}>Run</Button>
+          <Input className="font-mono" placeholder={t("npx prisma migrate deploy")} value={command} onChange={(e) => setCommand(e.target.value)} />
+          <Button variant="primary" loading={run.isPending}>{t("Run")}</Button>
         </form>
-        <p className="mt-2 text-xs text-muted">Runs in a fresh container from the live image with the service variables and volumes (migrations, seeds, scripts).</p>
+        <p className="mt-2 text-xs text-muted">{t("Runs in a fresh container from the live image with the service variables and volumes (migrations, seeds, scripts).")}</p>
       </Card>
       <div className="divide-y divide-line rounded-lg border border-line bg-panel">
         {q.data?.jobs.map((j) => (
@@ -488,10 +489,10 @@ function JobsTab({ s, envId }: { s: ServiceDetail; envId: string }) {
               <Badge>{j.kind}</Badge>
               <span className="text-xs text-muted">{timeAgo(j.createdAt)}</span>
             </button>
-            {open === j.id && <pre className="mt-2 max-h-80 overflow-auto rounded bg-[#07080a] p-2 font-mono text-xs text-zinc-300">{j.output || "(no output)"}</pre>}
+            {open === j.id && <pre className="mt-2 max-h-80 overflow-auto rounded bg-[#07080a] p-2 font-mono text-xs text-zinc-300">{j.output || t("(no output)")}</pre>}
           </div>
         ))}
-        {!q.data?.jobs.length && <p className="px-4 py-6 text-center text-sm text-muted">No runs yet.</p>}
+        {!q.data?.jobs.length && <p className="px-4 py-6 text-center text-sm text-muted">{t("No runs yet.")}</p>}
       </div>
     </div>
   );
@@ -504,24 +505,24 @@ function VolumesTab({ s, onChange }: { s: ServiceDetail; onChange: () => void })
   const [size, setSize] = useState(1024);
   const unique = [...new Map(s.volumes.map((v) => [v.name, v])).values()];
   return (
-    <Card title="Persistent volumes">
+    <Card title={t("Persistent volumes")}>
       <ul className="mb-4 divide-y divide-line text-sm">
         {unique.map((v) => (
           <li key={v.id} className="flex items-center justify-between py-2">
             <span><strong>{v.name}</strong> <code className="font-mono text-xs text-muted">{v.mountPath}</code> · {formatBytes(v.sizeMb * 1048576)}</span>
             <span className="flex gap-1">
-              <Button size="sm" variant="ghost" onClick={() => post(`/volumes/${v.id}/snapshots`).then(() => toast("success", "Snapshot started"))}>Snapshot</Button>
-              <Button size="sm" variant="ghost" onClick={() => del(`/volumes/${v.id}`, { confirmName: v.name }).then(onChange)}>Delete</Button>
+              <Button size="sm" variant="ghost" onClick={() => post(`/volumes/${v.id}/snapshots`).then(() => toast("success", t("Snapshot started")))}>{t("Snapshot")}</Button>
+              <Button size="sm" variant="ghost" onClick={() => del(`/volumes/${v.id}`, { confirmName: v.name }).then(onChange)}>{t("Delete")}</Button>
             </span>
           </li>
         ))}
-        {!unique.length && <li className="py-2 text-muted">No volumes. Data written outside a volume is lost on redeploy.</li>}
+        {!unique.length && <li className="py-2 text-muted">{t("No volumes. Data written outside a volume is lost on redeploy.")}</li>}
       </ul>
       <div className="flex flex-wrap items-end gap-2">
-        <Field label="Name"><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
-        <Field label="Mount path"><Input value={mount} onChange={(e) => setMount(e.target.value)} /></Field>
-        <Field label="Size (MB)"><Input value={size} onChange={(e) => setSize(Number(e.target.value))} /></Field>
-        <Button onClick={() => post(`/services/${s.service.id}/volumes`, { name, mountPath: mount, sizeMb: size }).then(() => { toast("success", "Volume created. Redeploy to mount it."); onChange(); }).catch((e) => toast("error", e.message))}>Add volume</Button>
+        <Field label={t("Name")}><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
+        <Field label={t("Mount path")}><Input value={mount} onChange={(e) => setMount(e.target.value)} /></Field>
+        <Field label={t("Size (MB)")}><Input value={size} onChange={(e) => setSize(Number(e.target.value))} /></Field>
+        <Button onClick={() => post(`/services/${s.service.id}/volumes`, { name, mountPath: mount, sizeMb: size }).then(() => { toast("success", t("Volume created. Redeploy to mount it.")); onChange(); }).catch((e) => toast("error", e.message))}>{t("Add volume")}</Button>
       </div>
     </Card>
   );
@@ -541,7 +542,7 @@ export default function Service() {
   useEffect(() => {
     if (!serviceId) return;
     return realtime.subscribe(`service:${serviceId}`, (m) => {
-      if (m.type === "deployment.status" && m.status === "failed") toast("error", "A deployment failed. Open it to see the diagnosis.");
+      if (m.type === "deployment.status" && m.status === "failed") toast("error", t("A deployment failed. Open it to see the diagnosis."));
     });
   }, [serviceId, toast]);
   if (q.isLoading) return <LoadingRows rows={5} />;
@@ -564,7 +565,7 @@ export default function Service() {
   return (
     <>
       <PageHeader
-        breadcrumbs={<><Link to="/">{t("nav.projects")}</Link> / <Link to={`/projects/${projectId}`}>Project</Link></>}
+        breadcrumbs={<><Link to="/">{t("nav.projects")}</Link> / <Link to={`/projects/${projectId}`}>{t("Project")}</Link></>}
         title={<span className="flex items-center gap-3">{s.service.name} <StatusBadge status={env?.instance?.status ?? "idle"} /></span>}
         subtitle={env?.url ? <a href={env.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-accent">{env.url.replace(/^https?:\/\//, "")} <ExternalLink className="size-3" /></a> : `${s.service.type} service`}
         actions={
@@ -574,8 +575,8 @@ export default function Service() {
             </Select>
             {can("deploy:create") && (
               <>
-                <Button onClick={() => action(`/services/${s.service.id}/restart`, "Restarting")}><RotateCcw className="size-4" /> Restart</Button>
-                <Button onClick={() => action(`/services/${s.service.id}/stop`, "Stopping")}><Square className="size-4" /> Stop</Button>
+                <Button onClick={() => action(`/services/${s.service.id}/restart`, "Restarting")}><RotateCcw className="size-4" /> {t("Restart")}</Button>
+                <Button onClick={() => action(`/services/${s.service.id}/stop`, "Stopping")}><Square className="size-4" /> {t("Stop")}</Button>
                 <Button variant="primary" onClick={() => action(`/services/${s.service.id}/deploy`, "Deployment queued").then(() => setTab("deployments"))}>{t("deploy.deploy")}</Button>
               </>
             )}
@@ -585,28 +586,28 @@ export default function Service() {
       <Tabs tabs={tabs} value={tab} onChange={setTab} />
       {tab === "overview" && (
         <div className="grid gap-4 lg:grid-cols-3">
-          <Card title="Status" className="lg:col-span-2">
+          <Card title={t("Status")} className="lg:col-span-2">
             <dl className="grid grid-cols-2 gap-4 text-sm">
-              <div><dt className="text-xs text-muted">Instance</dt><dd><StatusBadge status={env?.instance?.status ?? "idle"} /></dd></div>
-              <div><dt className="text-xs text-muted">Type</dt><dd>{s.service.type}</dd></div>
-              <div><dt className="text-xs text-muted">Source</dt><dd className="truncate">{s.service.source.repo ?? s.service.source.url ?? s.service.source.image ?? s.service.source.kind} {s.service.source.branch && <Badge>{s.service.source.branch}</Badge>}</dd></div>
-              <div><dt className="text-xs text-muted">Private host</dt><dd className="font-mono text-xs">{env?.internalHost}</dd></div>
-              <div><dt className="text-xs text-muted">Resources</dt><dd>{s.service.config.resources.cpu} vCPU · {s.service.config.resources.memoryMb} MB · ×{s.service.config.resources.replicas}</dd></div>
-              <div><dt className="text-xs text-muted">Detected stack</dt><dd>{s.service.analysis?.framework ?? s.service.analysis?.runtime ?? "–"}</dd></div>
+              <div><dt className="text-xs text-muted">{t("Instance")}</dt><dd><StatusBadge status={env?.instance?.status ?? "idle"} /></dd></div>
+              <div><dt className="text-xs text-muted">{t("Type")}</dt><dd>{s.service.type}</dd></div>
+              <div><dt className="text-xs text-muted">{t("Source")}</dt><dd className="truncate">{s.service.source.repo ?? s.service.source.url ?? s.service.source.image ?? s.service.source.kind} {s.service.source.branch && <Badge>{s.service.source.branch}</Badge>}</dd></div>
+              <div><dt className="text-xs text-muted">{t("Private host")}</dt><dd className="font-mono text-xs">{env?.internalHost}</dd></div>
+              <div><dt className="text-xs text-muted">{t("Resources")}</dt><dd>{s.service.config.resources.cpu} {t("vCPU ·")} {s.service.config.resources.memoryMb} {t("MB · ×")}{s.service.config.resources.replicas}</dd></div>
+              <div><dt className="text-xs text-muted">{t("Detected stack")}</dt><dd>{s.service.analysis?.framework ?? s.service.analysis?.runtime ?? "–"}</dd></div>
             </dl>
             {env?.instance?.canaryDeploymentId && (
               <div className="mt-4 rounded-md border border-line p-3 text-sm">
-                <div className="mb-2 font-medium">Canary release: {env.instance.canaryWeight}% of traffic</div>
+                <div className="mb-2 font-medium">{t("Canary release:")} {env.instance.canaryWeight}{t("% of traffic")}</div>
                 <div className="flex gap-2">
                   {[10, 25, 50].map((w) => <Button key={w} size="sm" onClick={() => post(`/services/${s.service.id}/canary`, { environmentId: envId, action: "set_weight", weight: w })}>{w}%</Button>)}
-                  <Button size="sm" variant="primary" onClick={() => post(`/services/${s.service.id}/canary`, { environmentId: envId, action: "promote" })}>Promote</Button>
-                  <Button size="sm" variant="danger" onClick={() => post(`/services/${s.service.id}/canary`, { environmentId: envId, action: "abort" })}>Abort</Button>
+                  <Button size="sm" variant="primary" onClick={() => post(`/services/${s.service.id}/canary`, { environmentId: envId, action: "promote" })}>{t("Promote")}</Button>
+                  <Button size="sm" variant="danger" onClick={() => post(`/services/${s.service.id}/canary`, { environmentId: envId, action: "abort" })}>{t("Abort")}</Button>
                 </div>
               </div>
             )}
           </Card>
-          <Card title="Databases">
-            {s.databases.length ? <ul className="space-y-2 text-sm">{s.databases.map((d) => <li key={d.id}><Link to={`/projects/${projectId}/databases/${d.id}`} className="hover:text-accent">{d.name}</Link> <Badge>{d.engine}</Badge> <code className="font-mono text-xs text-muted">{d.variableName}</code></li>)}</ul> : <p className="text-sm text-muted">No database connected.</p>}
+          <Card title={t("Databases")}>
+            {s.databases.length ? <ul className="space-y-2 text-sm">{s.databases.map((d) => <li key={d.id}><Link to={`/projects/${projectId}/databases/${d.id}`} className="hover:text-accent">{d.name}</Link> <Badge>{d.engine}</Badge> <code className="font-mono text-xs text-muted">{d.variableName}</code></li>)}</ul> : <p className="text-sm text-muted">{t("No database connected.")}</p>}
           </Card>
           <div className="lg:col-span-3"><DeploymentsTab s={s} envId={envId} /></div>
         </div>

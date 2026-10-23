@@ -7,6 +7,7 @@ import { get, post } from "../lib/api";
 import { setLanguage } from "../lib/i18n";
 import { useRealtimeInvalidate, useSession } from "../lib/session";
 import { Button, cx, timeAgo, useToast } from "./ui";
+import { t } from "../lib/i18n";
 
 function Logo() {
   return (
@@ -49,7 +50,7 @@ function TeamSwitcher() {
           ))}
           <div className="my-1 border-t border-line" />
           <Link to="/settings?new=1" onClick={() => setOpen(false)} className="block px-3 py-1.5 text-sm text-muted hover:bg-panel-2 hover:text-fg">
-            + Create a team
+            {t("+ Create a team")}
           </Link>
         </div>
       )}
@@ -64,10 +65,10 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
   const { team } = useSession();
   const { data } = useQuery({ queryKey: ["search", q, team?.id], queryFn: () => get<{ results: Array<{ id: string; type: string; title: string; subtitle: string; url: string }> }>(`/search?q=${encodeURIComponent(q)}`), enabled: open && q.length > 0 });
   const quick = [
-    { id: "new", type: "action", title: "New project", subtitle: "Deploy from GitHub, ZIP, image or template", url: "/new" },
-    { id: "billing", type: "action", title: "Billing", subtitle: "Plans, usage and invoices", url: "/billing" },
-    { id: "settings", type: "action", title: "Team settings", subtitle: "Members, security, API keys", url: "/settings" },
-    { id: "account", type: "action", title: "Account", subtitle: "Profile, 2FA, sessions", url: "/account" },
+    { id: "new", type: "action", title: t("New project"), subtitle: t("Deploy from GitHub, ZIP, image or template"), url: "/new" },
+    { id: "billing", type: "action", title: t("Billing"), subtitle: t("Plans, usage and invoices"), url: "/billing" },
+    { id: "settings", type: "action", title: t("Team settings"), subtitle: t("Members, security, API keys"), url: "/settings" },
+    { id: "account", type: "action", title: t("Account"), subtitle: t("Profile, 2FA, sessions"), url: "/account" },
   ];
   const results = q ? (data?.results ?? []) : quick;
   useEffect(() => {
@@ -94,7 +95,7 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
               if (e.key === "ArrowUp") setIdx((i) => Math.max(i - 1, 0));
               if (e.key === "Enter" && results[idx]) go(results[idx]!.url);
             }}
-            placeholder="Search projects, services, databases, domains…"
+            placeholder={t("Search projects, services, databases, domains…")}
             className="h-12 flex-1 bg-transparent text-sm outline-none"
           />
           <kbd className="rounded border border-line px-1.5 text-xs text-muted">Esc</kbd>
@@ -111,7 +112,7 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
               </button>
             </li>
           ))}
-          {q && !results.length && <li className="px-3 py-6 text-center text-sm text-muted">No results</li>}
+          {q && !results.length && <li className="px-3 py-6 text-center text-sm text-muted">{t("No results")}</li>}
         </ul>
       </div>
     </div>
@@ -133,16 +134,16 @@ function Notifications() {
   }, []);
   return (
     <div className="relative" ref={ref}>
-      <Button variant="ghost" size="sm" onClick={() => setOpen(!open)} aria-label="Notifications">
+      <Button variant="ghost" size="sm" onClick={() => setOpen(!open)} aria-label={t("Notifications")}>
         <Bell className="size-4" />
         {!!data?.unread && <span className="rounded-full bg-accent px-1.5 text-[10px] leading-4 text-white">{data.unread}</span>}
       </Button>
       {open && (
         <div className="absolute right-0 z-40 mt-2 w-96 rounded-lg border border-line bg-panel shadow-xl">
           <div className="flex items-center justify-between border-b border-line px-3 py-2">
-            <span className="text-sm font-semibold">Notifications</span>
+            <span className="text-sm font-semibold">{t("Notifications")}</span>
             <Button size="sm" variant="ghost" onClick={() => readAll.mutate()}>
-              Mark all read
+              {t("Mark all read")}
             </Button>
           </div>
           <ul className="max-h-96 overflow-y-auto">
@@ -159,7 +160,7 @@ function Notifications() {
                 <p className="mt-0.5 text-[11px] text-faint">{timeAgo(n.createdAt)}</p>
               </li>
             ))}
-            {!data?.notifications.length && <li className="px-3 py-8 text-center text-sm text-muted">You're all caught up.</li>}
+            {!data?.notifications.length && <li className="px-3 py-8 text-center text-sm text-muted">{t("You're all caught up.")}</li>}
           </ul>
         </div>
       )}
@@ -176,9 +177,9 @@ function Banners() {
     <>
       {me?.impersonating && (
         <div className="bg-amber-500 px-4 py-1.5 text-center text-sm font-medium text-black">
-          You are viewing SKYHOST as {me.user.email} (support session: {me.impersonating.reason}).{" "}
+          {t("You are viewing SKYHOST as")} {me.user.email} {t("(support session:")} {me.impersonating.reason}).{" "}
           <button className="underline" onClick={() => post("/auth/logout").then(() => (location.href = "/login"))}>
-            End session
+            {t("End session")}
           </button>
         </div>
       )}
@@ -190,7 +191,7 @@ function Banners() {
       {me && !me.user.emailVerified && (
         <div className="border-b border-line bg-panel px-4 py-2 text-center text-sm">
           {t("auth.verifyBanner")}{" "}
-          <button className="text-accent underline" onClick={() => post("/auth/resend-verification").then(() => toast("success", "Verification email sent"))}>
+          <button className="text-accent underline" onClick={() => post("/auth/resend-verification").then(() => toast("success", t("Verification email sent")))}>
             {t("auth.resend")}
           </button>
         </div>
@@ -252,7 +253,7 @@ export function Layout({ children }: { children: ReactNode }) {
               <FileCode2 className="size-4" /> {t("nav.docs")}
             </a>
           </nav>
-          <div className="px-4 text-[11px] text-faint">SKYHOST by SYRIX VISION COMPANY</div>
+          <div className="px-4 text-[11px] text-faint">{t("SKYHOST by SYRIX VISION COMPANY")}</div>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-line bg-bg/95 px-4 backdrop-blur-sm">
@@ -265,7 +266,7 @@ export function Layout({ children }: { children: ReactNode }) {
               <kbd className="hidden rounded border border-line px-1.5 text-xs sm:inline">Ctrl K</kbd>
             </button>
             <div className="ml-auto flex items-center gap-1">
-              <Button variant="ghost" size="sm" onClick={() => setLanguage(i18n.language === "fr" ? "en" : "fr")} aria-label="Language">
+              <Button variant="ghost" size="sm" onClick={() => setLanguage(i18n.language === "fr" ? "en" : "fr")} aria-label={t("Language")}>
                 <Languages className="size-4" />
                 <span className="hidden sm:inline">{t("lang.toggle")}</span>
               </Button>
@@ -282,10 +283,10 @@ export function Layout({ children }: { children: ReactNode }) {
               </Button>
             </div>
           </header>
-          {team?.suspended && <div className="border-b border-red-500/30 bg-red-500/10 px-4 py-2 text-sm">This team is suspended. Contact support to restore access to deployments.</div>}
+          {team?.suspended && <div className="border-b border-red-500/30 bg-red-500/10 px-4 py-2 text-sm">{t("This team is suspended. Contact support to restore access to deployments.")}</div>}
           {team?.billingStatus === "past_due" && (
             <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm">
-              A payment failed. <Link to="/billing" className="underline">Update your payment method</Link> to avoid suspension.
+              {t("A payment failed.")} <Link to="/billing" className="underline">{t("Update your payment method")}</Link> {t("to avoid suspension.")}
             </div>
           )}
           <nav className="flex gap-1 overflow-x-auto border-b border-line px-2 py-1 md:hidden">

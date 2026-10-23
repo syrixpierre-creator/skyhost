@@ -17,7 +17,15 @@ void i18n.use(initReactI18next).init({
   fallbackLng: "en",
   interpolation: { escapeValue: false },
   returnNull: false,
+  // Keys are the English text itself (flat keys such as "nav.projects" keep working).
+  keySeparator: false,
+  nsSeparator: false,
 });
+
+/** Translates outside React hooks. The app remounts when the language changes (see App.tsx). */
+export function t(key: string, options?: Record<string, unknown>): string {
+  return i18n.t(key, options) as string;
+}
 
 export function setLanguage(lng: "en" | "fr") {
   void i18n.changeLanguage(lng);

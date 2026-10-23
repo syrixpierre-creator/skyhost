@@ -830,7 +830,7 @@ export const notifications = pgTable(
 export const notificationChannels = pgTable("notification_channels", {
   id: id(),
   teamId: uuid("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
-  kind: text("kind").notNull(), // email | slack | discord | webhook
+  kind: text("kind").notNull(), // email | slack | discord | webhook | telegram | whatsapp
   name: text("name").notNull(),
   configEnc: text("config_enc").notNull(),
   events: jsonb("events").$type<string[]>().notNull().default([]),

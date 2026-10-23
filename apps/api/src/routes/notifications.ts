@@ -16,6 +16,10 @@ const channelBody = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("slack"), name: z.string().max(80), url: z.string().url().startsWith("https://hooks.slack.com/"), events: z.array(z.enum(EVENT_TYPES)).default([]), quietHours: quiet }),
   z.object({ kind: z.literal("discord"), name: z.string().max(80), url: z.string().url().regex(/^https:\/\/(discord|discordapp)\.com\/api\/webhooks\//), events: z.array(z.enum(EVENT_TYPES)).default([]), quietHours: quiet }),
   z.object({ kind: z.literal("email"), name: z.string().max(80), email: z.string().email(), events: z.array(z.enum(EVENT_TYPES)).default([]), quietHours: quiet }),
+  // Telegram: a bot created with @BotFather, and the chat (user, group or channel) it writes to.
+  z.object({ kind: z.literal("telegram"), name: z.string().max(80), botToken: z.string().regex(/^\d{5,}:[A-Za-z0-9_-]{30,}$/, "Invalid Telegram bot token"), chatId: z.string().regex(/^(-?\d{3,20}|@[A-Za-z0-9_]{5,32})$/, "Invalid chat id"), events: z.array(z.enum(EVENT_TYPES)).default([]), quietHours: quiet }),
+  // WhatsApp through CallMeBot (free, for personal numbers): the number and the API key CallMeBot sent to it.
+  z.object({ kind: z.literal("whatsapp"), name: z.string().max(80), phone: z.string().regex(/^\+?\d{8,15}$/, "Use the international format, e.g. +243812345678"), apiKey: z.string().regex(/^[A-Za-z0-9]{4,32}$/, "Invalid CallMeBot API key"), events: z.array(z.enum(EVENT_TYPES)).default([]), quietHours: quiet }),
   z.object({ kind: z.literal("webhook"), name: z.string().max(80), url: z.string().url().startsWith("https://"), events: z.array(z.enum(EVENT_TYPES)).default([]), quietHours: quiet }),
 ]);
 
@@ -48,15 +52,20 @@ export default async function notificationRoutes(app: FastifyInstance) {
     const rows = await getDb().select().from(notificationChannels).where(eq(notificationChannels.teamId, params.teamId));
     return {
       channels: rows.map((c) => {
-        const cfg = decryptChannelConfig<{ url?: string; email?: string }>(c.configEnc);
-        return { id: c.id, kind: c.kind, name: c.name, events: c.events, quietHours: c.quietHours, enabled: c.enabled, target: cfg.email ?? (cfg.url ? cfg.url.replace(/(\/[^/]{6})[^/]*$/, "$1…") : null) };
+        const cfg = decryptChannelConfig<{ url?: string; email?: string; chatId?: string; phone?: string }>(c.configEnc);
+        const target = cfg.email ?? (cfg.url ? cfg.url.replace(/(\/[^/]{6})[^/]*$/, "$1…") : cfg.chatId ? `chat ${cfg.chatId}` : cfg.phone ? `+${cfg.phone.slice(0, 4)}…${cfg.phone.slice(-2)}` : null);
+        return { id: c.id, kind: c.kind, name: c.name, events: c.events, quietHours: c.quietHours, enabled: c.enabled, target };
       }),
     };
   });
 
   route(app, { method: "POST", url: "/teams/:teamId/notification-channels", tags: ["notifications"], params: teamParam, body: channelBody }, async (req, reply, { params, body }) => {
     await teamAccess(req, params.teamId, "notifications:manage");
-    const cfg = "url" in body ? { url: body.url } : { email: body.email };
+    const cfg =
+      body.kind === "telegram" ? { botToken: body.botToken, chatId: body.chatId }
+      : body.kind === "whatsapp" ? { phone: body.phone.replace(/^\+/, ""), apiKey: body.apiKey }
+      : "url" in body ? { url: body.url }
+      : { email: body.email };
     if ("url" in body) await assertPublicUrl(body.url, { protocols: ["https:"] }).catch((e) => Promise.reject(badRequest((e as Error).message)));
     const [c] = await getDb().insert(notificationChannels).values({ teamId: params.teamId, kind: body.kind, name: body.name, configEnc: encryptChannelConfig(cfg), events: body.events, quietHours: body.quietHours }).returning();
     await audit(actorOf(req), params.teamId, "notification_channel.create", { type: "notification_channel", id: c!.id }, { kind: body.kind });

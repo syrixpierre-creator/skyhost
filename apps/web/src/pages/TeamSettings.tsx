@@ -217,6 +217,7 @@ function Notifications() {
   const alerts = useQuery({ queryKey: ["alerts", team!.id], queryFn: () => get<{ rules: Array<{ id: string; metric: string; threshold: number | null; durationMinutes: number }> }>(`/teams/${team!.id}/alerts`) });
   const [kind, setKind] = useState("slack");
   const [target, setTarget] = useState("");
+  const [second, setSecond] = useState("");
   const [events, setEvents] = useState<string[]>(["deployment.failed", "service.crashed"]);
   const [hookUrl, setHookUrl] = useState("");
   const [secret, setSecret] = useState<string | null>(null);
@@ -225,7 +226,7 @@ function Notifications() {
   const reload = () => qc.invalidateQueries();
   return (
     <div className="space-y-4">
-      <Card title={t("Channels (Slack, Discord, email, webhook)")}>
+      <Card title={t("Channels (Telegram, WhatsApp, Slack, Discord, email, webhook)")}>
         <ul className="mb-4 divide-y divide-line text-sm">
           {channels.data?.channels.map((c) => (
             <li key={c.id} className="flex items-center justify-between py-2">
@@ -234,11 +235,27 @@ function Notifications() {
             </li>
           ))}
         </ul>
-        <div className="grid gap-2 sm:grid-cols-[140px_1fr_auto]">
-          <Select value={kind} onChange={(e) => setKind(e.target.value)}><option>{t("slack")}</option><option>{t("discord")}</option><option>{t("email")}</option><option>{t("webhook")}</option></Select>
-          <Input placeholder={kind === "email" ? "alerts@example.com" : "https://hooks…"} value={target} onChange={(e) => setTarget(e.target.value)} />
-          <Button onClick={() => post(`/teams/${team!.id}/notification-channels`, { kind, name: kind, ...(kind === "email" ? { email: target } : { url: target }), events }).then(() => { setTarget(""); void reload(); }).catch((e) => toast("error", e.message))}>{t("Add")}</Button>
+        <div className="grid gap-2 sm:grid-cols-[140px_1fr_1fr_auto]">
+          <Select value={kind} onChange={(e) => { setKind(e.target.value); setTarget(""); setSecond(""); }} aria-label={t("Channel")}>
+            {[["telegram", "Telegram"], ["whatsapp", "WhatsApp"], ["slack", "Slack"], ["discord", "Discord"], ["email", t("Email")], ["webhook", t("Webhook")]].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </Select>
+          <Input
+            aria-label={kind === "telegram" ? t("Bot token") : kind === "whatsapp" ? t("WhatsApp number") : t("Target")}
+            placeholder={kind === "telegram" ? "123456789:AA…" : kind === "whatsapp" ? "+243812345678" : kind === "email" ? "alerts@example.com" : "https://hooks…"}
+            value={target}
+            onChange={(e) => setTarget(e.target.value)}
+            className={["telegram", "whatsapp"].includes(kind) ? "" : "sm:col-span-2"}
+          />
+          {["telegram", "whatsapp"].includes(kind) && <Input aria-label={kind === "telegram" ? t("Chat id") : t("CallMeBot API key")} placeholder={kind === "telegram" ? "123456789" : "1234567"} value={second} onChange={(e) => setSecond(e.target.value)} />}
+          <Button
+            onClick={() => {
+              const cfg = kind === "telegram" ? { botToken: target.trim(), chatId: second.trim() } : kind === "whatsapp" ? { phone: target.replace(/[\s-]/g, ""), apiKey: second.trim() } : kind === "email" ? { email: target } : { url: target };
+              post(`/teams/${team!.id}/notification-channels`, { kind, name: kind, ...cfg, events }).then(() => { setTarget(""); setSecond(""); void reload(); }).catch((e) => toast("error", e.message));
+            }}
+          >{t("Add")}</Button>
         </div>
+        {kind === "telegram" && <p className="mt-2 text-xs text-muted">{t("Create a bot with @BotFather and copy its token. Send it a message, then open https://api.telegram.org/bot<token>/getUpdates to read your chat id (for a group, add the bot to the group first).")}</p>}
+        {kind === "whatsapp" && <p className="mt-2 text-xs text-muted">{t("Free for personal numbers through CallMeBot: follow the WhatsApp steps on callmebot.com (send their bot the activation message) and it replies with your API key.")}</p>}
         <div className="mt-3 flex flex-wrap gap-2">
           {EVENT_TYPES.map((ev) => <label key={ev} className="flex items-center gap-1 text-xs"><input type="checkbox" checked={events.includes(ev)} onChange={(e) => setEvents(e.target.checked ? [...events, ev] : events.filter((x) => x !== ev))} />{ev}</label>)}
         </div>

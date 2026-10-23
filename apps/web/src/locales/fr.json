@@ -1114,5 +1114,15 @@
   "Sign in with GitHub and pick a repository, or upload a ZIP.": "Connectez-vous avec GitHub et choisissez un dépôt, ou envoyez un ZIP.",
   "SKYHOST builds your app and gives it a live HTTPS address.": "SKYHOST construit votre app et lui donne une adresse HTTPS en ligne.",
   "Grow": "Grandir",
-  "Add a database, a custom domain and teammates. Every push redeploys.": "Ajoutez une base de données, un domaine et des coéquipiers. Chaque push redéploie."
+  "Add a database, a custom domain and teammates. Every push redeploys.": "Ajoutez une base de données, un domaine et des coéquipiers. Chaque push redéploie.",
+  "Channels (Telegram, WhatsApp, Slack, Discord, email, webhook)": "Canaux (Telegram, WhatsApp, Slack, Discord, email, webhook)",
+  "Channel": "Canal",
+  "Webhook": "Webhook",
+  "Bot token": "Token du bot",
+  "WhatsApp number": "Numéro WhatsApp",
+  "Target": "Destination",
+  "Chat id": "Chat id",
+  "CallMeBot API key": "Clé API CallMeBot",
+  "Create a bot with @BotFather and copy its token. Send it a message, then open https://api.telegram.org/bot<token>/getUpdates to read your chat id (for a group, add the bot to the group first).": "Créez un bot avec @BotFather et copiez son token. Envoyez-lui un message, puis ouvrez https://api.telegram.org/bot<token>/getUpdates pour lire votre chat id (pour un groupe, ajoutez d'abord le bot au groupe).",
+  "Free for personal numbers through CallMeBot: follow the WhatsApp steps on callmebot.com (send their bot the activation message) and it replies with your API key.": "Gratuit pour les numéros personnels via CallMeBot : suivez les étapes WhatsApp sur callmebot.com (envoyez le message d'activation à leur bot) et il vous répond avec votre clé API."
 }

@@ -322,3 +322,36 @@ describe("abuse detection", () => {
     expect(await reports(paid.serviceId)).toHaveLength(1);
   });
 });
+
+describe("Telegram and WhatsApp channels", () => {
+  it("validates the settings, hides secrets, and sends the alert text", async () => {
+    const u = await newUser();
+    const base = `/api/v1/teams/${u.teamId}/notification-channels`;
+    expect((await u.client.post(base, { kind: "telegram", name: "tg", botToken: "nope", chatId: "123456" })).status).toBe(400);
+    const tg = await u.client.post(base, { kind: "telegram", name: "tg", botToken: "123456789:AAH_abcdefghijklmnopqrstuvwxyz012345", chatId: "-1001234567890", events: ["service.crashed"] });
+    expect(tg.status, tg.raw).toBe(201);
+    const wa = await u.client.post(base, { kind: "whatsapp", name: "wa", phone: "+243812345678", apiKey: "1234567", events: ["service.crashed"] });
+    expect(wa.status, wa.raw).toBe(201);
+    const list = await u.client.get(base);
+    expect(JSON.stringify(list.body)).not.toContain("AAH_abcdefghijklmnopqrstuvwxyz012345");
+    expect(JSON.stringify(list.body)).not.toContain("1234567\"");
+    expect(list.body.channels.map((c: { target: string }) => c.target)).toEqual(expect.arrayContaining(["chat -1001234567890", "+2438…78"]));
+
+    const { processNotify } = await import("../../worker/src/processors/ops");
+    const calls: Array<{ url: string; body?: string }> = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string, init?: RequestInit) => { calls.push({ url: String(url), body: init?.body as string | undefined }); return new Response("{}", { status: 200 }); }) as typeof fetch;
+    try {
+      const payload = { title: "web crashed", body: "The process exited.", link: "https://skyhost.tech/x" };
+      await processNotify({ channelId: tg.body.channel.id, event: "service.crashed", payload });
+      await processNotify({ channelId: wa.body.channel.id, event: "service.crashed", payload });
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+    expect(calls[0]!.url).toBe("https://api.telegram.org/bot123456789:AAH_abcdefghijklmnopqrstuvwxyz012345/sendMessage");
+    expect(JSON.parse(calls[0]!.body!)).toMatchObject({ chat_id: "-1001234567890", text: "web crashed\nThe process exited.\nhttps://skyhost.tech/x" });
+    const waUrl = new URL(calls[1]!.url);
+    expect(waUrl.hostname).toBe("api.callmebot.com");
+    expect(Object.fromEntries(waUrl.searchParams)).toMatchObject({ phone: "243812345678", apikey: "1234567", text: "web crashed\nThe process exited.\nhttps://skyhost.tech/x" });
+  });
+});

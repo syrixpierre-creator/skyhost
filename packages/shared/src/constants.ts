@@ -38,7 +38,7 @@ export type GitProvider = (typeof GIT_PROVIDERS)[number];
 export const SOURCE_KINDS = ["github", "gitlab", "bitbucket", "git", "zip", "image", "template"] as const;
 export type SourceKind = (typeof SOURCE_KINDS)[number];
 
-export const NOTIFICATION_CHANNELS = ["email", "web", "slack", "discord", "webhook"] as const;
+export const NOTIFICATION_CHANNELS = ["email", "web", "slack", "discord", "webhook", "telegram", "whatsapp"] as const;
 export type NotificationChannelKind = (typeof NOTIFICATION_CHANNELS)[number];
 
 export const EVENT_TYPES = [

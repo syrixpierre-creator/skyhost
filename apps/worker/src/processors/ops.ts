@@ -66,8 +66,8 @@ export async function processJob(data: { jobRunId: string }) {
 }
 
 // ------------------------------------------------------------------------------------------- Notifications
-async function postJson(url: string, body: unknown, headers: Record<string, string> = {}) {
-  await assertPublicUrl(url, { protocols: ["https:"] });
+async function postJson(url: string, body: unknown, headers: Record<string, string> = {}, allowHosts?: string[]) {
+  await assertPublicUrl(url, { protocols: ["https:"], allowHosts });
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "User-Agent": "SKYHOST-Webhook/1.0", ...headers }, body: JSON.stringify(body), signal: AbortSignal.timeout(10_000), redirect: "manual" });
   return res;
 }
@@ -79,8 +79,21 @@ export async function processNotify(data: { channelId?: string; event?: string; 
   }
   const [c] = await getDb().select().from(notificationChannels).where(eq(notificationChannels.id, data.channelId!));
   if (!c || !c.enabled) return;
-  const cfg = decryptChannelConfig<{ url?: string; email?: string }>(c.configEnc);
+  const cfg = decryptChannelConfig<{ url?: string; email?: string; botToken?: string; chatId?: string; phone?: string; apiKey?: string }>(c.configEnc);
   const p = data.payload as { title?: string; body?: string; link?: string };
+  const plain = `${p.title ?? "SKYHOST"}\n${p.body ?? ""}${p.link ? `\n${p.link}` : ""}`.slice(0, 3500);
+  if (c.kind === "telegram") {
+    // Fixed provider hosts (users only give a token and an id): no SSRF lookup needed.
+    const res = await postJson(`https://api.telegram.org/bot${cfg.botToken}/sendMessage`, { chat_id: cfg.chatId, text: plain, disable_web_page_preview: true }, {}, ["api.telegram.org"]);
+    if (!res.ok) throw new Error(`telegram responded ${res.status}`);
+    return;
+  }
+  if (c.kind === "whatsapp") {
+    const url = `https://api.callmebot.com/whatsapp.php?${new URLSearchParams({ phone: cfg.phone!, text: plain, apikey: cfg.apiKey! })}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(15_000), redirect: "manual" });
+    if (!res.ok) throw new Error(`whatsapp (CallMeBot) responded ${res.status}`);
+    return;
+  }
   if (c.kind === "email") {
     await sendEmailNow({ to: cfg.email!, subject: `[SKYHOST] ${p.title}`, text: `${p.body}\n${p.link ?? ""}` });
     return;

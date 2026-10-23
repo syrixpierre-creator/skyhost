@@ -32,7 +32,7 @@ export interface Route {
 }
 
 export interface ProxyOptions {
-  apiUrl: string; // internal URL of the API, e.g. http://api:4000
+  apiUrl: string; // internal URL of the API, e.g. http://api.skyhost-control:4000
   httpEntryPoint: string;
   httpsEntryPoint: string;
   tlsEnabled: boolean;

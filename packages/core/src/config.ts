@@ -18,7 +18,7 @@ const schema = z.object({
   /** Public URL of the API, e.g. https://api.skyhost.app */
   SKYHOST_API_URL: z.string().url(),
   /** Internal URL Traefik uses to reach the API (waker / forward auth). */
-  SKYHOST_API_INTERNAL_URL: z.string().url().default("http://api:4000"),
+  SKYHOST_API_INTERNAL_URL: z.string().url().default("http://api.skyhost-control:4000"),
   /** Internal URL of the dashboard container that Traefik routes the dashboard host to (empty: not routed by Traefik). */
   SKYHOST_DASHBOARD_UPSTREAM: z.string().default(""),
   SKYHOST_BASE_DOMAIN: z.string().default("skyhost.app"),

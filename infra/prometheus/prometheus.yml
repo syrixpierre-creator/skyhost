@@ -10,7 +10,7 @@ scrape_configs:
       X-Skyhost-Token:
         files: [/etc/prometheus/token]
     static_configs:
-      - targets: ["api:4000"]
+      - targets: ["api.skyhost-control:4000"]
 
   - job_name: traefik
     static_configs:

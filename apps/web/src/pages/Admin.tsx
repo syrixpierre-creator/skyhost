@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatCents, PLAN_FEATURE_KEYS, PLAN_LIMIT_KEYS } from "@skyhost/shared";
 import { del, get, patch, post, put } from "../lib/api";
 import { useSession } from "../lib/session";
-import { Alert, Badge, Button, Card, cx, EmptyState, ErrorState, Field, Input, LoadingRows, Modal, PageHeader, Select, StatusBadge, Textarea, Toggle, timeAgo, Unavailable, useToast } from "../components/ui";
+import { Alert, Badge, Button, Card, cx, EmptyState, ErrorState, Field, Input, LoadingRows, Modal, PageHeader, Select, Meter, StatusBadge, Textarea, Toggle, timeAgo, Unavailable, useToast } from "../components/ui";
 import { t } from "../lib/i18n";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -24,6 +24,23 @@ function useReason() {
     </Modal>
   );
   return { modal, ask: (title: string, run: (reason: string) => Promise<unknown>, min = 3) => { setReason(""); setState({ title, run, min }); } };
+}
+
+interface Health { disk: { usedBytes: number; totalBytes: number; percent: number } | null; memory: { usedBytes: number; totalBytes: number; percent: number } | null; load: { perCpu: number; cpus: number }; unhealthy: Array<{ name: string; state: string }> }
+
+function ServerCard({ health }: { health: Health }) {
+  const gb = (b: number) => `${(b / 1024 ** 3).toFixed(1)} GB`;
+  return (
+    <Card title={t("Server")} actions={health.unhealthy.length ? <StatusBadge status="failed" label={t("Needs attention")} /> : <StatusBadge status="active" label={t("Healthy")} />}>
+      <div className="grid gap-5 md:grid-cols-3">
+        {health.disk && <Meter label={t("Disk")} value={health.disk.usedBytes} max={health.disk.totalBytes} format={gb} />}
+        {health.memory && <Meter label={t("Memory")} value={health.memory.usedBytes} max={health.memory.totalBytes} format={gb} />}
+        <Meter label={t("Load ({{n}} CPUs)", { n: health.load.cpus })} value={health.load.perCpu} max={2} format={(v) => v.toFixed(2)} />
+      </div>
+      {health.unhealthy.length > 0 && <div className="mt-4"><Alert kind="error">{t("Not running or unhealthy:")} {health.unhealthy.map((c) => `${c.name} (${c.state})`).join(", ")}</Alert></div>}
+      <p className="mt-3 text-xs text-muted">{t("Administrators get an email when the disk passes 85%, memory 90%, or a SKYHOST component stops.")}</p>
+    </Card>
+  );
 }
 
 function OffsiteCard({ offsite, onRun }: { offsite: { configured: boolean; lastSuccessAt?: string | null; lastError?: string | null; lastErrorAt?: string | null; lastPlatformDumpAt?: string | null }; onRun: () => void }) {
@@ -69,6 +86,7 @@ function Overview() {
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         {stats.map(([l, v]) => <div key={l} className="rounded-lg border border-line bg-panel p-3"><div className="text-xs text-muted">{l}</div><div className="mt-1 text-xl font-semibold">{v}</div></div>)}
       </div>
+      <ServerCard health={d.health} />
       <OffsiteCard offsite={d.offsite} onRun={() => q.refetch()} />
       <Card title={t("Queues")} padded={false}>
         <table className="w-full text-sm">

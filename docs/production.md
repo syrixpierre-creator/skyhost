@@ -56,6 +56,11 @@ available everywhere. Each node registers a heartbeat visible in Admin → Overv
 
 ## Monitoring
 
+Admin → Overview shows the server's disk, memory, load and any SKYHOST container that is stopped or unhealthy.
+Every 5 minutes the scheduler checks them and emails administrators (at most every 6 hours per alert) when the disk
+passes 85% (critical at 95%), memory 90%, the load 3 per CPU, or a component is down.
+
+
 With `--profile observability`, Prometheus scrapes `/internal/metrics` (deployments by status, instances by
 state, teams, failing uptime checks) and Traefik metrics; Loki collects the control-plane container logs;
 Grafana is provisioned with both data sources. The public platform status page is `/status`.

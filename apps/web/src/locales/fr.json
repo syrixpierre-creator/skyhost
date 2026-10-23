@@ -1076,5 +1076,12 @@
   "OK": "OK",
   "Waiting for the first copy": "En attente de la première copie",
   "Last copy": "Dernière copie",
-  "Last SKYHOST database dump": "Dernière sauvegarde de la base SKYHOST"
+  "Last SKYHOST database dump": "Dernière sauvegarde de la base SKYHOST",
+  "Server": "Serveur",
+  "Needs attention": "À surveiller",
+  "Healthy": "Sain",
+  "Disk": "Disque",
+  "Load ({{n}} CPUs)": "Charge ({{n}} CPU)",
+  "Not running or unhealthy:": "Arrêtés ou en mauvaise santé :",
+  "Administrators get an email when the disk passes 85%, memory 90%, or a SKYHOST component stops.": "Les administrateurs reçoivent un email quand le disque dépasse 85 %, la mémoire 90 %, ou qu'un composant SKYHOST s'arrête."
 }

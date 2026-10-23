@@ -7,6 +7,7 @@ export * from "./audit";
 export * from "./settings";
 export * from "./mail";
 export * from "./notify";
+export * from "./health";
 export * from "./hostnames";
 export * from "./variables";
 export * from "./quotas";

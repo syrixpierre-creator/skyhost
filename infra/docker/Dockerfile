@@ -71,7 +71,10 @@ CMD ["node", "apps/worker/dist/index.js"]
 FROM worker AS worker-screenshot
 USER root
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright SKYHOST_WORKER_ROLES=screenshot
-RUN cd apps/worker && node node_modules/playwright/cli.js install --with-deps chromium \
+# The production install is hoisted: resolve Playwright the way the worker does instead of assuming a path.
+RUN cd apps/worker \
+ && node "$(node -p "require('path').join(require('path').dirname(require.resolve('playwright/package.json')), 'cli.js')")" install --with-deps chromium \
+ && chmod -R a+rX /ms-playwright \
  && rm -rf /var/lib/apt/lists/*
 USER node
 

@@ -6,7 +6,7 @@ import {
 } from "@skyhost/db";
 import type { PlanLimitKey, ServiceConfig } from "@skyhost/shared";
 import { assertPublicUrl } from "@skyhost/shared/node";
-import { containerStats, databaseStats, getDocker, getObjectStore, LABEL, listManagedContainers, stopContainer, tailLogs } from "@skyhost/engine";
+import { attachEdgeToAllNetworks, containerStats, databaseStats, getDocker, getObjectStore, LABEL, listManagedContainers, stopContainer, tailLogs } from "@skyhost/engine";
 import { analyzeErrors } from "@skyhost/analyzer";
 import {
   approveDueRewards, audit, enqueue, getSetting, getTeamPlan, getUsage, isDue, notify, redis, serviceHostname, verifyDomain, labelOf,
@@ -393,6 +393,8 @@ export function startScheduler() {
     const now = new Date();
     const from = last;
     last = now;
+    // Self-healing: after Traefik or a worker is recreated, reconnect them to every team network.
+    await every("edge-networks", 30_000, attachEdgeToAllNetworks);
     await every("cron", 25_000, () => runCronJobs(from, now));
     await every("backups", 25_000, () => scheduleBackups(from, now));
     await every("metrics", 55_000, sampleMetrics);

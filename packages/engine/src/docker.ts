@@ -50,39 +50,41 @@ export const names = {
 export async function ensureNetwork(name: string, labels: Record<string, string>) {
   const d = getDocker();
   const existing = await d.listNetworks({ filters: { name: [name] } });
-  if (existing.some((n) => n.Name === name)) return name;
-  await d.createNetwork({
-    Name: name,
-    Driver: "bridge",
-    CheckDuplicate: true,
-    Labels: { [LABEL.managed]: "true", ...labels },
-    // Inter-container traffic is allowed inside a team network (private networking) and nowhere else.
-    Options: { "com.docker.network.bridge.enable_icc": "true" },
-  });
-  // Edge containers (proxy, deploy worker) join every team network so they can route and health check.
+  if (!existing.some((n) => n.Name === name)) {
+    await d.createNetwork({
+      Name: name,
+      Driver: "bridge",
+      CheckDuplicate: true,
+      Labels: { [LABEL.managed]: "true", ...labels },
+      // Inter-container traffic is allowed inside a team network (private networking) and nowhere else.
+      Options: { "com.docker.network.bridge.enable_icc": "true" },
+    });
+  }
+  // Edge containers (proxy, deploy worker) join every team network so they can route and health check. Done for
+  // existing networks too: a recreated Traefik container has lost its connections and would answer 502.
+  await connectEdge(name);
+  return name;
+}
+
+async function connectEdge(network: string) {
+  const d = getDocker();
+  const info = (await d.getNetwork(network).inspect()) as { Containers?: Record<string, { Name: string }> };
+  const connected = new Set(Object.values(info.Containers ?? {}).map((c) => c.Name));
   for (const c of engineConfig().edgeContainers) {
+    if (connected.has(c)) continue;
     try {
-      await d.getNetwork(name).connect({ Container: c });
+      await d.getNetwork(network).connect({ Container: c });
     } catch (e) {
       if (!/already exists|is already connected|endpoint with name/i.test(String((e as Error).message))) throw e;
     }
   }
-  return name;
 }
 
-/** Connects edge containers to every existing team network (used at worker/proxy startup). */
+/** Connects edge containers to every team network they are missing from (startup, then periodically). */
 export async function attachEdgeToAllNetworks() {
   const d = getDocker();
   const nets = await d.listNetworks({ filters: { label: [`${LABEL.managed}=true`] } });
-  for (const n of nets) {
-    for (const c of engineConfig().edgeContainers) {
-      try {
-        await d.getNetwork(n.Id).connect({ Container: c });
-      } catch {
-        /* already connected */
-      }
-    }
-  }
+  for (const n of nets) await connectEdge(n.Id).catch(() => {});
 }
 
 export async function pullImage(image: string, onLine?: (l: string) => void, auth?: { username: string; password: string; serveraddress?: string }) {

@@ -8,12 +8,13 @@ import { setLanguage } from "../lib/i18n";
 import { useRealtimeInvalidate, useSession } from "../lib/session";
 import { Button, cx, timeAgo, useToast } from "./ui";
 import { t } from "../lib/i18n";
+import { Logo } from "./Logo";
+import { useCapabilities } from "../lib/capabilities";
 
-function Logo() {
+function HomeLogo() {
   return (
-    <Link to="/" className="flex items-center gap-2 px-2 font-semibold tracking-wide">
-      <img src="/favicon.svg" alt="" className="size-6" />
-      <span>SKYHOST</span>
+    <Link to="/" className="flex items-center px-3">
+      <Logo size="sm" />
     </Link>
   );
 }
@@ -25,7 +26,7 @@ function TeamSwitcher() {
   const nav = useNavigate();
   return (
     <div className="relative px-2">
-      <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between rounded-md border border-line bg-panel px-2.5 py-2 text-left text-sm hover:bg-panel-2" aria-haspopup="listbox">
+      <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between rounded-md border border-line px-2.5 py-2 text-left text-sm hover:border-line-strong" aria-haspopup="listbox">
         <span className="min-w-0">
           <span className="block truncate font-medium">{team?.name ?? "—"}</span>
           <span className="block text-xs text-muted">{team?.plan?.name ?? ""}</span>
@@ -43,7 +44,7 @@ function TeamSwitcher() {
                 void qc.invalidateQueries();
                 nav("/");
               }}
-              className={cx("block w-full px-3 py-1.5 text-left text-sm hover:bg-panel-2", t.id === team?.id && "text-accent")}
+              className={cx("block w-full px-3 py-1.5 text-left text-sm hover:bg-panel-2", t.id === team?.id && "font-medium text-fg")}
             >
               {t.name} <span className="text-xs text-muted">· {t.role}</span>
             </button>
@@ -136,7 +137,7 @@ function Notifications() {
     <div className="relative" ref={ref}>
       <Button variant="ghost" size="sm" onClick={() => setOpen(!open)} aria-label={t("Notifications")}>
         <Bell className="size-4" />
-        {!!data?.unread && <span className="rounded-full bg-accent px-1.5 text-[10px] leading-4 text-white">{data.unread}</span>}
+        {!!data?.unread && <span className="rounded-full bg-accent px-1.5 text-[10px] leading-4 text-accent-fg">{data.unread}</span>}
       </Button>
       {open && (
         <div className="absolute right-0 z-40 mt-2 w-96 rounded-lg border border-line bg-panel shadow-xl">
@@ -148,7 +149,7 @@ function Notifications() {
           </div>
           <ul className="max-h-96 overflow-y-auto">
             {data?.notifications.map((n) => (
-              <li key={n.id} className={cx("border-b border-line px-3 py-2 text-sm last:border-0", !n.readAt && "bg-accent/5")}>
+              <li key={n.id} className={cx("border-b border-line px-3 py-2 text-sm last:border-0", !n.readAt && "bg-panel-2")}>
                 {n.link ? (
                   <Link to={n.link} onClick={() => setOpen(false)} className="font-medium hover:underline">
                     {n.title}
@@ -172,9 +173,22 @@ function Banners() {
   const { me } = useSession();
   const toast = useToast();
   const { t } = useTranslation();
+  const caps = useCapabilities();
   const { data } = useQuery({ queryKey: ["announcements"], queryFn: () => get<{ announcements: Array<{ id: string; kind: string; title: string; body: string }> }>("/public/announcements"), staleTime: 300_000 });
+  const bar = "flex items-center justify-center gap-2 border-b px-4 py-2 text-center text-sm";
   return (
     <>
+      {caps.maintenance.enabled && (
+        <div className={cx(bar, "border-amber-500/30 bg-amber-500/10")}>
+          <span className="size-1.5 rounded-full bg-amber-500" />
+          <strong>{t("Scheduled maintenance")}</strong>
+          <span className="text-muted">
+            {caps.maintenance.message}
+            {caps.maintenance.blockDeploys ? ` ${t("New deployments are paused; running services are not affected.")}` : ""}
+            {caps.maintenance.endsAt ? ` ${t("Expected end: {{time}}", { time: new Date(caps.maintenance.endsAt).toLocaleString() })}` : ""}
+          </span>
+        </div>
+      )}
       {me?.impersonating && (
         <div className="bg-amber-500 px-4 py-1.5 text-center text-sm font-medium text-black">
           {t("You are viewing SKYHOST as")} {me.user.email} {t("(support session:")} {me.impersonating.reason}).{" "}
@@ -184,14 +198,15 @@ function Banners() {
         </div>
       )}
       {data?.announcements.map((a) => (
-        <div key={a.id} className={cx("px-4 py-1.5 text-center text-sm", a.kind === "incident" ? "bg-red-600 text-white" : a.kind === "maintenance" ? "bg-amber-500 text-black" : "bg-accent text-white")}>
-          <strong>{a.title}</strong> {a.body}
+        <div key={a.id} className={cx(bar, a.kind === "incident" ? "border-red-500/30 bg-red-500/10" : a.kind === "maintenance" ? "border-amber-500/30 bg-amber-500/10" : "border-line bg-panel")}>
+          <span className={cx("size-1.5 rounded-full", a.kind === "incident" ? "bg-red-500" : a.kind === "maintenance" ? "bg-amber-500" : "bg-brand")} />
+          <strong>{a.title}</strong> <span className="text-muted">{a.body}</span>
         </div>
       ))}
-      {me && !me.user.emailVerified && (
-        <div className="border-b border-line bg-panel px-4 py-2 text-center text-sm">
+      {me && !me.user.emailVerified && caps.email.verificationRequired && (
+        <div className={cx(bar, "border-line bg-panel")}>
           {t("auth.verifyBanner")}{" "}
-          <button className="text-accent underline" onClick={() => post("/auth/resend-verification").then(() => toast("success", t("Verification email sent")))}>
+          <button className="font-medium underline underline-offset-2" onClick={() => post("/auth/resend-verification").then(() => toast("success", t("Verification email sent")))}>
             {t("auth.resend")}
           </button>
         </div>
@@ -229,7 +244,7 @@ export function Layout({ children }: { children: ReactNode }) {
     }
   };
   const item = (to: string, icon: ReactNode, label: string) => (
-    <NavLink to={to} end={to === "/"} className={({ isActive }) => cx("flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm", isActive ? "bg-panel-2 font-medium text-fg" : "text-muted hover:bg-panel-2 hover:text-fg")}>
+    <NavLink to={to} end={to === "/"} className={({ isActive }) => cx("flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm", isActive ? "bg-panel-2 font-medium text-fg [&>svg]:text-fg" : "text-muted hover:text-fg [&>svg]:text-faint")}>
       {icon}
       {label}
     </NavLink>
@@ -238,8 +253,8 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="flex min-h-full flex-col">
       <Banners />
       <div className="flex flex-1">
-        <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col gap-4 border-r border-line bg-panel py-4 md:flex">
-          <Logo />
+        <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col gap-5 border-r border-line bg-bg py-4 md:flex">
+          <HomeLogo />
           <TeamSwitcher />
           <nav className="flex flex-1 flex-col gap-0.5 px-2">
             {item("/", <LayoutGrid className="size-4" />, t("nav.projects"))}
@@ -253,14 +268,14 @@ export function Layout({ children }: { children: ReactNode }) {
               <FileCode2 className="size-4" /> {t("nav.docs")}
             </a>
           </nav>
-          <div className="px-4 text-[11px] text-faint">{t("SKYHOST by SYRIX VISION COMPANY")}</div>
+          <div className="px-5 text-[11px] leading-4 text-faint">{t("SKYHOST by SYRIX VISION COMPANY")}</div>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-line bg-bg/95 px-4 backdrop-blur-sm">
+          <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-line bg-bg/85 px-4 backdrop-blur">
             <div className="md:hidden">
-              <Logo />
+              <HomeLogo />
             </div>
-            <button onClick={() => setPalette(true)} className="flex h-9 w-full max-w-sm items-center gap-2 rounded-md border border-line bg-panel px-3 text-sm text-muted hover:text-fg">
+            <button onClick={() => setPalette(true)} className="flex h-9 w-full max-w-sm items-center gap-2 rounded-md border border-line px-3 text-sm text-faint hover:border-line-strong hover:text-fg">
               <Search className="size-4" />
               <span className="flex-1 text-left">{t("nav.search")}</span>
               <kbd className="hidden rounded border border-line px-1.5 text-xs sm:inline">Ctrl K</kbd>

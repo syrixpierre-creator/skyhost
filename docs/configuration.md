@@ -52,8 +52,11 @@ Cookies are marked `Secure` whenever the dashboard URL uses HTTPS.
 
 ## Email, git providers, payments
 
-See `SMTP_URL`, `MAIL_FROM`, `SKYHOST_REQUIRE_EMAIL_VERIFICATION`; [providers.md](providers.md);
-[billing.md](billing.md).
+See `SMTP_URL`, `MAIL_FROM`, `SKYHOST_REQUIRE_EMAIL_VERIFICATION` (only enforced when `SMTP_URL` is set: without
+email delivery nobody could verify); `GITHUB_CLIENT_ID`/`GITHUB_CLIENT_SECRET`, `GOOGLE_CLIENT_ID`/
+`GOOGLE_CLIENT_SECRET`, `GITLAB_CLIENT_ID`/`GITLAB_CLIENT_SECRET` for sign-in; [providers.md](providers.md);
+[billing.md](billing.md). Every optional integration can be left empty: the dashboard shows it as
+"Not available yet".
 
 ## Rotating the encryption key
 

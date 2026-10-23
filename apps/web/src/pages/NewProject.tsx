@@ -6,7 +6,7 @@ import { Boxes, Container, FileArchive, FolderGit2, GitBranch, Github, Gitlab, G
 import { DATABASE_ENGINES } from "@skyhost/shared";
 import { api, get, post } from "../lib/api";
 import { useSession } from "../lib/session";
-import { Alert, Badge, Button, Card, cx, EmptyState, ErrorState, Field, Input, LoadingRows, PageHeader, Select, Toggle, useToast } from "../components/ui";
+import { Alert, Badge, Button, Card, cx, EmptyState, ErrorState, Field, Input, LoadingRows, PageHeader, Select, Toggle, Unavailable, useToast } from "../components/ui";
 import { t } from "../lib/i18n";
 
 type SourceTab = "github" | "gitlab" | "bitbucket" | "git" | "zip" | "image" | "empty";
@@ -145,6 +145,11 @@ export default function NewProject() {
   const [error, setError] = useState<string | null>(params.get("error"));
 
   const providers = useQuery({ queryKey: ["git-providers"], queryFn: () => get<{ github: boolean; gitlab: boolean; bitbucket: boolean }>("/git/providers") });
+  const gitAvailable = (k: SourceTab) => !["github", "gitlab", "bitbucket"].includes(k) || !!providers.data?.[k as "github"];
+  // Open on the first source that works on this installation instead of a provider that is not configured.
+  useEffect(() => {
+    if (providers.data && !params.get("installation") && !providers.data.github) setTab((cur) => (cur === "github" ? "git" : cur));
+  }, [providers.data]); // eslint-disable-line react-hooks/exhaustive-deps
   const installs = useQuery({ queryKey: ["installations", team?.id], queryFn: () => get<{ installations: Installation[] }>(`/teams/${team!.id}/git/installations`), enabled: !!team });
   const forProvider = (p: string) => installs.data?.installations.filter((i) => i.provider === p) ?? [];
   const [instId, setInstId] = useState<string | null>(params.get("installation"));
@@ -242,14 +247,15 @@ export default function NewProject() {
           <nav className="flex flex-row gap-1 overflow-x-auto md:flex-col">
             {tabs.map((x) => (
               <button key={x.id} onClick={() => setTab(x.id)} className={cx("flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-left text-sm", tab === x.id ? "bg-panel-2 font-medium" : "text-muted hover:bg-panel-2")}>
-                {x.icon} {x.label}
+                {x.icon} <span className={cx(!gitAvailable(x.id) && "text-faint")}>{x.label}</span>
+                {providers.data && !gitAvailable(x.id) && <Unavailable className="ml-auto hidden md:inline-flex" />}
               </button>
             ))}
           </nav>
           <Card>
             {analyze.isPending ? (
               <div className="flex flex-col items-center gap-3 py-12 text-sm text-muted">
-                <Sparkles className="size-6 animate-pulse text-accent" />
+                <Sparkles className="size-6 animate-pulse text-brand" />
                 {t("deploy.analyzing")}
               </div>
             ) : ["github", "gitlab", "bitbucket"].includes(tab) ? (
@@ -261,8 +267,8 @@ export default function NewProject() {
                 if (!list.length)
                   return (
                     <EmptyState
-                      title={t("Connect {{provider}}", { provider: tab === "github" ? "GitHub" : tab === "gitlab" ? "GitLab" : "Bitbucket" })}
-                      description={configured ? t("Grant SKYHOST access to the repositories you want to deploy. You choose exactly which repositories are shared.") : t("This provider is not configured on this SKYHOST installation. Ask your administrator, or deploy from a public Git URL.")}
+                      title={configured ? t("Connect {{provider}}", { provider: tab === "github" ? "GitHub" : tab === "gitlab" ? "GitLab" : "Bitbucket" }) : t("{{provider}} is not available yet", { provider: tab === "github" ? "GitHub" : tab === "gitlab" ? "GitLab" : "Bitbucket" })}
+                      description={configured ? t("Grant SKYHOST access to the repositories you want to deploy. You choose exactly which repositories are shared.") : t("This provider is not configured on this SKYHOST installation yet. Deploy from a public Git URL, a ZIP or a Docker image in the meantime.")}
                       action={configured ? <a href={connectUrl}><Button variant="primary">{t("Connect")}</Button></a> : <Button onClick={() => setTab("git")}>{t("deploy.fromUrl")}</Button>}
                     />
                   );
@@ -275,7 +281,7 @@ export default function NewProject() {
                           <option key={i.id} value={i.id}>{i.accountLogin}</option>
                         ))}
                       </Select>
-                      <a href={connectUrl} className="text-sm text-accent">{t("+ Add account")}</a>
+                      <a href={connectUrl} className="text-sm text-muted underline-offset-4 hover:text-fg hover:underline">{t("+ Add account")}</a>
                     </div>
                     <RepoPicker installation={current} onPick={(repo, branch) => analyze.mutate({ kind: tab, repo, branch, installationId: current.id })} />
                   </div>
@@ -319,7 +325,7 @@ export default function NewProject() {
       {analysis && (
         <div className="space-y-4">
           <Card
-            title={<span className="flex items-center gap-2"><Sparkles className="size-4 text-accent" /> {t("deploy.detected")} <ConfidenceBadge c={analysis.confidence} /></span>}
+            title={<span className="flex items-center gap-2"><Sparkles className="size-4 text-brand" /> {t("deploy.detected")} <ConfidenceBadge c={analysis.confidence} /></span>}
             actions={
               <>
                 <Button size="sm" variant="ghost" onClick={() => setShowExplain(!showExplain)}>

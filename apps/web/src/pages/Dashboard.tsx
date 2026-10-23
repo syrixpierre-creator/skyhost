@@ -6,6 +6,7 @@ import { get } from "../lib/api";
 import { useRealtimeInvalidate, useSession } from "../lib/session";
 import { Button, EmptyState, ErrorState, LoadingRows, PageHeader, StatusBadge, timeAgo, Meter, Card } from "../components/ui";
 import { t } from "../lib/i18n";
+import { useCapabilities } from "../lib/capabilities";
 import { serviceStatus } from "../lib/status";
 import { limitLabel, limitValue } from "../lib/labels";
 
@@ -19,6 +20,7 @@ interface ProjectRow {
 }
 
 export default function Dashboard() {
+  const caps = useCapabilities();
   const { team } = useSession();
   const { t } = useTranslation();
   const q = useQuery({ queryKey: ["projects", team?.id], queryFn: () => get<{ projects: ProjectRow[] }>(`/teams/${team!.id}/projects`), enabled: !!team });
@@ -45,10 +47,10 @@ export default function Dashboard() {
             <EmptyState
               icon={<Rocket className="size-8" />}
               title={t("Deploy your first project")}
-              description={t("Connect GitHub, pick a repository and SKYHOST analyzes, configures and deploys it for you.")}
+              description={caps.git.github ? t("Connect GitHub, pick a repository and SKYHOST analyzes, configures and deploys it for you.") : t("Give SKYHOST a Git URL, a ZIP or a Docker image: it analyzes, configures and deploys it for you.")}
               action={
                 <Link to="/new">
-                  <Button variant="primary">{t("deploy.fromGithub")}</Button>
+                  <Button variant="primary">{caps.git.github ? t("deploy.fromGithub") : t("New project")}</Button>
                 </Link>
               }
             />
@@ -57,7 +59,7 @@ export default function Dashboard() {
             {q.data?.projects.map((p) => (
               <Link key={p.id} to={`/projects/${p.id}`} className="group rounded-lg border border-line bg-panel p-4 transition-colors hover:border-faint">
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-semibold group-hover:text-accent">{p.name}</h3>
+                  <h3 className="font-semibold group-hover:underline">{p.name}</h3>
                   <span className="text-xs text-faint">{timeAgo(p.createdAt)}</span>
                 </div>
                 {p.description && <p className="mt-1 line-clamp-2 text-sm text-muted">{p.description}</p>}
@@ -82,7 +84,7 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
-        <Card title={t("Usage · {{plan}}", { plan: usage.data?.plan.name ?? "" })} actions={<Link to="/billing" className="text-xs text-accent">{t("Upgrade")}</Link>}>
+        <Card title={t("Usage · {{plan}}", { plan: usage.data?.plan.name ?? "" })} actions={<Link to="/billing" className="text-xs text-muted underline-offset-4 hover:text-fg hover:underline">{t("Upgrade")}</Link>}>
           {usage.isLoading ? (
             <LoadingRows rows={3} />
           ) : (

@@ -151,7 +151,7 @@ function AddMenu({ data, onDone }: { data: ProjectDetail; onDone: () => void }) 
               <div className="flex gap-2">
                 <Button size="sm" variant={kind === "git" ? "primary" : "secondary"} onClick={() => setKind("git")}>{t("Git repository")}</Button>
                 <Button size="sm" variant={kind === "image" ? "primary" : "secondary"} onClick={() => setKind("image")}>{t("Docker image")}</Button>
-                <Link to="/new" className="ml-auto text-sm text-accent">{t("GitHub / ZIP…")}</Link>
+                <Link to="/new" className="ml-auto text-sm text-muted underline-offset-4 hover:text-fg hover:underline">{t("GitHub / ZIP…")}</Link>
               </div>
               <Field label={kind === "git" ? t("Public HTTPS URL") : t("Image")}><Input value={value} onChange={(e) => setValue(e.target.value)} placeholder={kind === "git" ? "https://github.com/owner/repo" : "redis:7"} /></Field>
               <Field label={t("Type")}>
@@ -292,7 +292,7 @@ function UptimeTab({ data }: { data: ProjectDetail }) {
         <div className="space-y-3">
           <Field label={t("Address")}><Input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder={t("my-app")} /></Field>
           <Button onClick={() => put(`/projects/${data.project.id}/status-page`, { enabled: true, slug: slug || undefined }).then((r: any) => toast("success", t("Published at {{url}}", { url: r.statusPage.url }))).catch((e) => toast("error", e.message))}>{t("Publish")}</Button>
-          {data.project.statusPageEnabled && data.project.statusPageSlug && <a className="block text-sm text-accent" href={`/status/${data.project.statusPageSlug}`} target="_blank" rel="noreferrer">{t("View status page")}</a>}
+          {data.project.statusPageEnabled && data.project.statusPageSlug && <a className="block text-sm underline underline-offset-4" href={`/status/${data.project.statusPageSlug}`} target="_blank" rel="noreferrer">{t("View status page")}</a>}
         </div>
       </Card>
     </div>

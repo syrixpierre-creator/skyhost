@@ -127,7 +127,7 @@ function Sessions() {
         <tbody>
           {q.data?.sessions.map((s) => (
             <tr key={s.id} className="border-t border-line">
-              <td className="max-w-md truncate p-3" title={s.userAgent ?? ""}>{s.userAgent ?? t("Unknown")} {s.current && <Badge className="ml-1 text-accent">{t("This device")}</Badge>} {s.impersonation && <Badge className="ml-1 text-amber-500">{t("Support")}</Badge>}</td>
+              <td className="max-w-md truncate p-3" title={s.userAgent ?? ""}>{s.userAgent ?? t("Unknown")} {s.current && <Badge className="ml-1 text-fg">{t("This device")}</Badge>} {s.impersonation && <Badge className="ml-1 text-amber-500">{t("Support")}</Badge>}</td>
               <td className="p-3 font-mono text-xs">{s.ip ?? "–"}</td>
               <td className="p-3 text-muted">{timeAgo(s.lastSeenAt)}</td>
               <td className="p-3 text-right">{!s.current && <Button size="sm" onClick={() => del(`/account/sessions/${s.id}`).then(() => q.refetch())}>{t("Revoke")}</Button>}</td>

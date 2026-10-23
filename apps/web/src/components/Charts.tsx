@@ -1,7 +1,7 @@
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatBytes } from "@skyhost/shared";
 
-export function MetricChart({ data, dataKey, title, unit, color = "#2563eb", formatter }: { data: Array<Record<string, unknown>>; dataKey: string; title: string; unit?: string; color?: string; formatter?: (v: number) => string }) {
+export function MetricChart({ data, dataKey, title, unit, color = "var(--sh-brand)", formatter }: { data: Array<Record<string, unknown>>; dataKey: string; title: string; unit?: string; color?: string; formatter?: (v: number) => string }) {
   const fmt = formatter ?? ((v: number) => `${Math.round(v * 10) / 10}${unit ?? ""}`);
   return (
     <div className="rounded-lg border border-line bg-panel p-4">

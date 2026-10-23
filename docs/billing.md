@@ -38,6 +38,22 @@ Flutterwave API before credits are added.
   Admin → Settings (reverse charge supported).
 - Spend caps per team: alert only, block deploys, or pause services.
 
+## Promo codes
+
+Admins create codes in Admin → Settings → Discount codes:
+
+- **Credits** (fixed amount): added to the team's prepaid credits as soon as the code is redeemed.
+- **Percentage**: applies once, to the team's next plan payment (Stripe checkout, or a month paid with credits).
+
+Codes are case-insensitive, usable once per team, and can have a maximum number of uses and an expiry date;
+the limits are enforced atomically. Teams redeem codes in Billing → Overview; owners and admins only.
+
+## Usage and estimate
+
+Billing → Overview shows the estimated bill for the current period (plan price minus a pending promo code), and
+the plan price split across services by the CPU and memory they used. Billing → Usage charts CPU hours, memory
+GB-hours, egress and build minutes per day.
+
 ## Failed payments
 
 The team enters a grace period (`billing.graceDays`, default 7) with reminder emails (`dunningDays`). After it

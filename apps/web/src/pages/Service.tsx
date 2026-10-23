@@ -56,7 +56,7 @@ function DeploymentsTab({ s, envId }: { s: ServiceDetail; envId: string }) {
         <div key={d.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
           <StatusBadge status={d.id === live ? "live" : d.status} />
           <div className="min-w-0 flex-1">
-            <Link to={`/projects/${s.service.projectId}/deployments/${d.id}`} className="block truncate font-medium hover:text-accent">
+            <Link to={`/projects/${s.service.projectId}/deployments/${d.id}`} className="block truncate font-medium hover:underline">
               {d.commitMessage?.split("\n")[0] ?? t("Deployment {{id}}", { id: d.id.slice(0, 8) })}
             </Link>
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
@@ -230,6 +230,13 @@ function SettingsTab({ s, onSaved }: { s: ServiceDetail; onSaved: () => void }) 
           <Field label={t("Pages")} className="flex-1"><Input value={(cfg.screenshotPaths ?? ["/"]).join(", ")} onChange={(e) => set("screenshotPaths", e.target.value.split(",").map((x: string) => x.trim()).filter((x: string) => x.startsWith("/")))} /></Field>
         </div>
       </Card>
+      <Card title={t("Maintenance page")}>
+        <Toggle checked={cfg.maintenance?.enabled ?? false} onChange={(v) => set("maintenance.enabled", v)} label={t("Show a maintenance page instead of the application")} />
+        <Field label={t("Message for visitors")} hint={t("Visitors get HTTP 503 with this message; the application keeps running. Applied on save, no redeploy needed.")} className="mt-4">
+          <Textarea rows={2} maxLength={500} value={cfg.maintenance?.message ?? ""} placeholder={t("We are upgrading the service. Back in a few minutes.")} onChange={(e) => set("maintenance.message", e.target.value)} />
+        </Field>
+      </Card>
+      <DeployHooks s={s} />
       {can && (
         <div className="flex justify-between">
           <Button variant="danger" onClick={() => setConfirmDelete(true)}>{t("Delete service")}</Button>
@@ -241,6 +248,62 @@ function SettingsTab({ s, onSaved }: { s: ServiceDetail; onSaved: () => void }) 
       )}
       <ConfirmDialog open={confirmDelete} onClose={() => setConfirmDelete(false)} title={t("Delete service")} description={t("Stops the service and deletes its containers and volumes.")} typeToConfirm={s.service.name} onConfirm={() => del(`/services/${s.service.id}`, { confirmName: s.service.name }).then(() => nav(`/projects/${s.service.projectId}`))} />
     </div>
+  );
+}
+
+interface DeployHook { id: string; name: string; environmentId: string; prefix: string; lastUsedAt: string | null; createdAt: string }
+
+function DeployHooks({ s }: { s: ServiceDetail }) {
+  const toast = useToast();
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["deploy-hooks", s.service.id], queryFn: () => get<{ hooks: DeployHook[] }>(`/services/${s.service.id}/deploy-hooks`) });
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("CI");
+  const [envId, setEnvId] = useState(s.environments.find((e) => e.type === "production")?.id ?? s.environments[0]?.id ?? "");
+  const [created, setCreated] = useState<string | null>(null);
+  const can = s.permissions.includes("deploy:create");
+  const create = useMutation({
+    mutationFn: () => post<{ url: string }>(`/services/${s.service.id}/deploy-hooks`, { name, environmentId: envId }),
+    onSuccess: (r) => { setCreated(r.url); void qc.invalidateQueries({ queryKey: ["deploy-hooks", s.service.id] }); },
+    onError: (e) => toast("error", (e as Error).message),
+  });
+  const close = () => { setOpen(false); setCreated(null); setName("CI"); };
+  const envName = (id: string) => s.environments.find((e) => e.id === id)?.name ?? "–";
+  return (
+    <Card title={t("Deploy hooks")} padded={false} actions={can && <Button size="sm" onClick={() => setOpen(true)}>{t("Create hook")}</Button>}>
+      <p className="border-b border-line px-4 py-3 text-xs text-muted">{t("A secret URL that starts a deployment when it receives a POST request: CI pipelines, CMS publish buttons, scheduled rebuilds.")}</p>
+      {q.isLoading ? <div className="p-4"><LoadingRows rows={2} /></div> : !q.data?.hooks.length ? <EmptyState title={t("No deploy hooks")} /> : (
+        <table className="w-full text-sm">
+          <tbody>
+            {q.data.hooks.map((h) => (
+              <tr key={h.id} className="border-t border-line first:border-0">
+                <td className="px-4 py-2.5 font-medium">{h.name}</td>
+                <td className="px-4 py-2.5 font-mono text-xs text-muted">…/hooks/deploy/{h.prefix}••••</td>
+                <td className="px-4 py-2.5"><Badge>{envName(h.environmentId)}</Badge></td>
+                <td className="px-4 py-2.5 text-xs text-muted">{h.lastUsedAt ? t("Used {{time}}", { time: timeAgo(h.lastUsedAt) }) : t("Never used")}</td>
+                <td className="px-4 py-2.5 text-right">{can && <Button size="sm" variant="danger" onClick={() => del(`/deploy-hooks/${h.id}`).then(() => { toast("success", t("Deploy hook revoked")); void q.refetch(); }).catch((e) => toast("error", e.message))}>{t("Revoke")}</Button>}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <Modal open={open} onClose={close} title={t("Create a deploy hook")} footer={created ? <Button variant="primary" onClick={close}>{t("Done")}</Button> : <><Button onClick={close}>{t("Cancel")}</Button><Button variant="primary" loading={create.isPending} disabled={!name.trim() || !envId} onClick={() => create.mutate()}>{t("Create")}</Button></>}>
+        {created ? (
+          <div className="space-y-3 text-sm">
+            <Alert kind="warn">{t("Copy this URL now: it contains a secret and will not be shown again.")}</Alert>
+            <CodeField value={created} />
+            <CodeField value={`curl -X POST ${created}`} />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <Field label={t("Name")}><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} /></Field>
+            <Field label={t("Environment")}>
+              <Select value={envId} onChange={(e) => setEnvId(e.target.value)}>{s.environments.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</Select>
+            </Field>
+          </div>
+        )}
+      </Modal>
+    </Card>
   );
 }
 
@@ -568,7 +631,7 @@ export default function Service() {
       <PageHeader
         breadcrumbs={<ProjectCrumb projectId={projectId!} />}
         title={<span className="flex items-center gap-3">{s.service.name} <StatusBadge status={env?.instance?.status ?? "idle"} /></span>}
-        subtitle={env?.url ? <a href={env.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-accent">{env.url.replace(/^https?:\/\//, "")} <ExternalLink className="size-3" /></a> : `${s.service.type} service`}
+        subtitle={env?.url ? <a href={env.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-fg underline-offset-4 hover:underline">{env.url.replace(/^https?:\/\//, "")} <ExternalLink className="size-3" /></a> : `${s.service.type} service`}
         actions={
           <>
             <Select value={envId} onChange={(e) => setParams((p) => { p.set("env", e.target.value); return p; })} className="w-40">
@@ -608,7 +671,7 @@ export default function Service() {
             )}
           </Card>
           <Card title={t("Databases")}>
-            {s.databases.length ? <ul className="space-y-2 text-sm">{s.databases.map((d) => <li key={d.id}><Link to={`/projects/${projectId}/databases/${d.id}`} className="hover:text-accent">{d.name}</Link> <Badge>{d.engine}</Badge> <code className="font-mono text-xs text-muted">{d.variableName}</code></li>)}</ul> : <p className="text-sm text-muted">{t("No database connected.")}</p>}
+            {s.databases.length ? <ul className="space-y-2 text-sm">{s.databases.map((d) => <li key={d.id}><Link to={`/projects/${projectId}/databases/${d.id}`} className="hover:underline">{d.name}</Link> <Badge>{d.engine}</Badge> <code className="font-mono text-xs text-muted">{d.variableName}</code></li>)}</ul> : <p className="text-sm text-muted">{t("No database connected.")}</p>}
           </Card>
           <div className="lg:col-span-3"><DeploymentsTab s={s} envId={envId} /></div>
         </div>

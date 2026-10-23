@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatCents, PLAN_FEATURE_KEYS, PLAN_LIMIT_KEYS } from "@skyhost/shared";
 import { del, get, patch, post, put } from "../lib/api";
 import { useSession } from "../lib/session";
@@ -233,16 +233,46 @@ function JsonSetting({ k, value, onSaved }: { k: string; value: unknown; onSaved
   );
 }
 
+interface Maintenance { enabled: boolean; message: string; blockDeploys: boolean; endsAt: string | null }
+
+function MaintenanceSettings({ value, onSaved }: { value: Maintenance; onSaved: () => void }) {
+  const toast = useToast();
+  const qc = useQueryClient();
+  const [m, setM] = useState<Maintenance>(value);
+  useEffect(() => setM(value), [value]);
+  // datetime-local works in local time without a zone; the API stores an ISO timestamp.
+  const local = m.endsAt ? new Date(new Date(m.endsAt).getTime() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 16) : "";
+  return (
+    <Card title={t("Platform maintenance")} actions={m.enabled ? <StatusBadge status="pending" label={t("Active")} /> : <StatusBadge status="active" label={t("Off")} />}>
+      <form className="space-y-4" onSubmit={(e) => {
+        e.preventDefault();
+        void put("/admin/settings/maintenance", m).then(() => { toast("success", t("Saved")); onSaved(); void qc.invalidateQueries({ queryKey: ["capabilities"] }); }).catch((er) => toast("error", er.message));
+      }}>
+        <div className="flex flex-wrap gap-6">
+          <Toggle checked={m.enabled} onChange={(v) => setM({ ...m, enabled: v })} label={t("Show the maintenance banner to every user")} />
+          <Toggle checked={m.blockDeploys} onChange={(v) => setM({ ...m, blockDeploys: v })} label={t("Pause new deployments (rollbacks stay allowed)")} />
+        </div>
+        <div className="grid gap-4 md:grid-cols-[1fr_16rem]">
+          <Field label={t("Message")}><Input maxLength={500} value={m.message} placeholder={t("Database upgrade in progress.")} onChange={(e) => setM({ ...m, message: e.target.value })} /></Field>
+          <Field label={t("Expected end")}><Input type="datetime-local" value={local} onChange={(e) => setM({ ...m, endsAt: e.target.value ? new Date(e.target.value).toISOString() : null })} /></Field>
+        </div>
+        <Button variant="primary" size="sm">{t("Save")}</Button>
+      </form>
+    </Card>
+  );
+}
+
 function Settings() {
   const q = useQuery({ queryKey: ["admin", "settings"], queryFn: () => get("/admin/settings") });
   const taxes = useQuery({ queryKey: ["admin", "tax"], queryFn: () => get("/admin/tax-rates") });
   const discounts = useQuery({ queryKey: ["admin", "discounts"], queryFn: () => get("/admin/discounts") });
   const toast = useToast();
   const [tax, setTax] = useState({ country: "", name: "VAT", percent: "20", reverseCharge: false });
-  const [disc, setDisc] = useState({ code: "", percentOff: "", maxRedemptions: "" });
+  const [disc, setDisc] = useState({ code: "", kind: "percent" as "percent" | "amount", value: "", maxRedemptions: "", expiresAt: "" });
   if (q.isLoading) return <LoadingRows />;
   return (
     <div className="space-y-4">
+      <MaintenanceSettings value={q.data.maintenance} onSaved={() => void q.refetch()} />
       <div className="grid gap-4 xl:grid-cols-3">
         {(["referral", "billing", "signup"] as const).map((k) => <JsonSetting key={k} k={k} value={q.data[k]} onSaved={() => void q.refetch()} />)}
       </div>
@@ -259,10 +289,26 @@ function Settings() {
         </Card>
         <Card title={t("Discount codes")}>
           <ul className="mb-3 space-y-1 text-sm">{discounts.data?.discounts.map((d: any) => <li key={d.id}><span className="font-mono">{d.code}</span> {d.percentOff ? `${d.percentOff}%` : formatCents(d.amountOffCents)} · {d.redemptions ?? 0}/{d.maxRedemptions ?? "∞"}</li>)}</ul>
-          <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); void post("/admin/discounts", { code: disc.code.toUpperCase(), percentOff: Number(disc.percentOff), maxRedemptions: disc.maxRedemptions ? Number(disc.maxRedemptions) : undefined }).then(() => { void discounts.refetch(); toast("success", t("Discount created")); }).catch((er) => toast("error", er.message)); }}>
-            <Field label={t("Code")}><Input className="w-32" value={disc.code} onChange={(e) => setDisc({ ...disc, code: e.target.value })} /></Field>
-            <Field label={t("% off")}><Input className="w-20" type="number" value={disc.percentOff} onChange={(e) => setDisc({ ...disc, percentOff: e.target.value })} /></Field>
+          <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => {
+            e.preventDefault();
+            const value = Number(disc.value);
+            void post("/admin/discounts", {
+              code: disc.code.toUpperCase(),
+              ...(disc.kind === "percent" ? { percentOff: value } : { amountOffCents: Math.round(value * 100) }),
+              maxRedemptions: disc.maxRedemptions ? Number(disc.maxRedemptions) : undefined,
+              expiresAt: disc.expiresAt ? new Date(disc.expiresAt).toISOString() : undefined,
+            }).then(() => { void discounts.refetch(); setDisc({ ...disc, code: "", value: "" }); toast("success", t("Discount created")); }).catch((er) => toast("error", er.message));
+          }}>
+            <Field label={t("Code")}><Input className="w-32 font-mono uppercase" value={disc.code} onChange={(e) => setDisc({ ...disc, code: e.target.value })} /></Field>
+            <Field label={t("Type")}>
+              <Select className="w-36" value={disc.kind} onChange={(e) => setDisc({ ...disc, kind: e.target.value as "percent" | "amount" })}>
+                <option value="percent">{t("% off next payment")}</option>
+                <option value="amount">{t("Credits (USD)")}</option>
+              </Select>
+            </Field>
+            <Field label={disc.kind === "percent" ? t("% off") : t("Amount (USD)")}><Input className="w-20" type="number" min={1} value={disc.value} onChange={(e) => setDisc({ ...disc, value: e.target.value })} /></Field>
             <Field label={t("Max uses")}><Input className="w-24" type="number" value={disc.maxRedemptions} onChange={(e) => setDisc({ ...disc, maxRedemptions: e.target.value })} /></Field>
+            <Field label={t("Expires")}><Input className="w-40" type="date" value={disc.expiresAt} onChange={(e) => setDisc({ ...disc, expiresAt: e.target.value })} /></Field>
             <Button size="sm">{t("Create")}</Button>
           </form>
         </Card>
@@ -282,7 +328,7 @@ function Abuse() {
         <ul>
           {q.data.reports.map((r: any) => (
             <li key={r.id} className="border-t border-line p-4 first:border-0">
-              <div className="flex flex-wrap items-center gap-2 text-sm"><Badge>{r.category}</Badge><StatusBadge status={r.status} /><a className="font-mono text-xs text-accent" href={r.targetUrl} target="_blank" rel="noopener noreferrer nofollow">{r.targetUrl}</a><span className="text-xs text-muted">{timeAgo(r.createdAt)}{r.reporterEmail && ` · ${r.reporterEmail}`}</span></div>
+              <div className="flex flex-wrap items-center gap-2 text-sm"><Badge>{r.category}</Badge><StatusBadge status={r.status} /><a className="font-mono text-xs underline underline-offset-4" href={r.targetUrl} target="_blank" rel="noopener noreferrer nofollow">{r.targetUrl}</a><span className="text-xs text-muted">{timeAgo(r.createdAt)}{r.reporterEmail && ` · ${r.reporterEmail}`}</span></div>
               <p className="mt-2 whitespace-pre-wrap text-sm text-muted">{r.description}</p>
               <div className="mt-2 flex gap-2">
                 {r.status === "open" && <Button size="sm" onClick={() => patch(`/admin/abuse/${r.id}`, { status: "investigating" }).then(() => q.refetch())}>{t("Investigate")}</Button>}

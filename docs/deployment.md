@@ -37,6 +37,12 @@ environments, or shared through team variable groups.
 - **Canary**: send a percentage of traffic to a new version, then promote or abort.
 - **Sleep**: on plans that allow it, idle services sleep and wake on the first request.
 - **Deploy freeze**: team admins can block deployments during a period.
+- **Deploy hooks**: Service → Settings → Deploy hooks creates a secret URL; a `POST` to it deploys the service in
+  the chosen environment (CI pipelines, CMS publish buttons). The URL is shown once and can be revoked.
+- **Maintenance page**: Service → Settings → Maintenance page answers visitors with HTTP 503 and your message
+  while the application keeps running. It applies on save, without a redeploy.
+- **Platform maintenance**: administrators (Admin → Settings) can show a banner to every user and pause new
+  deployments; rollbacks stay allowed and running services are not affected.
 
 ## Domains
 

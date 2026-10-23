@@ -49,7 +49,8 @@ async function login(page: Page, address = email) {
 test("sign up, dashboard, theme and language", async ({ page }) => {
   // The database is fresh: the first account becomes the platform administrator.
   await signup(page);
-  await expect(page.getByText("Verify your email address to deploy.")).toBeVisible();
+  // No SMTP in this environment: email verification cannot be required, so no banner asks for it.
+  await expect(page.getByText("Verify your email address to deploy.")).toHaveCount(0);
   // Dark mode is the default; the toggle switches to light and persists.
   await expect(page.locator("html")).toHaveClass(/dark/);
   await page.getByRole("button", { name: /theme/i }).click();
@@ -75,9 +76,15 @@ test("account, billing, team settings, templates and referrals pages load real d
   await login(page);
 
   await page.goto("/billing");
-  await expect(page.getByRole("heading", { name: "Plans" })).toBeVisible();
+  await expect(page.getByText("Estimated bill this period")).toBeVisible();
+  await expect(page.getByLabel("Promo code")).toBeVisible();
+  await page.getByRole("tab", { name: "Plans" }).click();
   await expect(page.getByText("Starter", { exact: true })).toBeVisible();
-  await expect(page.getByText("Usage this period")).toBeVisible();
+  await page.getByRole("tab", { name: "Usage" }).click();
+  await expect(page.getByText("Plan limits")).toBeVisible();
+  // Payment providers are not configured here: they are shown as not available, not as errors.
+  await page.getByRole("tab", { name: "Payment methods" }).click();
+  await expect(page.getByText("Not available yet").first()).toBeVisible();
 
   await page.goto("/account");
   await page.getByRole("tab", { name: "Security" }).click();
@@ -123,8 +130,9 @@ test("the dashboard is fully usable in French", async ({ page }) => {
   await login(page);
   await page.getByRole("button", { name: /^(Language|Langue)$/ }).click();
   await page.goto("/billing");
-  await expect(page.getByText("Consommation sur la période")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Plans" })).toBeVisible();
+  await expect(page.getByText("Facture estimée pour cette période")).toBeVisible();
+  await page.getByRole("tab", { name: "Moyens de paiement" }).click();
+  await expect(page.getByText("Pas encore disponible").first()).toBeVisible();
   await page.goto("/account");
   await page.getByRole("tab", { name: "Sécurité" }).click();
   await expect(page.getByRole("button", { name: "Configurer la 2FA" })).toBeVisible();

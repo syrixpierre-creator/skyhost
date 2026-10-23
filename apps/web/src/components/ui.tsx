@@ -17,10 +17,10 @@ export function Button({ variant = "secondary", size = "md", loading, className,
       className={cx(
         "inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-50",
         size === "sm" ? "h-7 px-2.5 text-xs" : "h-9 px-3.5 text-sm",
-        variant === "primary" && "bg-accent text-white hover:bg-accent-hover",
-        variant === "secondary" && "border border-line bg-panel text-fg hover:bg-panel-2",
+        variant === "primary" && "bg-accent text-accent-fg hover:bg-accent-hover",
+        variant === "secondary" && "border border-line-strong bg-transparent text-fg hover:border-faint hover:bg-panel-2",
         variant === "ghost" && "text-muted hover:bg-panel-2 hover:text-fg",
-        variant === "danger" && "bg-red-600 text-white hover:bg-red-700",
+        variant === "danger" && "border border-red-500/40 bg-transparent text-red-500 hover:bg-red-500/10",
         className,
       )}
     >
@@ -70,9 +70,9 @@ export function Toggle({ checked, onChange, label, disabled }: { checked: boolea
         aria-checked={checked}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={cx("relative h-5 w-9 rounded-full transition-colors", checked ? "bg-accent" : "bg-line")}
+        className={cx("relative h-5 w-9 shrink-0 rounded-full transition-colors", checked ? "bg-accent" : "bg-line-strong")}
       >
-        <span className={cx("absolute top-0.5 size-4 rounded-full bg-white transition-transform", checked ? "translate-x-4.5" : "translate-x-0.5")} />
+        <span className={cx("absolute left-0 top-0.5 size-4 rounded-full transition-transform", checked ? "bg-accent-fg" : "bg-white", checked ? "translate-x-4.5" : "translate-x-0.5")} />
       </button>
       {label}
     </label>
@@ -126,45 +126,21 @@ export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: Array<
 }
 
 // ------------------------------------------------------------------------------------------- Status
-const STATUS_COLORS: Record<string, string> = {
-  live: "bg-green-500/15 text-green-600 dark:text-green-400",
-  running: "bg-green-500/15 text-green-600 dark:text-green-400",
-  available: "bg-green-500/15 text-green-600 dark:text-green-400",
-  completed: "bg-green-500/15 text-green-600 dark:text-green-400",
-  succeeded: "bg-green-500/15 text-green-600 dark:text-green-400",
-  verified: "bg-green-500/15 text-green-600 dark:text-green-400",
-  ssl_issued: "bg-green-500/15 text-green-600 dark:text-green-400",
-  up: "bg-green-500/15 text-green-600 dark:text-green-400",
-  active: "bg-green-500/15 text-green-600 dark:text-green-400",
-  paid: "bg-green-500/15 text-green-600 dark:text-green-400",
-  approved: "bg-green-500/15 text-green-600 dark:text-green-400",
-  building: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
-  deploying: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
-  provisioning: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
-  restoring: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
-  running_job: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
-  queued: "bg-zinc-500/15 text-muted",
-  pending: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-  sleeping: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-  past_due: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-  held: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-  flagged: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-  trialing: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
-  failed: "bg-red-500/15 text-red-600 dark:text-red-400",
-  crashed: "bg-red-500/15 text-red-600 dark:text-red-400",
-  error: "bg-red-500/15 text-red-600 dark:text-red-400",
-  down: "bg-red-500/15 text-red-600 dark:text-red-400",
-  suspended: "bg-red-500/15 text-red-600 dark:text-red-400",
-  timeout: "bg-red-500/15 text-red-600 dark:text-red-400",
+const TONES: Record<string, "ok" | "busy" | "warn" | "bad"> = {
+  live: "ok", running: "ok", available: "ok", completed: "ok", succeeded: "ok", verified: "ok", ssl_issued: "ok", up: "ok", active: "ok", paid: "ok", approved: "ok",
+  building: "busy", deploying: "busy", provisioning: "busy", restoring: "busy", running_job: "busy", trialing: "busy",
+  pending: "warn", sleeping: "warn", past_due: "warn", held: "warn", flagged: "warn",
+  failed: "bad", crashed: "bad", error: "bad", down: "bad", suspended: "bad", timeout: "bad",
 };
+const TONE_DOT = { ok: "bg-emerald-500", busy: "bg-sky-500", warn: "bg-amber-500", bad: "bg-red-500" } as const;
 
 export function StatusBadge({ status, label }: { status: string; label?: string }) {
   const { t } = useTranslation();
-  const color = STATUS_COLORS[status] ?? "bg-zinc-500/15 text-muted";
-  const animated = ["building", "deploying", "provisioning", "restoring"].includes(status);
+  const tone = TONES[status];
+  const animated = tone === "busy";
   return (
-    <span className={cx("inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium", color)} data-status={status}>
-      <span className={cx("size-1.5 rounded-full bg-current", animated && "animate-pulse")} />
+    <span className={cx("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-line px-2 py-0.5 text-xs font-medium", tone === "bad" ? "text-red-500" : tone ? "text-fg" : "text-muted")} data-status={status}>
+      <span className={cx("size-1.5 rounded-full", tone ? TONE_DOT[tone] : "bg-faint", animated && "animate-pulse")} />
       {label ?? t(`status.${status}`, status.replace(/_/g, " "))}
     </span>
   );
@@ -220,16 +196,9 @@ export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () =>
 
 export function Alert({ kind = "info", children }: { kind?: "info" | "warn" | "error" | "success"; children: ReactNode }) {
   return (
-    <div
-      className={cx(
-        "rounded-md border px-3 py-2 text-sm",
-        kind === "info" && "border-blue-500/30 bg-blue-500/5",
-        kind === "warn" && "border-amber-500/30 bg-amber-500/5",
-        kind === "error" && "border-red-500/30 bg-red-500/5",
-        kind === "success" && "border-green-500/30 bg-green-500/5",
-      )}
-    >
-      {children}
+    <div className="flex gap-2.5 rounded-md border border-line bg-panel-2 px-3 py-2 text-sm" role={kind === "error" ? "alert" : undefined}>
+      <span aria-hidden className={cx("mt-[7px] size-1.5 shrink-0 rounded-full", { info: "bg-faint", warn: "bg-amber-500", error: "bg-red-500", success: "bg-emerald-500" }[kind])} />
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
 }
@@ -386,4 +355,9 @@ export function timeAgo(d: string | Date | null | undefined) {
   if (abs < 3600) return rtf.format(Math.trunc(s / 60), "minute");
   if (abs < 86400) return rtf.format(Math.trunc(s / 3600), "hour");
   return rtf.format(Math.trunc(s / 86400), "day");
+}
+
+/** Shown instead of an action that this installation has not configured yet. */
+export function Unavailable({ className }: { className?: string }) {
+  return <span className={cx("inline-flex items-center whitespace-nowrap rounded-full border border-dashed border-line-strong px-2 py-0.5 text-[11px] font-medium text-faint", className)}>{t("Not available yet")}</span>;
 }

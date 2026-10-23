@@ -90,7 +90,7 @@ export default function Deployment() {
           const active = !done && !failed && p === d.phase && ["building", "deploying"].includes(d.status);
           const skipped = !started && !failed && (reachedLive || i < currentIdx);
           return (
-            <li key={p} title={skipped ? t("Skipped") : undefined} className={cx("flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs", done ? "border-green-500/40 text-green-500" : failed ? "border-red-500/40 text-red-500" : active ? "border-accent text-accent" : skipped ? "border-dashed border-line text-faint" : "border-line text-faint")}>
+            <li key={p} title={skipped ? t("Skipped") : undefined} className={cx("flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs", done ? "border-green-500/40 text-green-500" : failed ? "border-red-500/40 text-red-500" : active ? "border-brand text-brand" : skipped ? "border-dashed border-line text-faint" : "border-line text-faint")}>
               {done ? <Check className="size-3" /> : failed ? <X className="size-3" /> : active ? <Loader2 className="size-3 animate-spin" /> : skipped ? <Minus className="size-3" /> : <Circle className="size-3" />}
               {t(PHASE_LABELS[p]!)}
             </li>
@@ -101,7 +101,7 @@ export default function Deployment() {
         <div className="mb-6 space-y-3">
           <Alert kind="error"><strong>{t("Deployment failed:")}</strong> {d.error}{t(". The previous version stays live.")}</Alert>
           {diag.data?.diagnoses.map((x, i) => (
-            <Card key={x.id} title={<span className="flex items-center gap-2"><Wrench className="size-4 text-accent" /> {x.problem} <Badge>{x.confidence} {t("confidence")}</Badge></span>} actions={x.autoFix && <Button size="sm" variant="primary" onClick={() => { setFix({ d: x, index: i }); setFixValue(""); }}>{t("Auto Fix")}</Button>}>
+            <Card key={x.id} title={<span className="flex items-center gap-2"><Wrench className="size-4 text-brand" /> {x.problem} <Badge>{x.confidence} {t("confidence")}</Badge></span>} actions={x.autoFix && <Button size="sm" variant="primary" onClick={() => { setFix({ d: x, index: i }); setFixValue(""); }}>{t("Auto Fix")}</Button>}>
               <dl className="space-y-2 text-sm">
                 <div><dt className="text-xs text-muted">{t("Cause")}</dt><dd>{x.cause}</dd></div>
                 <div><dt className="text-xs text-muted">{t("Suggested fix")}</dt><dd>{x.suggestedFix}</dd></div>

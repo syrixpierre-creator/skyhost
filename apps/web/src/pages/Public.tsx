@@ -6,6 +6,7 @@ import { get, post } from "../lib/api";
 import { useSession } from "../lib/session";
 import { Alert, Button, Card, cx, ErrorState, Field, Input, LoadingRows, Select, StatusBadge, Textarea, timeAgo } from "../components/ui";
 import { t } from "../lib/i18n";
+import { Logo } from "../components/Logo";
 
 type Page = "invite" | "status" | "project-status" | "shared-screenshot" | "abuse" | "terms" | "privacy" | "cli" | "404";
 
@@ -14,7 +15,7 @@ function Shell({ children, narrow }: { children: ReactNode; narrow?: boolean }) 
     <div className="min-h-screen bg-bg text-fg">
       <header className="border-b border-line">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <Link to="/" className="flex items-center gap-2 font-semibold"><img src="/favicon.svg" alt="" className="size-6" /> SKYHOST</Link>
+          <Link to="/" className="flex items-center"><Logo size="sm" /></Link>
           <nav className="flex gap-4 text-sm text-muted"><Link to="/status">{t("Status")}</Link><Link to="/report-abuse">{t("Report abuse")}</Link></nav>
         </div>
       </header>

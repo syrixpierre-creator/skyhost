@@ -23,6 +23,20 @@ GITHUB_WEBHOOK_SECRET=<the webhook secret>
 "Continue with GitHub" sign-in uses an OAuth App (or the App's client credentials):
 `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, callback `https://app.example.com/api/v1/auth/oauth/github/callback`.
 
+## Google sign-in
+
+"Continue with Google" needs an OAuth client (Google Cloud console → APIs & Services → Credentials → OAuth
+client ID, type "Web application") with the authorized redirect URI
+`https://app.example.com/api/v1/auth/oauth/google/callback`. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+A Google account is linked to an existing SKYHOST account only when Google reports its email as verified.
+
+## Unconfigured providers
+
+Nothing breaks when a provider is not configured: `GET /api/v1/capabilities` reports it as unavailable, and the
+dashboard shows its button or tab with a "Not available yet" label instead of an error. A sign-in link to an
+unconfigured provider sends the user back to the sign-in page with a message. A provider needs both its client ID
+and its secret to be considered configured.
+
 ## GitLab
 
 Create an application (User Settings → Applications, or an instance-wide application) with scopes `api`,

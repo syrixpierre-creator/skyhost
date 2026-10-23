@@ -28,12 +28,16 @@ Captured from a real installation (the Docker Compose stack of this repository),
 | **Deployment**: phases and live logs | **Smart Error Analyzer**: cause, fix and evidence; the previous version stays live |
 | ![Service overview with release history and rollback](docs/screenshots/04-service-overview.png) | ![Encrypted variables with secrets masked](docs/screenshots/07-variables.png) |
 | **Service**: status, releases, one-click rollback | **Variables**: encrypted, secrets masked until revealed |
-| ![Managed PostgreSQL database](docs/screenshots/08-database.png) | ![Plans, usage and payment options](docs/screenshots/10-billing-plans.png) |
-| **Databases**: PostgreSQL, MariaDB, MongoDB, Redis | **Billing**: plans, quotas, credits, spend cap |
-| ![Administration console](docs/screenshots/11-admin-console.png) | ![Light mode](docs/screenshots/12-light-mode.png) |
-| **Administration**: users, teams, plans, abuse, payments | **Light mode** (dark by default) |
-| ![Sign in](docs/screenshots/01-sign-in.png) | ![Dashboard in French](docs/screenshots/13-french.png) |
-| **Sign in**: password and 2FA; GitHub and GitLab buttons appear once configured | **English and French** |
+| ![Managed PostgreSQL database](docs/screenshots/08-database.png) | ![Billing: estimated bill, promo code and cost by service](docs/screenshots/10-billing.png) |
+| **Databases**: PostgreSQL, MariaDB, MongoDB, Redis | **Billing**: estimated bill, promo codes, cost by service |
+| ![Daily usage charts](docs/screenshots/14-billing-usage.png) | ![Plan comparison](docs/screenshots/15-billing-plans.png) |
+| **Usage**: plan limits and daily CPU, memory, egress, build minutes | **Plans**: side-by-side comparison |
+| ![Deploy hooks and maintenance page](docs/screenshots/16-deploy-hooks-maintenance.png) | ![Administration console](docs/screenshots/11-admin-console.png) |
+| **Deploy hooks** and per-service **maintenance page** | **Administration**: users, teams, plans, abuse, payments, maintenance |
+| ![Sign in](docs/screenshots/01-sign-in.png) | ![Sign up](docs/screenshots/17-sign-up.png) |
+| **Sign in**: GitHub and Google show "Not available yet" until configured | **Sign up**: password strength, OAuth providers |
+| ![Light mode](docs/screenshots/12-light-mode.png) | ![Dashboard in French](docs/screenshots/13-french.png) |
+| **Light mode** (dark by default) | **English and French** |
 
 ## Features
 
@@ -51,8 +55,11 @@ Captured from a real installation (the Docker Compose stack of this repository),
   audit log, API keys with scopes, 2FA, sessions management, GDPR export and deletion.
 - **Observability**: live build and runtime logs, metrics, uptime checks, alerts, public status pages, automatic
   screenshots of every release.
-- **Billing**: plans and quotas, Stripe (cards), PayPal, Mobile Money (Flutterwave), prepaid credits, invoices
-  (PDF), spend caps, referral program with fraud checks.
+- **Billing**: plans and quotas, Stripe (cards), PayPal, Mobile Money (Flutterwave), prepaid credits, promo
+  codes, estimated bill and cost per service, invoices (PDF), spend caps, referral program with fraud checks.
+- **Deploy hooks** (secret URLs for CI), per-service **maintenance pages**, and platform **maintenance mode**.
+- **Sign-in** with email and password (2FA), GitHub, Google or GitLab. Any integration that is not configured is
+  shown as "Not available yet" instead of failing.
 - **Dashboard** in English and French, dark mode by default and light mode, plus a **CLI** (`skyhost`).
 
 ## Quick start (single server)

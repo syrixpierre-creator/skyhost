@@ -39,6 +39,19 @@ curl -X PUT -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" 
 curl -X POST -H "Authorization: Bearer $KEY" $API/deployments/$PREVIOUS/rollback
 ```
 
+## Capabilities and deploy hooks
+
+`GET /api/v1/capabilities` (public) lists what the installation can do: sign-in providers, git providers,
+payment providers, email delivery, and platform maintenance. Clients should hide or label unavailable features
+instead of calling them; such calls answer `503` with `code: "unavailable"`.
+
+```bash
+# Create a deploy hook (the URL is returned once), then trigger it from anywhere
+curl -X POST -H "Authorization: Bearer $KEY" -H 'content-type: application/json' \
+  -d '{"name":"CI","environmentId":"<env id>"}' $API/services/<service id>/deploy-hooks
+curl -X POST https://app.example.com/api/v1/hooks/deploy/<secret>
+```
+
 ## Realtime
 
 `GET /api/v1/ws` (WebSocket): send `{"op":"subscribe","channel":"deployment:<id>"}`; channels exist for

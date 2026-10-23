@@ -259,7 +259,7 @@ describe("standalone databases", () => {
 });
 
 describe("dashboard closed for maintenance", () => {
-  it("only administrators can sign in and use the dashboard; users see the maintenance message", async () => {
+  it("only administrators can use the dashboard; users sign in normally and then see the maintenance message", async () => {
     const admin = await adminUser();
     const u = await newUser();
     const [adminRow] = await getDb().select().from(users).where(eq(users.id, admin.user.id));
@@ -273,11 +273,12 @@ describe("dashboard closed for maintenance", () => {
       expect(blocked.body.error).toMatchObject({ code: "maintenance" });
       expect(blocked.body.error.message).toContain("Back at 22:00.");
       expect((await u.client.get("/api/v1/auth/me")).status).toBe(200);
-      // Users cannot sign in or sign up; the administrator can.
-      const login = await new Client().post("/api/v1/auth/login", { email: u.email, password: PASSWORD });
-      expect(login.status).toBe(503);
-      expect(login.body.error.message).toContain("maintenance");
-      expect((await new Client().post("/api/v1/auth/signup", { email: `m-${Date.now()}@example.com`, password: PASSWORD, name: "M", acceptTerms: true })).status).toBe(503);
+      // Users can still sign in and sign up (nothing reveals who is an administrator), but the session only reaches "who am I".
+      const login = new Client();
+      expect((await login.post("/api/v1/auth/login", { email: u.email, password: PASSWORD })).status).toBe(200);
+      expect((await login.get("/api/v1/auth/me")).status).toBe(200);
+      expect((await login.get("/api/v1/teams")).status).toBe(503);
+      expect((await new Client().post("/api/v1/auth/signup", { email: `m-${Date.now()}@example.com`, password: PASSWORD, name: "M", acceptTerms: true })).status).toBe(201);
       const adminLogin = new Client();
       expect((await adminLogin.post("/api/v1/auth/login", { email: adminRow!.email, password: PASSWORD })).status).toBe(200);
       expect((await adminLogin.get("/api/v1/admin/settings")).status).toBe(200);

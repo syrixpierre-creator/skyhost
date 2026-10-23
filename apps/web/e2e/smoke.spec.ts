@@ -202,32 +202,39 @@ test("maintenance closes the site to users while administrators keep working", a
     // The administrator keeps the dashboard.
     await page.goto("/billing");
     await expect(page.getByText("Estimated bill this period")).toBeVisible();
-    // A visitor sees the maintenance page on sign in and sign up.
+    // Users sign in normally (no administrator hint anywhere), then get the maintenance page.
     const visitor = await (await browser.newContext()).newPage();
     await visitor.goto("/login");
+    await expect(visitor.getByText("Administrator sign-in")).toHaveCount(0);
+    await visitor.getByLabel("Email").fill(memberEmail);
+    await visitor.getByLabel("Password").fill(password);
+    await visitor.getByRole("button", { name: "Sign in" }).click();
     await expect(visitor.getByRole("heading", { name: "We'll be back soon" })).toBeVisible();
     await expect(visitor.getByText("Upgrading the servers.")).toBeVisible();
-    await expect(visitor.getByLabel("Email")).toHaveCount(0);
-    await visitor.goto("/signup");
-    await expect(visitor.getByRole("heading", { name: "We'll be back soon" })).toBeVisible();
-    // The administrator can still open the sign-in form from it.
-    await visitor.goto("/login");
-    await visitor.getByRole("button", { name: "Administrator sign-in" }).click();
-    await expect(visitor.getByLabel("Email")).toBeVisible();
+    await expect(visitor.getByText("Administrator sign-in")).toHaveCount(0);
+    // Sign up works too and lands on the same page.
+    const newcomer = await (await browser.newContext()).newPage();
+    await signup(newcomer, `ui-new-${stamp}@example.com`, "New Comer");
+    await expect(newcomer.getByRole("heading", { name: "We'll be back soon" })).toBeVisible();
   } finally {
     expect(await setMaintenance({ enabled: false, closeDashboard: false, message: "" })).toBe(200);
   }
 });
 
-test("on a phone, page sections are a menu instead of a hidden row of tabs", async ({ browser }) => {
+test("on a phone, every page section is a visible button, Settings included", async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await ctx.newPage();
   await login(page);
   await page.goto("/account");
-  const menu = page.getByLabel("Section");
-  await expect(menu).toBeVisible();
-  await menu.selectOption({ label: "Appearance" });
+  await expect(page.getByRole("combobox", { name: "Section" })).toHaveCount(0);
+  await page.getByRole("tab", { name: "Appearance" }).click();
   await expect(page.getByRole("radio", { name: /Dark/ })).toBeVisible();
+  await page.goto("/settings");
+  for (const tab of await page.getByRole("tab").all()) {
+    await expect(tab).toBeInViewport();
+    const box = (await tab.boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(390);
+  }
   await ctx.close();
 });
 

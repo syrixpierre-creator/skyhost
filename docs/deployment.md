@@ -49,8 +49,8 @@ environments, or shared through team variable groups.
   while the application keeps running. It applies on save, without a redeploy.
 - **Platform maintenance**: administrators (Admin → Settings) can show a banner to every user and pause new
   deployments; rollbacks stay allowed and running services are not affected. "Put the site in maintenance" also
-  closes the dashboard: users and visitors see a maintenance page on sign in, sign up and every page (the API
-  answers 503), while administrators keep full access. Hosted apps, webhooks and deploy hooks keep working.
+  closes the dashboard: sign in and sign up work as usual (nothing hints at an administrator login), then users
+  see a maintenance page on every page (the API answers 503), while administrators keep full access. Hosted apps, webhooks and deploy hooks keep working.
 
 ## Domains
 

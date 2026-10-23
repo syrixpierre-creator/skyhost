@@ -5,7 +5,6 @@ import { post } from "../lib/api";
 import { useSession } from "../lib/session";
 import { Alert, Button, cx, Field, Input, Unavailable } from "../components/ui";
 import { Logo } from "../components/Logo";
-import { MaintenanceScreen, useDashboardClosed } from "../components/Maintenance";
 import { useCapabilities } from "../lib/capabilities";
 import { Eye, EyeOff } from "lucide-react";
 import { t } from "../lib/i18n";
@@ -212,8 +211,6 @@ export default function Auth({ mode }: { mode: "login" | "signup" | "forgot" | "
   const [error, setError] = useState<string | null>(params.get("error"));
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const closed = useDashboardClosed();
-  const [adminLogin, setAdminLogin] = useState(false);
   const rawNext = params.get("next") ?? "/";
   const next = rawNext.startsWith("/") && !rawNext.startsWith("//") && !rawNext.startsWith("/\\") ? rawNext : "/";
 
@@ -257,8 +254,6 @@ export default function Auth({ mode }: { mode: "login" | "signup" | "forgot" | "
   };
 
   // Closed for maintenance: users see the maintenance page; administrators can still open the sign-in form.
-  if (closed && mode === "signup") return <MaintenanceScreen><Link to="/login" className="text-sm text-muted underline-offset-4 hover:text-fg hover:underline">{t("Administrator sign-in")}</Link></MaintenanceScreen>;
-  if (closed && mode === "login" && !adminLogin && !challenge) return <MaintenanceScreen><Button onClick={() => setAdminLogin(true)}>{t("Administrator sign-in")}</Button></MaintenanceScreen>;
   if (mode === "referral") return <Shell title={t("Joining SKYHOST…")}><p className="text-sm text-muted">{t("Redirecting…")}</p></Shell>;
 
   if (mode === "verify")

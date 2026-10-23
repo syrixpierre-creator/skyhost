@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Circle, Loader2, Minus, Wrench, X } from "lucide-react";
+import { Check, Circle, ExternalLink, Loader2, Minus, Wrench, X } from "lucide-react";
 import { DEPLOYMENT_PHASES } from "@skyhost/shared";
 import { download, get, post, realtime } from "../lib/api";
 import { LogViewer, type LogLine } from "../components/LogViewer";
-import { Alert, Badge, Button, Card, cx, ErrorState, Field, Input, LoadingRows, Modal, PageHeader, StatusBadge, Textarea, timeAgo, useToast } from "../components/ui";
+import { Alert, Badge, Button, Card, CopyButton, cx, ErrorState, Field, Input, LoadingRows, Modal, PageHeader, StatusBadge, Textarea, timeAgo, useToast } from "../components/ui";
 import { t } from "../lib/i18n";
 import { ProjectCrumb } from "../components/ProjectCrumb";
 
@@ -25,7 +25,7 @@ export default function Deployment() {
   const { projectId, deploymentId } = useParams();
   const toast = useToast();
   const qc = useQueryClient();
-  const q = useQuery({ queryKey: ["deployment", deploymentId], queryFn: () => get<{ deployment: any; service: { id: string; name: string } }>(`/deployments/${deploymentId}`) }); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const q = useQuery({ queryKey: ["deployment", deploymentId], queryFn: () => get<{ deployment: any; url: string | null; service: { id: string; name: string } }>(`/deployments/${deploymentId}`) }); // eslint-disable-line @typescript-eslint/no-explicit-any
   const [lines, setLines] = useState<LogLine[]>([]);
   const diag = useQuery({ queryKey: ["diagnosis", deploymentId], queryFn: () => get<{ diagnoses: Diagnosis[] }>(`/deployments/${deploymentId}/diagnosis`), enabled: q.data?.deployment.status === "failed" });
   const comments = useQuery({ queryKey: ["comments", deploymentId], queryFn: () => get<{ comments: Array<{ id: string; author: string; body: string; createdAt: string }> }>(`/deployments/${deploymentId}/comments`) });
@@ -75,11 +75,30 @@ export default function Deployment() {
         subtitle={<span className="font-mono text-xs">{[d.commitSha?.slice(0, 7), d.branch, d.trigger, timeAgo(d.createdAt), d.buildSeconds ? t("built in {{s}}s", { s: d.buildSeconds }) : null].filter(Boolean).join(" · ")}</span>}
         actions={
           <>
+            {d.status === "live" && q.data!.url && (
+              <a href={q.data!.url} target="_blank" rel="noreferrer">
+                <Button variant="primary"><ExternalLink className="size-4" /> {t("Open app")}</Button>
+              </a>
+            )}
             {["queued", "building", "deploying"].includes(d.status) && <Button onClick={() => post(`/deployments/${d.id}/cancel`).then(() => toast("info", t("Cancelling")))}>{t("Cancel")}</Button>}
             {d.image && ["superseded", "stopped"].includes(d.status) && <Button onClick={() => post(`/deployments/${d.id}/rollback`).then(() => toast("success", t("Rollback started")))}>{t("Rollback to this version")}</Button>}
           </>
         }
       />
+      {q.data!.url && ["live", "queued", "building", "deploying"].includes(d.status) && (
+        <div className={cx("mb-6 flex flex-wrap items-center gap-3 rounded-lg border px-4 py-3", d.status === "live" ? "border-emerald-500/40 bg-emerald-500/5" : "border-line bg-panel")}>
+          <span className={cx("size-2 shrink-0 rounded-full", d.status === "live" ? "bg-emerald-500" : "animate-pulse bg-faint")} aria-hidden />
+          <div className="min-w-0 flex-1">
+            <div className="text-xs text-muted">{d.status === "live" ? t("Live at") : t("Will be available at")}</div>
+            {d.status === "live" ? (
+              <a href={q.data!.url} target="_blank" rel="noreferrer" className="block truncate font-mono text-sm font-medium underline-offset-4 hover:underline">{q.data!.url.replace(/^https?:\/\//, "")}</a>
+            ) : (
+              <span className="block truncate font-mono text-sm text-muted">{q.data!.url.replace(/^https?:\/\//, "")}</span>
+            )}
+          </div>
+          {d.status === "live" && <CopyButton value={q.data!.url} />}
+        </div>
+      )}
       <ol className="mb-6 flex flex-wrap gap-2">
         {DEPLOYMENT_PHASES.map((p, i) => {
           // A phase is done only if it ran; phases a release did not need (e.g. build for an image) are skipped.

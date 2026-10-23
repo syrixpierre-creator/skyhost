@@ -215,3 +215,15 @@ describe("GitHub App", () => {
     }
   });
 });
+
+describe("deployment page", () => {
+  it("returns the public URL of the service with the deployment", async () => {
+    const u = await newUser();
+    const s = await imageService(u);
+    const dep = await u.client.post(`/api/v1/services/${s.serviceId}/deploy`, { environmentId: s.environmentId });
+    expect(dep.status, dep.raw).toBe(201);
+    const r = await u.client.get(`/api/v1/deployments/${dep.body.deployment.id}`);
+    expect(r.status).toBe(200);
+    expect(r.body.url).toMatch(new RegExp(`^https?://web-[a-z0-9]+\\.${TEST_ENV.SKYHOST_BASE_DOMAIN!.replace(/\./g, "\\.")}$`));
+  });
+});

@@ -4,7 +4,7 @@ import { z } from "zod";
 import { deploymentComments, deploymentLogs, deployments, environments, getDb, gitInstallations, serviceInstances, services, users } from "@skyhost/db";
 import { serviceConfigSchema } from "@skyhost/shared";
 import { applyFileFix, type ErrorDiagnosis } from "@skyhost/analyzer";
-import { audit, badRequest, cancelDeployment, createDeployment, getTeamPlan, notFound, providerClient, rollbackTo, upsertVariables } from "@skyhost/core";
+import { audit, badRequest, cancelDeployment, createDeployment, getTeamPlan, notFound, providerClient, publicUrl, rollbackTo, serviceHostname, upsertVariables } from "@skyhost/core";
 import { actorOf } from "../lib/auth";
 import { deploymentAccess, environmentAccess, serviceAccess } from "../lib/authz";
 import { idParam, route } from "../lib/http";
@@ -78,7 +78,13 @@ export default async function deploymentRoutes(app: FastifyInstance) {
 
   route(app, { method: "GET", url: "/deployments/:id", tags: ["deployments"], params: idParam }, async (req, _r, { params }) => {
     const a = await deploymentAccess(req, params.id, "service:read");
-    return { deployment: a.deployment, service: { id: a.service.id, name: a.service.name, projectId: a.service.projectId, type: a.service.type } };
+    // Public address of the release, shown at the top of the page once it is live (like Render or Railway).
+    let url: string | null = null;
+    if (["web", "static", "docker"].includes(a.service.type)) {
+      const [env] = await getDb().select().from(environments).where(eq(environments.id, a.deployment.environmentId));
+      if (env) url = publicUrl(serviceHostname(a.service, env));
+    }
+    return { deployment: a.deployment, url, service: { id: a.service.id, name: a.service.name, projectId: a.service.projectId, type: a.service.type } };
   });
 
   route(

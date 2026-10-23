@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+coverage/
+.data/
+.skyhost/
+*.pem
+*.key
+test-results/
+playwright-report/
+.DS_Store

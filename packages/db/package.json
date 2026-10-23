@@ -1,0 +1,28 @@
+{
+  "name": "@skyhost/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "generate": "drizzle-kit generate",
+    "migrate": "tsx src/migrate.ts",
+    "seed": "tsx src/seed.ts"
+  },
+  "dependencies": {
+    "@skyhost/shared": "workspace:*",
+    "drizzle-orm": "0.44.7",
+    "postgres": "3.4.9"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "drizzle-kit": "0.31.11",
+    "tsx": "4.21.1",
+    "typescript": "5.9.3"
+  }
+}

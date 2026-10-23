@@ -1,0 +1,8 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+onlyBuiltDependencies:
+  - esbuild
+  - "@node-rs/argon2"
+  - cpu-features
+  - ssh2

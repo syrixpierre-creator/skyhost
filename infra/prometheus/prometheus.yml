@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  # Control plane metrics (deployments, instances, queues). The internal token is written by scripts/install.sh.
+  - job_name: skyhost-api
+    metrics_path: /internal/metrics
+    http_headers:
+      X-Skyhost-Token:
+        files: [/etc/prometheus/token]
+    static_configs:
+      - targets: ["api.skyhost-control:4000"]
+
+  - job_name: traefik
+    static_configs:
+      - targets: ["traefik:8082"]
+
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

@@ -1,1 +1,144 @@
-# skyhost
+# SKYHOST — by SYRIX VISION COMPANY
+
+SKYHOST is a self-hostable platform for deploying applications: connect a repository, let **SmartDeploy** analyse
+it, press **Deploy**, and get a live HTTPS URL. Teams, databases, previews, logs, metrics, billing and an
+administration console are included.
+
+```
+GitHub / GitLab / Bitbucket / Git URL / ZIP / Docker image
+        │
+        ▼
+SmartDeploy analysis ──► BuildKit build (secrets mounted, never baked) ──► tests ──► image
+        │                                                                             │
+        ▼                                                                             ▼
+Smart Error Analyzer ◄── failure                  blue/green release ── health check ── Traefik ── https://app-xxxx.apps.example.com
+```
+
+## Screenshots
+
+Captured from a real installation (the Docker Compose stack of this repository), with real deployments.
+
+![Project canvas: services, managed databases and their connections](docs/screenshots/03-project-canvas.png)
+
+| | |
+| --- | --- |
+| ![Projects dashboard](docs/screenshots/02-dashboard.png) | ![SmartDeploy analysis of a Next.js + Prisma repository](docs/screenshots/09-smartdeploy-analysis.png) |
+| **Dashboard**: projects, live status, plan usage | **SmartDeploy**: stack, port, variables and database detected |
+| ![Live build and deploy logs](docs/screenshots/05-deployment-logs.png) | ![Smart Error Analyzer with an Auto Fix proposal](docs/screenshots/06-smart-error-analyzer.png) |
+| **Deployment**: phases and live logs | **Smart Error Analyzer**: cause, fix and evidence; the previous version stays live |
+| ![Service overview with release history and rollback](docs/screenshots/04-service-overview.png) | ![Encrypted variables with secrets masked](docs/screenshots/07-variables.png) |
+| **Service**: status, releases, one-click rollback | **Variables**: encrypted, secrets masked until revealed |
+| ![Managed PostgreSQL database](docs/screenshots/08-database.png) | ![Billing: estimated bill, promo code and cost by service](docs/screenshots/10-billing.png) |
+| **Databases**: PostgreSQL, MariaDB, MongoDB, Redis | **Billing**: estimated bill, promo codes, cost by service |
+| ![Daily usage charts](docs/screenshots/14-billing-usage.png) | ![Plan comparison](docs/screenshots/15-billing-plans.png) |
+| **Usage**: plan limits and daily CPU, memory, egress, build minutes | **Plans**: side-by-side comparison |
+| ![Deploy hooks and maintenance page](docs/screenshots/16-deploy-hooks-maintenance.png) | ![Administration console](docs/screenshots/11-admin-console.png) |
+| **Deploy hooks** and per-service **maintenance page** | **Administration**: users, teams, plans, abuse, payments, maintenance |
+| ![Sign in](docs/screenshots/01-sign-in.png) | ![Sign up](docs/screenshots/17-sign-up.png) |
+| **Sign in**: GitHub and Google show "Not available yet" until configured | **Sign up**: password strength, OAuth providers |
+| ![Dark mode](docs/screenshots/12-dark-mode.png) | ![Appearance settings](docs/screenshots/18-appearance.png) |
+| **Dark mode** (light by default) | **Appearance**: choose light or dark in Account settings |
+| ![Dashboard in French](docs/screenshots/13-french.png) | |
+| **English and French** | |
+
+## Features
+
+- **SmartDeploy**: detects Node.js (Next.js, Nuxt, Remix, Astro, NestJS, Express, Vite…), Python (Django, FastAPI,
+  Flask), Go, Rust, PHP/Laravel, Java/Spring, static sites, Dockerfiles, monorepos and docker-compose files;
+  proposes ports, commands, variables and databases, with a confidence level and an explanation.
+- **Zero-downtime deploys**: blue/green releases with health checks, automatic rollback when a deploy fails,
+  one-click rollback, canary releases, preview environments for pull requests.
+- **Smart Error Analyzer + Auto Fix**: explains failed builds and runtime crashes and proposes a fix (a setting,
+  a variable, or a pull request), never applied silently.
+- **Managed databases**: PostgreSQL, MariaDB, MongoDB and Redis with credentials rotation, verified backups,
+  restore, a read-only data browser and optional public access.
+- **Object storage** buckets (S3 API), volumes, cron jobs, one-off jobs, a secure in-container shell.
+- **Teams**: roles (owner, admin, developer, member, viewer) with per-team permission overrides, invitations,
+  audit log, API keys with scopes, 2FA, sessions management, GDPR export and deletion.
+- **Observability**: live build and runtime logs, metrics, uptime checks, alerts, public status pages, automatic
+  screenshots of every release.
+- **Billing**: plans and quotas, Stripe (cards), PayPal, Mobile Money (Flutterwave), prepaid credits, promo
+  codes, estimated bill and cost per service, invoices (PDF), spend caps, referral program with fraud checks.
+- **Deploy hooks** (secret URLs for CI), per-service **maintenance pages**, and platform **maintenance mode**.
+- **Sign-in** with email and password (2FA), GitHub, Google or GitLab. Any integration that is not configured is
+  shown as "Not available yet" instead of failing.
+- **Dashboard** in English and French, light mode by default and a dark mode (Account → Appearance), plus a **CLI** (`skyhost`).
+
+## Quick start (single server)
+
+Requirements: a Linux server with Docker Engine 25+, the Compose and Buildx plugins, 4 GB of RAM, ports 80 and
+443 open, and DNS records for the dashboard host and a wildcard for applications.
+
+```bash
+git clone https://github.com/syrixpierre-creator/skyhost.git && cd skyhost
+sudo ./scripts/install.sh --install-gvisor \
+  --domain app.example.com --apps-domain apps.example.com --email admin@example.com
+```
+
+The installer generates every secret into `.env` (mode 600), checks the container sandbox (gVisor), builds the
+images and starts the stack. **The first account created becomes the platform administrator.**
+
+Day-to-day operations:
+
+```bash
+./skyhost status     # services and health
+./skyhost logs api   # follow logs
+./skyhost doctor     # configuration and health checks
+./skyhost backup     # PostgreSQL dump + object storage + .env
+./skyhost update     # backup, rebuild, migrate, restart
+```
+
+See [docs/installation.md](docs/installation.md) and [docs/production.md](docs/production.md).
+
+## CLI
+
+```bash
+node apps/cli/dist/skyhost.js login --api-url https://app.example.com   # browser approval (device flow)
+skyhost init            # create a project from the current directory and deploy it
+skyhost deploy          # upload and deploy, streaming the logs
+skyhost logs -f         # runtime logs
+skyhost env set KEY=value --secret
+skyhost rollback
+skyhost shell -c "node --version"
+skyhost db create postgres
+```
+
+In CI, set `SKYHOST_API_URL`, `SKYHOST_TOKEN` (an API key with the `deploy` scope) and `SKYHOST_TEAM_ID`.
+
+## Repository layout
+
+| Path | Content |
+| --- | --- |
+| `apps/api` | Fastify API (REST under `/api/v1`, OpenAPI at `/api/docs`, WebSockets, webhooks, Traefik provider) |
+| `apps/worker` | BullMQ workers: build, deploy/release, scheduler, screenshots, notifications |
+| `apps/web` | React dashboard (Vite, Tailwind, TanStack Query) |
+| `apps/cli` | `skyhost` command line interface |
+| `packages/analyzer` | SmartDeploy detection, build plans, error analyzer |
+| `packages/engine` | Docker/BuildKit builds, hardened runtime, databases, buckets, Traefik configuration |
+| `packages/core` | Configuration, queues, billing, quotas, git providers, notifications |
+| `packages/db` | Drizzle schema, SQL migrations, seed data |
+| `packages/shared` | RBAC, validation schemas, encryption, SSRF protection |
+| `infra`, `docker-compose.yml` | Images and the single-server deployment |
+
+## Development
+
+```bash
+pnpm install
+service postgresql start && service redis-server start   # or run them in containers
+cp .env.example .env.development   # adjust DATABASE_URL, REDIS_URL, generate keys
+pnpm dev:api & pnpm dev:worker & pnpm dev:web
+```
+
+Tests: `pnpm test` (unit + integration), `pnpm test:e2e` (real Docker, Traefik and Playwright),
+`pnpm test:web` (dashboard smoke tests). See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Documentation
+
+[Architecture](docs/architecture.md) · [Installation](docs/installation.md) · [Configuration](docs/configuration.md) ·
+[Production](docs/production.md) · [Deployments](docs/deployment.md) · [Databases](docs/databases.md) ·
+[Git providers](docs/providers.md) · [Billing](docs/billing.md) · [Plans](docs/plans.md) · [Referral program](docs/referral.md) ·
+[Security](docs/security.md) · [API](docs/api.md) · [Security policy](SECURITY.md)
+
+## License
+
+Apache-2.0. © SYRIX VISION COMPANY.

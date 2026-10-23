@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# Operations helper for a SKYHOST installation.
+#   ./skyhost up|down|restart|status|logs [service]|update|doctor|backup|restore FILE|build
+set -euo pipefail
+cd "$(dirname "$0")"
+
+info() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
+ok() { printf '  \033[32m✓\033[0m %s\n' "$*"; }
+bad() { printf '  \033[31m✗\033[0m %s\n' "$*"; FAILED=1; }
+die() { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
+
+[ -f .env ] || die "No .env found. Run ./scripts/install.sh first."
+env_get() { grep -E "^$1=" .env | tail -n1 | cut -d= -f2- || true; }
+
+PROFILES=()
+[ -n "$(docker compose --profile observability ps -q prometheus 2>/dev/null)" ] && PROFILES+=(--profile observability)
+dc() { docker compose "${PROFILES[@]}" "$@"; }
+
+cmd="${1:-help}"
+shift || true
+case "$cmd" in
+  up) dc up -d "$@" ;;
+  down) dc down "$@" ;;
+  restart) dc restart "$@" ;;
+  status|ps) dc ps "$@" ;;
+  logs) dc logs -f --tail=200 "$@" ;;
+  build) dc build "$@" ;;
+
+  update)
+    info "Updating SKYHOST"
+    if [ -d .git ]; then git pull --ff-only; fi
+    ./skyhost backup
+    dc build
+    # Migrations run when the API starts; workers wait for a healthy API.
+    dc up -d
+    info "Update complete"
+    ;;
+
+  doctor)
+    FAILED=0
+    info "Checking the installation"
+    docker info >/dev/null 2>&1 && ok "Docker daemon reachable" || bad "Docker daemon not reachable"
+    if docker info --format '{{json .Runtimes}}' | grep -q '"runsc"'; then ok "gVisor (runsc) registered"; else
+      [ "$(env_get SKYHOST_CONTAINER_RUNTIME)" = runsc ] && bad "SKYHOST_CONTAINER_RUNTIME=runsc but runsc is not registered with Docker" || printf '  \033[33m!\033[0m customer containers use runc (weaker isolation)\n'
+    fi
+    for s in traefik docker-api api web worker-build worker-deploy worker-scheduler worker-screenshot postgres redis; do
+      st="$(dc ps --format '{{.State}} {{.Health}}' "$s" 2>/dev/null | head -n1)"
+      case "$st" in running*unhealthy*) bad "$s unhealthy" ;; running*) ok "$s $st" ;; *) bad "$s not running" ;; esac
+    done
+    for k in SKYHOST_MASTER_KEYS SKYHOST_INTERNAL_TOKEN SKYHOST_SESSION_SECRET POSTGRES_PASSWORD REDIS_PASSWORD; do
+      [ -n "$(env_get "$k")" ] && ok "$k set" || bad "$k is empty"
+    done
+    [ "$(stat -c %a .env 2>/dev/null || stat -f %Lp .env)" = 600 ] && ok ".env permissions 600" || bad ".env should be chmod 600"
+    url="$(env_get SKYHOST_DASHBOARD_URL)"
+    if curl -fsS -m 10 -o /dev/null "$url/api/v1/public/status" 2>/dev/null; then ok "Dashboard reachable at $url"; else bad "Dashboard not reachable at $url (DNS, firewall or certificate)"; fi
+    if [ "$(env_get SKYHOST_PAYMENTS_ENABLED)" = true ]; then
+      [ -n "$(env_get STRIPE_WEBHOOK_SECRET)" ] || [ -z "$(env_get STRIPE_SECRET_KEY)" ] && ok "Stripe webhook secret" || bad "STRIPE_WEBHOOK_SECRET missing"
+    fi
+    df -h / | awk 'NR==2 {print "  disk: " $4 " free (" $5 " used)"}'
+    [ "$FAILED" = 0 ] && info "Everything looks good" || exit 1
+    ;;
+
+  backup)
+    # Control plane backup: PostgreSQL dump + object storage. Restoring needs the same SKYHOST_MASTER_KEYS.
+    dir="backups/$(date -u +%Y%m%dT%H%M%SZ)"
+    mkdir -p "$dir"
+    chmod 700 backups "$dir"
+    info "Dumping PostgreSQL to $dir/postgres.sql.gz"
+    dc exec -T postgres pg_dump -U skyhost -d skyhost --clean --if-exists | gzip > "$dir/postgres.sql.gz"
+    info "Archiving object storage to $dir/objects.tar.gz"
+    docker run --rm -v skyhost_objects:/data:ro -v "$PWD/$dir:/out" alpine:3.22 tar czf /out/objects.tar.gz -C /data .
+    cp .env "$dir/env.backup" && chmod 600 "$dir/env.backup"
+    info "Backup written to $dir (it contains your encryption keys: store it securely)"
+    ;;
+
+  restore)
+    dir="${1:-}"
+    [ -n "$dir" ] && [ -f "$dir/postgres.sql.gz" ] || die "Usage: ./skyhost restore backups/<timestamp>"
+    read -r -p "This replaces the current database and objects with $dir. Type RESTORE to continue: " c
+    [ "$c" = RESTORE ] || die "Cancelled"
+    dc stop api worker-build worker-deploy worker-scheduler worker-screenshot
+    info "Restoring PostgreSQL"
+    gunzip -c "$dir/postgres.sql.gz" | dc exec -T postgres psql -U skyhost -d skyhost -v ON_ERROR_STOP=1 -q
+    if [ -f "$dir/objects.tar.gz" ]; then
+      info "Restoring object storage"
+      docker run --rm -v skyhost_objects:/data -v "$PWD/$dir:/in:ro" alpine:3.22 sh -c 'rm -rf /data/* /data/.[!.]* 2>/dev/null; tar xzf /in/objects.tar.gz -C /data'
+    fi
+    dc up -d
+    info "Restore complete"
+    ;;
+
+  help|-h|--help|*)
+    sed -n '2,3p' "$0" | sed 's/^# \{0,1\}//'
+    ;;
+esac

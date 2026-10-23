@@ -1,0 +1,9 @@
+{
+  "name": "laravel/laravel",
+  "type": "project",
+  "require": {
+    "php": "^8.2",
+    "laravel/framework": "^11.31",
+    "laravel/tinker": "^2.9"
+  }
+}

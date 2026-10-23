@@ -1,0 +1,321 @@
+# SKYHOST control plane on a single server.
+#   ./scripts/install.sh   generates .env (secrets) and starts everything
+#   ./skyhost status       shows the state of the stack
+#
+# Profiles: "observability" (Prometheus, Loki, Promtail, Grafana), "mail" (Mailpit for testing emails),
+# "registry" (private image registry for multi-node setups).
+
+name: skyhost
+
+x-app: &app
+  restart: unless-stopped
+  init: true
+  env_file: .env
+  logging:
+    driver: json-file
+    options: { max-size: "20m", max-file: "5" }
+
+x-app-env: &app-env
+  NODE_ENV: production
+  # Control-plane hostnames use reserved names (with a dot, not ending in .internal): Traefik and the deploy
+  # worker also join project networks, where a user service called "api" or "redis" would otherwise shadow them.
+  DATABASE_URL: postgres://skyhost:${POSTGRES_PASSWORD}@postgres.skyhost-control:5432/skyhost
+  REDIS_URL: redis://:${REDIS_PASSWORD}@redis.skyhost-control:6379/0
+  DOCKER_HOST: tcp://docker-api.skyhost-control:2375
+  SKYHOST_API_INTERNAL_URL: http://api.skyhost-control:4000
+  # Uploads, backups, screenshots and log archives, encrypted with SKYHOST_MASTER_KEYS. Set STORAGE_DRIVER=s3
+  # and S3_* in .env to use an external S3-compatible service instead (AWS S3, Cloudflare R2, Backblaze B2…).
+  STORAGE_DRIVER: ${STORAGE_DRIVER:-fs}
+  STORAGE_FS_ROOT: /var/lib/skyhost/objects
+  SKYHOST_EDGE_CONTAINERS: skyhost-traefik,skyhost-worker-deploy
+  SKYHOST_DASHBOARD_UPSTREAM: http://web.skyhost-control:8080
+
+services:
+  # ------------------------------------------------------------------------------------------- edge
+  traefik:
+    image: traefik:v3.4
+    container_name: skyhost-traefik
+    restart: unless-stopped
+    command:
+      - --global.checkNewVersion=false
+      - --global.sendAnonymousUsage=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.websecure.transport.respondingTimeouts.readTimeout=0s
+      - --entrypoints.metrics.address=:8082
+      - --providers.http.endpoint=http://api.skyhost-control:4000/internal/proxy/traefik?token=${SKYHOST_INTERNAL_TOKEN}
+      - --providers.http.pollInterval=2s
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.storage=/acme/acme.json
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      - --ping.entrypoint=metrics
+      - --metrics.prometheus.entrypoint=metrics
+      - --accesslog.format=json
+      - --accesslog.fields.headers.defaultmode=drop
+      - --log.level=WARN
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - traefik-acme:/acme
+    networks: [control]
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping", "--entrypoints.metrics.address=:8082", "--ping.entrypoint=metrics"]
+      interval: 15s
+      timeout: 5s
+
+  # Docker API restricted to what the platform needs. Only the API and the workers can reach it;
+  # Traefik and user containers never see the Docker socket.
+  docker-api:
+    image: tecnativa/docker-socket-proxy:v0.4.1
+    restart: unless-stopped
+    environment:
+      # Listens on the internal docker-api network only; IPv4 is enough and works on hosts without IPv6.
+      DISABLE_IPV6: 1
+      CONTAINERS: 1
+      IMAGES: 1
+      NETWORKS: 1
+      VOLUMES: 1
+      EXEC: 1
+      BUILD: 1
+      SESSION: 1
+      GRPC: 1
+      DISTRIBUTION: 1
+      INFO: 1
+      VERSION: 1
+      PING: 1
+      EVENTS: 1
+      POST: 1
+      DELETE: 1
+      ALLOW_START: 1
+      ALLOW_STOP: 1
+      ALLOW_RESTARTS: 1
+      AUTH: 0
+      SECRETS: 0
+      SWARM: 0
+      SYSTEM: 0
+      PLUGINS: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      docker-api: { aliases: [docker-api.skyhost-control] }
+
+  # ------------------------------------------------------------------------------------------- control plane
+  api:
+    <<: *app
+    container_name: skyhost-api
+    image: ${SKYHOST_IMAGE_PREFIX:-skyhost}/api:${SKYHOST_VERSION:-latest}
+    build: { context: ., dockerfile: infra/docker/Dockerfile, target: api }
+    command: ["node", "apps/api/dist/index.js"]
+    environment:
+      <<: *app-env
+      SKYHOST_MIGRATE_ON_START: "1"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    volumes:
+      - objects:/var/lib/skyhost/objects
+    networks:
+      control: { aliases: [api.skyhost-control] }
+      docker-api: {}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      start_period: 60s
+
+  web:
+    image: ${SKYHOST_IMAGE_PREFIX:-skyhost}/web:${SKYHOST_VERSION:-latest}
+    build: { context: ., dockerfile: infra/docker/Dockerfile, target: web }
+    restart: unless-stopped
+    depends_on: [api]
+    networks:
+      control: { aliases: [web.skyhost-control] }
+
+  worker-build:
+    <<: *app
+    command: ["node", "apps/worker/dist/index.js"]
+    image: ${SKYHOST_IMAGE_PREFIX:-skyhost}/worker:${SKYHOST_VERSION:-latest}
+    build: { context: ., dockerfile: infra/docker/Dockerfile, target: worker }
+    environment:
+      <<: *app-env
+      SKYHOST_WORKER_ROLES: build
+      SKYHOST_NODE_NAME: ${HOSTNAME:-node-1}-build
+      # The socket proxy cannot carry BuildKit's h2c upgrade: builds use a dedicated BuildKit container instead,
+      # and the builder definition persists on the work volume.
+      SKYHOST_BUILDX_BUILDER: skyhost
+      DOCKER_CONFIG: /var/lib/skyhost/work/.docker
+    volumes:
+      - work:/var/lib/skyhost/work
+      - objects:/var/lib/skyhost/objects
+    depends_on:
+      api: { condition: service_healthy }
+    networks: [control, docker-api]
+
+  worker-deploy:
+    <<: *app
+    container_name: skyhost-worker-deploy
+    command: ["node", "apps/worker/dist/index.js"]
+    image: ${SKYHOST_IMAGE_PREFIX:-skyhost}/worker:${SKYHOST_VERSION:-latest}
+    build: { context: ., dockerfile: infra/docker/Dockerfile, target: worker }
+    environment:
+      <<: *app-env
+      SKYHOST_WORKER_ROLES: deploy,notify
+      SKYHOST_NODE_NAME: ${HOSTNAME:-node-1}-deploy
+    volumes:
+      - work:/var/lib/skyhost/work
+      - objects:/var/lib/skyhost/objects
+    depends_on:
+      api: { condition: service_healthy }
+    networks: [control, docker-api]
+
+  worker-scheduler:
+    <<: *app
+    command: ["node", "apps/worker/dist/index.js"]
+    image: ${SKYHOST_IMAGE_PREFIX:-skyhost}/worker:${SKYHOST_VERSION:-latest}
+    build: { context: ., dockerfile: infra/docker/Dockerfile, target: worker }
+    environment:
+      <<: *app-env
+      SKYHOST_WORKER_ROLES: scheduler
+      SKYHOST_NODE_NAME: ${HOSTNAME:-node-1}-scheduler
+    volumes:
+      - objects:/var/lib/skyhost/objects
+    depends_on:
+      api: { condition: service_healthy }
+    networks: [control, docker-api]
+
+  worker-screenshot:
+    <<: *app
+    command: ["node", "apps/worker/dist/index.js"]
+    image: ${SKYHOST_IMAGE_PREFIX:-skyhost}/worker-screenshot:${SKYHOST_VERSION:-latest}
+    build: { context: ., dockerfile: infra/docker/Dockerfile, target: worker-screenshot }
+    environment:
+      <<: *app-env
+      SKYHOST_WORKER_ROLES: screenshot
+      SKYHOST_NODE_NAME: ${HOSTNAME:-node-1}-screenshot
+      SKYHOST_SCREENSHOT_PROXY_HOST: traefik
+    volumes:
+      - objects:/var/lib/skyhost/objects
+    shm_size: 512m
+    depends_on:
+      api: { condition: service_healthy }
+    networks: [control]
+
+  # ------------------------------------------------------------------------------------------- data
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: skyhost
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: skyhost
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    networks:
+      control: { aliases: [postgres.skyhost-control] }
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U skyhost -d skyhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis:/data
+    networks:
+      control: { aliases: [redis.skyhost-control] }
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+  registry:
+    image: registry:2.8.3
+    profiles: [registry]
+    restart: unless-stopped
+    environment:
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    volumes:
+      - registry:/var/lib/registry
+    ports:
+      - "127.0.0.1:5000:5000"
+    networks: [control]
+
+  # ------------------------------------------------------------------------------------------- tooling
+  mailpit:
+    image: axllent/mailpit:v1.27
+    profiles: [mail]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"
+    networks: [control]
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    profiles: [observability]
+    restart: unless-stopped
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=30d"]
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./.data/prometheus-token:/etc/prometheus/token:ro
+      - prometheus:/prometheus
+    networks: [control]
+
+  loki:
+    image: grafana/loki:3.5.3
+    profiles: [observability]
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/config.yml"]
+    volumes:
+      - ./infra/loki/config.yml:/etc/loki/config.yml:ro
+      - loki:/loki
+    networks: [control]
+
+  promtail:
+    image: grafana/promtail:3.5.3
+    profiles: [observability]
+    restart: unless-stopped
+    command: ["-config.file=/etc/promtail/config.yml"]
+    volumes:
+      - ./infra/promtail/config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    networks: [control]
+
+  grafana:
+    image: grafana/grafana:12.1.0
+    profiles: [observability]
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks: [control]
+
+networks:
+  control:
+    name: skyhost-control
+  docker-api:
+    name: skyhost-docker-api
+    internal: true
+
+volumes:
+  postgres:
+  redis:
+  objects:
+  registry:
+  traefik-acme:
+  work:
+  prometheus:
+  loki:
+  grafana:

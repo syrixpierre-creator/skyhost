@@ -1,0 +1,1 @@
+{"name": "turbo-mono", "private": true, "scripts": {"build": "turbo build"}, "devDependencies": {"turbo": "^2.3.0"}, "packageManager": "pnpm@9.15.0"}

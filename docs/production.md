@@ -1,0 +1,52 @@
+# Running in production
+
+## Checklist
+
+- [ ] gVisor (`runsc`) registered with Docker and `SKYHOST_CONTAINER_RUNTIME=runsc`.
+- [ ] HTTPS: `SKYHOST_PUBLIC_SCHEME=https`, `SKYHOST_TLS=true`, a real `ACME_EMAIL`, DNS records in place.
+- [ ] `.env` is `chmod 600`, owned by root, and backed up somewhere safe: **without `SKYHOST_MASTER_KEYS`,
+      encrypted variables, credentials and backups cannot be recovered.**
+- [ ] SMTP configured, email verification enabled.
+- [ ] A git provider configured with its webhook secret.
+- [ ] Payments: sandbox tested end to end, then live keys and webhook secrets; `SKYHOST_PAYMENTS_ENABLED=true`.
+- [ ] `./skyhost backup` scheduled and copied off-site; a restore rehearsed on another machine.
+- [ ] Firewall: only 22, 80 and 443 open (plus the public database port range if you offer it).
+- [ ] `./skyhost doctor` passes.
+- [ ] Observability profile enabled, Grafana reachable through an SSH tunnel only.
+
+## Updates
+
+```bash
+./skyhost update
+```
+
+The command pulls the repository, takes a backup, rebuilds the images and restarts the stack. Database
+migrations run when the API starts; running deployments are not interrupted because customer containers are
+independent of the control plane.
+
+## Backups
+
+`./skyhost backup` writes `backups/<timestamp>/` with a PostgreSQL dump, an archive of the object storage
+(customer database backups, uploads, screenshots) and a copy of `.env`. Customer databases are additionally
+backed up on their own schedule by the platform, and every backup is verified by restoring it into a
+temporary container.
+
+Restore on a fresh server: install SKYHOST, copy the backup directory, then `./skyhost restore backups/<timestamp>`.
+Restore the original `.env` first so the encryption keys match.
+
+## Capacity
+
+One build at a time needs about 2 CPUs and 4 GB RAM (`SKYHOST_BUILD_*`). Plan limits (CPU, memory, storage)
+are enforced per team; keep the sum of what you sell below the server capacity or add nodes.
+
+## Multiple nodes
+
+Run additional `worker-build` / `worker-deploy` containers on other Docker hosts, pointing at the same
+PostgreSQL and Redis, with a shared registry (`--profile registry`, `SKYHOST_REGISTRY`) so built images are
+available everywhere. Each node registers a heartbeat visible in Admin → Overview.
+
+## Monitoring
+
+With `--profile observability`, Prometheus scrapes `/internal/metrics` (deployments by status, instances by
+state, teams, failing uptime checks) and Traefik metrics; Loki collects the control-plane container logs;
+Grafana is provisioned with both data sources. The public platform status page is `/status`.

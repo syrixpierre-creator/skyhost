@@ -1,0 +1,10 @@
+require('dotenv').config();
+const express = require('express');
+const { Pool } = require('pg');
+const app = express();
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+app.get('/', (req, res) => res.send('Hello World!'));
+app.get('/health', (req, res) => res.json({ ok: true }));
+app.get('/users', async (req, res) => res.json((await pool.query('select * from users')).rows));
+const port = process.env.PORT || 3000;
+app.listen(port, 'localhost', () => console.log(`listening on ${port}`));

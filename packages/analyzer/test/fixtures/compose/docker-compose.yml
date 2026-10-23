@@ -1,0 +1,21 @@
+services:
+  web:
+    build: ./web
+    ports: ["8000:8000"]
+    environment:
+      DATABASE_URL: postgres://app:app@db:5432/app
+      REDIS_URL: redis://cache:6379
+    depends_on: [db, cache]
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: app
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+  cache:
+    image: redis:7-alpine
+  admin:
+    image: adminer
+    privileged: true
+    volumes: ["/var/run/docker.sock:/var/run/docker.sock"]
+volumes:
+  pgdata: {}

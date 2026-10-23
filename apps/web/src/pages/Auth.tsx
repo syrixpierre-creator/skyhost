@@ -53,7 +53,7 @@ function ProviderIcon({ id }: { id: "github" | "google" | "gitlab" }) {
 }
 
 /** Illustration of a deployment (decorative): the steps SKYHOST performs after a push. */
-function DeployIllustration() {
+export function DeployIllustration() {
   const steps = [
     { label: "git push origin main", tone: "muted" },
     { label: t("SmartDeploy: Next.js · pnpm · port 3000 · high confidence"), tone: "fg" },

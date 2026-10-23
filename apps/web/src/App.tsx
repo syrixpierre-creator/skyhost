@@ -10,6 +10,7 @@ import { t } from "./lib/i18n";
 
 const Auth = lazy(() => import("./pages/Auth"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Landing = lazy(() => import("./pages/Landing"));
 const NewProject = lazy(() => import("./pages/NewProject"));
 const Project = lazy(() => import("./pages/Project"));
 const Service = lazy(() => import("./pages/Service"));
@@ -31,6 +32,13 @@ function Loading() {
       <Skeleton className="h-24 w-full" />
     </div>
   );
+}
+
+/** Signed-in users get their dashboard at "/", visitors the public home page. */
+function Home() {
+  const { me, loading } = useSession();
+  if (loading) return <Loading />;
+  return me ? <Protected><Dashboard /></Protected> : <Landing />;
 }
 
 function Protected({ children }: { children: ReactNode }) {
@@ -69,7 +77,7 @@ export function App() {
         <Route path="/terms" element={<Public page="terms" />} />
         <Route path="/privacy" element={<Public page="privacy" />} />
         <Route path="/cli" element={<Protected><Public page="cli" /></Protected>} />
-        <Route path="/" element={<Protected><Dashboard /></Protected>} />
+        <Route path="/" element={<Home />} />
         <Route path="/new" element={<Protected><NewProject /></Protected>} />
         <Route path="/databases/new" element={<Protected><NewProject key="database" /></Protected>} />
         <Route path="/templates" element={<Protected><Templates /></Protected>} />

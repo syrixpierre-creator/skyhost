@@ -230,3 +230,16 @@ test("on a phone, page sections are a menu instead of a hidden row of tabs", asy
   await expect(page.getByRole("radio", { name: /Dark/ })).toBeVisible();
   await ctx.close();
 });
+
+test("visitors get the public home page with pricing; signed-in users get their dashboard", async ({ browser, page }) => {
+  const visitor = await (await browser.newContext()).newPage();
+  await visitor.goto("/");
+  await expect(visitor.getByRole("heading", { name: "Push your code. Get a live URL." })).toBeVisible();
+  await expect(visitor.getByRole("heading", { name: "Simple pricing" })).toBeVisible();
+  await expect(visitor.getByText("Starter", { exact: true })).toBeVisible();
+  await visitor.getByRole("link", { name: "Deploy for free" }).click();
+  await expect(visitor).toHaveURL(/\/signup$/);
+  await login(page);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Push your code. Get a live URL." })).toHaveCount(0);
+});

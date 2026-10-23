@@ -36,6 +36,8 @@ export interface GitProviderClient {
   commitStatus(repo: string, sha: string): Promise<"success" | "pending" | "failure" | "none">;
   readFile(repo: string, ref: string, path: string): Promise<string | null>;
   createFixPullRequest(repo: string, base: string, branch: string, changes: FileChange[], title: string, body: string): Promise<{ url: string; number: number }>;
+  /** Registers the SKYHOST push/PR webhook on the repository (GitHub Apps receive events without it). */
+  ensureWebhook(repo: string, url: string): Promise<void>;
 }
 
 type Installation = typeof gitInstallations.$inferSelect;
@@ -158,6 +160,9 @@ class GitHubClient implements GitProviderClient {
     const pr = await this.api<{ html_url: string; number: number }>(`/repos/${r}/pulls`, { method: "POST", body: JSON.stringify({ title, body, head: branch, base }) });
     return { url: pr.html_url, number: pr.number };
   }
+  async ensureWebhook() {
+    // GitHub App webhooks are configured on the App itself.
+  }
 }
 
 // ------------------------------------------------------------------------------------------------- GitLab
@@ -237,6 +242,14 @@ class GitLabClient implements GitProviderClient {
     const mr = await this.api<{ web_url: string; iid: number }>(`/projects/${this.id(repo)}/merge_requests`, { method: "POST", body: JSON.stringify({ source_branch: branch, target_branch: base, title, description: body }) });
     return { url: mr.web_url, number: mr.iid };
   }
+  async ensureWebhook(repo: string, url: string) {
+    const hooks = await this.api<Array<{ id: number; url: string }>>(`/projects/${this.id(repo)}/hooks`);
+    if (hooks.some((h) => h.url === url)) return;
+    await this.api(`/projects/${this.id(repo)}/hooks`, {
+      method: "POST",
+      body: JSON.stringify({ url, push_events: true, merge_requests_events: true, token: serverConfig().GITLAB_WEBHOOK_SECRET, enable_ssl_verification: true }),
+    });
+  }
 }
 
 // ------------------------------------------------------------------------------------------------- Bitbucket
@@ -294,6 +307,14 @@ class BitbucketClient implements GitProviderClient {
       body: JSON.stringify({ title, description: body, source: { branch: { name: branch } }, destination: { branch: { name: base } } }),
     });
     return { url: pr.links.html.href, number: pr.id };
+  }
+  async ensureWebhook(repo: string, url: string) {
+    const hooks = await this.api<{ values: Array<{ url: string }> }>(`/repositories/${repoPath(repo)}/hooks`);
+    if (hooks.values.some((h) => h.url === url)) return;
+    await this.api(`/repositories/${repoPath(repo)}/hooks`, {
+      method: "POST",
+      body: JSON.stringify({ description: "SKYHOST", url, active: true, secret: serverConfig().BITBUCKET_WEBHOOK_SECRET, events: ["repo:push", "pullrequest:created", "pullrequest:updated", "pullrequest:fulfilled", "pullrequest:rejected"] }),
+    });
   }
 }
 

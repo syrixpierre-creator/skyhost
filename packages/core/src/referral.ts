@@ -74,6 +74,8 @@ export async function onPaymentSucceeded(payment: typeof payments.$inferSelect) 
   const db = getDb();
   const settings = await getSetting("referral");
   if (!settings.enabled) return null;
+  // Plans paid from prepaid credits were already counted when the credits were bought.
+  if (payment.provider === "credits") return null;
   const payerId = payment.userId ?? (await teamOwner(payment.teamId));
   if (!payerId) return null;
   const [ref] = await db.select().from(referrals).where(eq(referrals.referredUserId, payerId));

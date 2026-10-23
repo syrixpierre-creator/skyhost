@@ -41,7 +41,7 @@ export const DEFAULT_PLANS: Array<{
     isPublic: true,
     sort: 0,
     limits: {
-      cpu: 0.5, memoryMb: 512, storageMb: 1024, bandwidthGb: 10, buildMinutes: 100, services: 2, databases: 1, members: 1,
+      cpu: 1, memoryMb: 1024, storageMb: 2048, bandwidthGb: 10, buildMinutes: 100, services: 2, databases: 1, members: 1,
       deploysPerDay: 20, logRetentionDays: 1, backupRetentionDays: 1, customDomains: 0, screenshotsPerMonth: 20,
       previewEnvironments: 0, projects: 1, volumesMb: 512, buckets: 0, bucketStorageMb: 0, cronJobs: 1,
     },
@@ -54,7 +54,7 @@ export const DEFAULT_PLANS: Array<{
     priceCents: 500,
     sort: 1,
     limits: {
-      cpu: 1, memoryMb: 1024, storageMb: 5120, bandwidthGb: 100, buildMinutes: 500, services: 5, databases: 2, members: 3,
+      cpu: 3, memoryMb: 3072, storageMb: 10240, bandwidthGb: 100, buildMinutes: 500, services: 5, databases: 2, members: 3,
       deploysPerDay: 100, logRetentionDays: 7, backupRetentionDays: 7, customDomains: 3, screenshotsPerMonth: 200,
       previewEnvironments: 2, projects: 5, volumesMb: 5120, buckets: 1, bucketStorageMb: 5120, cronJobs: 5,
     },
@@ -67,7 +67,7 @@ export const DEFAULT_PLANS: Array<{
     priceCents: 1500,
     sort: 2,
     limits: {
-      cpu: 4, memoryMb: 4096, storageMb: 20480, bandwidthGb: 500, buildMinutes: 2000, services: 20, databases: 5, members: 10,
+      cpu: 8, memoryMb: 16384, storageMb: 51200, bandwidthGb: 500, buildMinutes: 2000, services: 20, databases: 5, members: 10,
       deploysPerDay: 500, logRetentionDays: 14, backupRetentionDays: 14, customDomains: 20, screenshotsPerMonth: 1000,
       previewEnvironments: 10, projects: 20, volumesMb: 20480, buckets: 5, bucketStorageMb: 51200, cronJobs: 20,
     },
@@ -80,7 +80,7 @@ export const DEFAULT_PLANS: Array<{
     priceCents: 3000,
     sort: 3,
     limits: {
-      cpu: 8, memoryMb: 16384, storageMb: 102400, bandwidthGb: 2000, buildMinutes: 6000, services: 100, databases: 20, members: 50,
+      cpu: 32, memoryMb: 65536, storageMb: 204800, bandwidthGb: 2000, buildMinutes: 6000, services: 100, databases: 20, members: 50,
       deploysPerDay: 2000, logRetentionDays: 30, backupRetentionDays: 30, customDomains: 100, screenshotsPerMonth: 5000,
       previewEnvironments: 50, projects: 100, volumesMb: 102400, buckets: 20, bucketStorageMb: 204800, cronJobs: 100,
     },

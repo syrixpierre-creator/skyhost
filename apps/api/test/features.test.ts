@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { creditTransactions, deployments, getDb, teams, users } from "@skyhost/db";
-import { EMAIL_BY_DEFAULT, getQueue, notify, QUEUES } from "@skyhost/core";
+import { EMAIL_BY_DEFAULT, getQueue, githubAppJwt, notify, QUEUES, resetServerConfig } from "@skyhost/core";
 import { Client, newUser, setPlan } from "./helpers";
 import { TEST_ENV } from "./env";
 
@@ -192,5 +192,26 @@ describe("alert emails", () => {
     await notify({ teamId: u.teamId, event: "service.unhealthy", title: "web is down", body: "No replica is running." });
     const mine = (await queue.getJobs(["waiting", "delayed", "prioritized"])).filter((j) => !before.has(j.id) && (j.data as { email?: string }).email === u.email);
     expect(mine).toHaveLength(0);
+  });
+});
+
+describe("GitHub App", () => {
+  it("signs its JWT with a numeric issuer, as GitHub requires for an App ID", async () => {
+    const { generateKeyPairSync } = await import("node:crypto");
+    const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+    const pem = privateKey.export({ type: "pkcs1", format: "pem" }).toString().replace(/\n/g, "\\n");
+    const saved = { id: process.env.GITHUB_APP_ID, key: process.env.GITHUB_APP_PRIVATE_KEY };
+    process.env.GITHUB_APP_ID = " 1234567 ";
+    process.env.GITHUB_APP_PRIVATE_KEY = pem;
+    resetServerConfig();
+    try {
+      const claims = JSON.parse(Buffer.from((await githubAppJwt()).split(".")[1]!, "base64url").toString());
+      expect(claims.iss).toBe(1234567);
+      expect(claims.exp - claims.iat).toBeLessThanOrEqual(600);
+    } finally {
+      process.env.GITHUB_APP_ID = saved.id ?? "";
+      process.env.GITHUB_APP_PRIVATE_KEY = saved.key ?? "";
+      resetServerConfig();
+    }
   });
 });

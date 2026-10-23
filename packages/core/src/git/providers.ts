@@ -68,7 +68,13 @@ export async function githubAppJwt(): Promise<string> {
   const pkcs8 = createPrivateKey(pem).export({ type: "pkcs8", format: "pem" }).toString();
   const key = await importPKCS8(pkcs8, "RS256");
   const now = Math.floor(Date.now() / 1000);
-  return new SignJWT({}).setProtectedHeader({ alg: "RS256" }).setIssuedAt(now - 60).setExpirationTime(now + 540).setIssuer(c.GITHUB_APP_ID).sign(key);
+  // GitHub wants the App ID as a number in "iss" (a string is only accepted for the app's Client ID, "Iv…").
+  const appId = c.GITHUB_APP_ID.trim().replace(/^["']|["']$/g, "");
+  return new SignJWT({ iss: /^\d+$/.test(appId) ? Number(appId) : appId } as Record<string, unknown>)
+    .setProtectedHeader({ alg: "RS256" })
+    .setIssuedAt(now - 60)
+    .setExpirationTime(now + 540)
+    .sign(key);
 }
 
 export async function githubInstallationToken(installationId: string): Promise<string> {

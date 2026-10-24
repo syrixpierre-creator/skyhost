@@ -456,7 +456,8 @@ function PeriodBar({ start, end }: { start: string; end: string }) {
   const e = new Date(end).getTime();
   const pct = Math.min(100, Math.max(0, ((Date.now() - s) / (e - s)) * 100));
   const days = Math.max(0, Math.ceil((e - Date.now()) / 86400_000));
-  const fmt = (d: number) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  // Billing periods start and end at midnight UTC: show them in UTC so "Oct 1" never reads "Sep 30" west of Greenwich.
+  const fmt = (d: number) => new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
   return (
     <div className="mt-4">
       <div className="h-1 rounded-full bg-panel-2"><div className="h-full rounded-full bg-fg" style={{ width: `${pct}%` }} /></div>

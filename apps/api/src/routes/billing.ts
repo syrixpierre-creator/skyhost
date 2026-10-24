@@ -123,7 +123,10 @@ export default async function billingRoutes(app: FastifyInstance) {
         const o = await createPaypalOrder({ teamId: params.teamId, amountCents: body.amountCents, currency, returnUrl: `${dash}/billing?paypal=return`, cancelUrl: `${dash}/billing` });
         return { url: o.approveUrl, orderId: o.id };
       }
-      const txRef = `sky-${params.teamId.slice(0, 8)}-${randomToken(8)}`;
+      // The intended amount and currency are encoded in the reference: only the server creates these references
+      // (with the Flutterwave secret key), and the webhook re-verifies the transaction through the API, so the
+      // reference cannot be forged. The webhook credits this intended amount, never the amount the gateway returns.
+      const txRef = `sky-${params.teamId.slice(0, 8)}-c${body.amountCents}-${currency.toLowerCase()}-${randomToken(8)}`;
       return { url: await createMobileMoneyPayment({ txRef, amountCents: body.amountCents, currency, email: req.auth.user!.email, name: req.auth.user!.name, redirectUrl: `${dash}/billing?credits=pending`, teamId: params.teamId }) };
     },
   );

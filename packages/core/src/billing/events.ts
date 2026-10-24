@@ -207,11 +207,25 @@ export async function handlePaypalEvent(event: { id: string; event_type: string;
 export async function handleFlutterwaveTransaction(tx: { id: number; tx_ref: string; status: string; amount: number; currency: string; meta?: Record<string, string> }) {
   const eventRow = await recordBillingEvent("flutterwave", String(tx.id), `charge.${tx.status}`, tx, tx.meta?.teamId ?? null);
   if (!eventRow) return "duplicate" as const;
-  if (tx.status !== "successful" || !tx.meta?.teamId) {
-    await markBillingEventProcessed(eventRow);
+  // The reference encodes the intended amount and currency (sky-<team8>-c<cents>-<cur>-<rand>): we credit that
+  // amount, never the amount the gateway returns, so a transaction settled in a weaker currency (or tampered with)
+  // can never inflate the credit balance. The currency must match and the amount actually paid must cover it.
+  const ref = /^sky-[0-9a-f]{8}-c(\d+)-([a-z]{3})-/.exec(tx.tx_ref || "");
+  const intendedCents = ref ? Number(ref[1]) : NaN;
+  const intendedCurrency = ref?.[2];
+  const paidCents = Math.round(tx.amount * 100);
+  if (
+    tx.status !== "successful" ||
+    !tx.meta?.teamId ||
+    !ref ||
+    !Number.isFinite(intendedCents) ||
+    tx.currency.toLowerCase() !== intendedCurrency ||
+    paidCents < intendedCents
+  ) {
+    await markBillingEventProcessed(eventRow, tx.status === "successful" && ref ? "amount or currency mismatch" : undefined);
     return "ignored" as const;
   }
-  await recordPayment({ teamId: tx.meta.teamId, userId: tx.meta.userId ?? null, provider: "flutterwave", providerPaymentId: String(tx.id), kind: "credits", amountCents: Math.round(tx.amount * 100), currency: tx.currency.toLowerCase(), description: "Prepaid credits (Mobile Money)" });
+  await recordPayment({ teamId: tx.meta.teamId, userId: tx.meta.userId ?? null, provider: "flutterwave", providerPaymentId: String(tx.id), kind: "credits", amountCents: intendedCents, currency: intendedCurrency, description: "Prepaid credits (Mobile Money)" });
   await markBillingEventProcessed(eventRow);
   return "processed" as const;
 }

@@ -9,7 +9,7 @@ import { useRealtimeInvalidate } from "../lib/session";
 import { LogViewer, type LogLine } from "../components/LogViewer";
 import { VariablesEditor } from "../components/VariablesEditor";
 import { MetricChart, bytesFmt } from "../components/Charts";
-import { Alert, Badge, Button, Card, CodeField, ConfirmDialog, EmptyState, ErrorState, Field, Input, LoadingRows, Modal, PageHeader, Select, StatusBadge, Tabs, Textarea, Toggle, timeAgo, useToast } from "../components/ui";
+import { Alert, Badge, Button, Card, CodeField, ConfirmDialog, CopyButton, EmptyState, ErrorState, Field, Input, LoadingRows, Modal, PageHeader, Select, StatusBadge, Tabs, Textarea, Toggle, timeAgo, useToast } from "../components/ui";
 import { t } from "../lib/i18n";
 import { ProjectCrumb } from "../components/ProjectCrumb";
 const CodeEditor = lazy(() => import("../components/CodeEditor").then((m) => ({ default: m.CodeEditor })));
@@ -343,16 +343,30 @@ function DomainsTab({ s, envId }: { s: ServiceDetail; envId: string }) {
                   </div>
                 </div>
                 {d.status !== "ssl_issued" && (
-                  <table className="mt-3 w-full text-xs">
-                    <thead className="text-left text-muted"><tr><th className="pb-1">{t("Type")}</th><th>{t("Name")}</th><th>{t("Value")}</th><th>{t("Purpose")}</th></tr></thead>
-                    <tbody>
+                  <>
+                    {/* Phones: each DNS record as a card with copy buttons; desktop keeps the compact table. */}
+                    <div className="mt-3 space-y-3 sm:hidden">
                       {d.dns.records.map((r) => (
-                        <tr key={r.type + r.name} className="border-t border-line font-mono">
-                          <td className="py-1.5">{r.type}</td><td>{r.name}</td><td className="break-all">{r.value}</td><td className="font-sans text-muted">{r.purpose}</td>
-                        </tr>
+                        <div key={r.type + r.name} className="rounded-md border border-line p-3 text-xs">
+                          <div className="mb-2 flex items-center gap-2"><Badge>{r.type}</Badge><span className="text-muted">{r.purpose}</span></div>
+                          <div className="space-y-2">
+                            <div><div className="text-[11px] text-muted">{t("Name")}</div><div className="flex items-center gap-2"><code className="min-w-0 flex-1 break-all font-mono">{r.name}</code><CopyButton value={r.name} /></div></div>
+                            <div><div className="text-[11px] text-muted">{t("Value")}</div><div className="flex items-center gap-2"><code className="min-w-0 flex-1 break-all font-mono">{r.value}</code><CopyButton value={r.value} /></div></div>
+                          </div>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
+                    </div>
+                    <table className="mt-3 hidden w-full text-xs sm:table">
+                      <thead className="text-left text-muted"><tr><th className="pb-1">{t("Type")}</th><th>{t("Name")}</th><th>{t("Value")}</th><th>{t("Purpose")}</th></tr></thead>
+                      <tbody>
+                        {d.dns.records.map((r) => (
+                          <tr key={r.type + r.name} className="border-t border-line font-mono">
+                            <td className="py-1.5">{r.type}</td><td>{r.name}</td><td className="break-all">{r.value}</td><td className="font-sans text-muted">{r.purpose}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
                 )}
                 {d.error && <p className="mt-2 text-xs text-amber-500">{d.error}</p>}
               </div>

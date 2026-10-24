@@ -83,7 +83,7 @@ test("account, billing, team settings, templates and referrals pages load real d
   await expect(page.getByText("Estimated bill this period")).toBeVisible();
   await expect(page.getByLabel("Promo code")).toBeVisible();
   await page.getByRole("tab", { name: "Plans" }).click();
-  await expect(page.getByText("Starter", { exact: true })).toBeVisible();
+  await expect(page.locator("table").getByText("Starter", { exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "Usage" }).click();
   await expect(page.getByText("Plan limits")).toBeVisible();
   // Payment providers are not configured here: only prepaid credits are offered.

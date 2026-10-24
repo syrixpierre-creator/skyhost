@@ -294,7 +294,37 @@ export default function Billing() {
       )}
 
       {tab === "plans" && (
-        <div className="overflow-x-auto rounded-lg border border-line bg-panel">
+        <>
+        {/* Phones: one card per plan (a wide comparison table is unreadable at that width). */}
+        <div className="space-y-4 sm:hidden">
+          {p.plans.map((plan) => {
+            const current = plan.id === currentPlanId;
+            return (
+              <div key={plan.id} className={cx("rounded-lg border p-4", current ? "border-accent" : "border-line")}>
+                <div className="flex items-center gap-2 font-semibold">{plan.name}{current && <Badge>{t("Current")}</Badge>}</div>
+                <div className="mt-1 text-2xl font-semibold tabular-nums">{plan.isContactSales ? t("Custom") : plan.isFree ? t("Free") : <>{formatCents(plan.priceCents, plan.currency.toUpperCase())}<span className="text-sm font-normal text-muted"> /{plan.interval}</span></>}</div>
+                <div className="mt-3">
+                  {plan.isContactSales ? (
+                    SALES_EMAIL || caps.support.email ? <a href={`mailto:${SALES_EMAIL || caps.support.email}`} className="text-sm underline underline-offset-4">{t("Contact sales")}</a> : <span className="text-xs text-muted">{t("Contact the platform administrator")}</span>
+                  ) : (
+                    <Button size="sm" className="w-full" variant={current ? "secondary" : "primary"} disabled={current || !canManage} onClick={() => (plan.isFree ? subscribe.mutate({ plan, provider: "stripe" }) : setCheckout(plan))}>
+                      {current ? t("Current plan") : plan.isFree ? t("Switch to free") : plan.trialDays && !sub ? t("Start {{days}}-day trial", { days: plan.trialDays }) : t("Choose")}
+                    </Button>
+                  )}
+                </div>
+                <dl className="mt-4 space-y-1.5 border-t border-line pt-3 text-sm">
+                  {HIGHLIGHT_LIMITS.filter((k) => k in plan.limits).map((k) => (
+                    <div key={k} className="flex items-center justify-between gap-3"><dt className="text-muted">{limitLabel(k)}</dt><dd className="font-mono text-xs">{limitValue(k, plan.limits[k]!)}</dd></div>
+                  ))}
+                  {Object.keys(plan.features).filter((k) => plan.features[k]).map((k) => (
+                    <div key={k} className="flex items-center gap-2 text-muted"><Check /> <span>{featureLabel(k)}</span></div>
+                  ))}
+                </dl>
+              </div>
+            );
+          })}
+        </div>
+        <div className="hidden overflow-x-auto rounded-lg border border-line bg-panel sm:block">
           <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-line">
@@ -335,6 +365,7 @@ export default function Billing() {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {tab === "invoices" && (

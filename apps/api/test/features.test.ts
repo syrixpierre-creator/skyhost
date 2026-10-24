@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
-import { abuseReports, creditTransactions, deployments, getDb, invoices, metricSamples, serviceInstances, teams, usageRecords, users } from "@skyhost/db";
+import { abuseReports, creditTransactions, plans, deployments, getDb, invoices, metricSamples, serviceInstances, teams, usageRecords, users } from "@skyhost/db";
 import { closeUsagePeriod, EMAIL_BY_DEFAULT, getQueue, getSetting, githubAppJwt, notify, QUEUES, resetServerConfig, setSetting } from "@skyhost/core";
 import { Client, newUser, PASSWORD, setPlan } from "./helpers";
 import { TEST_ENV } from "./env";
@@ -455,5 +455,25 @@ describe("support tickets", () => {
     // A reply reopens it.
     await u.client.post(`/api/v1/support/tickets/${id}/messages`, { body: "Still broken." });
     expect((await u.client.get(`/api/v1/support/tickets/${id}`)).body.ticket.status).toBe("open");
+  });
+});
+
+describe("plan provider ids", () => {
+  it("strips invisible characters pasted from a phone and rejects ids of the wrong kind", async () => {
+    const admin = await adminUser();
+    const list = await admin.client.get("/api/v1/admin/plans");
+    const plan = list.body.plans.find((p: { slug: string }) => p.slug === "starter");
+    const before = plan.stripePriceId ?? null;
+    try {
+      const ok = await admin.client.patch(`/api/v1/admin/plans/${plan.id}`, { stripePriceId: " price_1AbC​\n" });
+      expect(ok.status, ok.raw).toBe(200);
+      const [row] = await getDb().select().from(plans).where(eq(plans.id, plan.id));
+      expect(row!.stripePriceId).toBe("price_1AbC");
+      const bad = await admin.client.patch(`/api/v1/admin/plans/${plan.id}`, { stripePriceId: "prod_1AbC" });
+      expect(bad.status).toBe(400);
+      expect(bad.raw).toContain("not prod_");
+    } finally {
+      await getDb().update(plans).set({ stripePriceId: before }).where(eq(plans.id, plan.id));
+    }
   });
 });

@@ -13,6 +13,15 @@ import { idParam, route } from "../lib/http";
 
 const limitsSchema = z.object(Object.fromEntries(PLAN_LIMIT_KEYS.map((k) => [k, z.number().min(0)])) as Record<(typeof PLAN_LIMIT_KEYS)[number], z.ZodNumber>);
 const featuresSchema = z.object(Object.fromEntries(PLAN_FEATURE_KEYS.map((k) => [k, z.boolean()])) as Record<(typeof PLAN_FEATURE_KEYS)[number], z.ZodBoolean>);
+/**
+ * Provider ids pasted from a phone often carry invisible characters (spaces, line breaks, zero-width spaces) that
+ * make the provider answer "No such price": strip them, and reject anything that is not an id of the right kind.
+ */
+const providerId = (format: RegExp, message: string) =>
+  z.preprocess(
+    (v) => (typeof v === "string" ? v.replace(/[\s\u200B-\u200D\u2060\uFEFF'"]/g, "") || null : v),
+    z.string().max(100).regex(format, message).nullable().optional(),
+  );
 const planBody = z.object({
   slug: z.string().regex(/^[a-z0-9-]{2,32}$/),
   name: z.string().min(1).max(60),
@@ -25,8 +34,8 @@ const planBody = z.object({
   isContactSales: z.boolean().default(false),
   isFree: z.boolean().default(false),
   trialDays: z.number().int().min(0).max(90).default(0),
-  stripePriceId: z.string().max(100).nullable().optional(),
-  paypalPlanId: z.string().max(100).nullable().optional(),
+  stripePriceId: providerId(/^price_[A-Za-z0-9]+$/, "A Stripe price id looks like price_1AbC… (not prod_…)"),
+  paypalPlanId: providerId(/^P-[A-Z0-9]+$/, "A PayPal plan id looks like P-1AB23…"),
   sort: z.number().int().default(0),
   archived: z.boolean().default(false),
 });

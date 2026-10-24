@@ -1211,5 +1211,11 @@
   "Revert": "Annuler les modifications",
   "Committed {{n}} file(s) · {{sha}}. The service is redeploying.": "{{n}} fichier(s) validé(s) · {{sha}}. Le service se redéploie.",
   "Unsaved changes": "Modifications non enregistrées",
-  "File": "Fichier"
+  "File": "Fichier",
+  "New sign-in to your account": "Nouvelle connexion à votre compte",
+  "Connected accounts": "Comptes connectés",
+  "Sign-in accounts linked to your SKYHOST account.": "Comptes de connexion liés à votre compte SKYHOST.",
+  "No account connected. You sign in with your email and password.": "Aucun compte connecté. Vous vous connectez avec votre e-mail et votre mot de passe.",
+  "{{p}} disconnected": "{{p}} déconnecté",
+  "Set a password first so you keep a way to sign in.": "Définissez d'abord un mot de passe pour garder un moyen de connexion."
 }

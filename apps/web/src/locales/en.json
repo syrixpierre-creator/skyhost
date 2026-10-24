@@ -124,5 +124,11 @@
   "Revert": "Revert",
   "Committed {{n}} file(s) · {{sha}}. The service is redeploying.": "Committed {{n}} file(s) · {{sha}}. The service is redeploying.",
   "Unsaved changes": "Unsaved changes",
-  "File": "File"
+  "File": "File",
+  "New sign-in to your account": "New sign-in to your account",
+  "Connected accounts": "Connected accounts",
+  "Sign-in accounts linked to your SKYHOST account.": "Sign-in accounts linked to your SKYHOST account.",
+  "No account connected. You sign in with your email and password.": "No account connected. You sign in with your email and password.",
+  "{{p}} disconnected": "{{p}} disconnected",
+  "Set a password first so you keep a way to sign in.": "Set a password first so you keep a way to sign in."
 }

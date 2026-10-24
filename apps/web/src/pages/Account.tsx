@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { del, download, get, patch, post, put } from "../lib/api";
 import { LogOut } from "lucide-react";
@@ -100,6 +100,7 @@ function Security() {
           </div>
         )}
       </Card>
+      <ConnectedAccounts />
       <Modal open={!!codes} onClose={() => setCodes(null)} title={t("Save your recovery codes")} footer={<Button variant="primary" onClick={() => setCodes(null)}>{t("I saved them")}</Button>}>
         <Alert kind="warn">{t("Each code works once if you lose your device. They are shown only now.")}</Alert>
         <pre className="mt-3 grid grid-cols-2 gap-1 rounded bg-panel-2 p-3 font-mono text-sm">{codes?.map((c) => <span key={c}>{c}</span>)}</pre>
@@ -116,6 +117,34 @@ function Security() {
         <Field label={t("Authenticator code")}><Input value={disableCode} onChange={(e) => setDisableCode(e.target.value)} /></Field>
       </Modal>
     </div>
+  );
+}
+
+function ConnectedAccounts() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const q = useQuery({ queryKey: ["connected-accounts"], queryFn: () => get<{ accounts: Array<{ provider: string; username: string | null; canDisconnect: boolean }>; hasPassword: boolean }>("/account/connected-accounts") });
+  const label: Record<string, string> = { google: "Google", github: "GitHub", gitlab: "GitLab" };
+  const disconnect = (provider: string) =>
+    del(`/account/connected-accounts/${provider}`)
+      .then(() => { void qc.invalidateQueries({ queryKey: ["connected-accounts"] }); toast("success", t("{{p}} disconnected", { p: label[provider] ?? provider })); })
+      .catch((e) => toast("error", (e as Error).message));
+  return (
+    <Card title={t("Connected accounts")} className="lg:col-span-2">
+      <p className="mb-3 text-sm text-muted">{t("Sign-in accounts linked to your SKYHOST account.")}</p>
+      {q.isLoading ? <LoadingRows rows={2} /> : !q.data?.accounts.length ? (
+        <p className="text-sm text-muted">{t("No account connected. You sign in with your email and password.")}</p>
+      ) : (
+        <ul className="divide-y divide-line text-sm">
+          {q.data.accounts.map((a) => (
+            <li key={a.provider} className="flex items-center justify-between gap-3 py-2.5">
+              <span className="min-w-0"><span className="font-medium">{label[a.provider] ?? a.provider}</span>{a.username && <span className="ml-2 truncate text-muted">{a.username}</span>}</span>
+              <Button size="sm" variant="ghost" disabled={!a.canDisconnect} title={a.canDisconnect ? undefined : t("Set a password first so you keep a way to sign in.")} onClick={() => disconnect(a.provider)}>{t("Disconnect")}</Button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 
@@ -249,9 +278,14 @@ function Appearance() {
   );
 }
 
+const ACCOUNT_TABS: Tab[] = ["profile", "security", "sessions", "notifications", "apikeys", "appearance", "privacy"];
+
 export default function Account() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>("profile");
+  const [params, setParams] = useSearchParams();
+  const initial = params.get("tab");
+  const [tab, setTabState] = useState<Tab>(ACCOUNT_TABS.includes(initial as Tab) ? (initial as Tab) : "profile");
+  const setTab = (x: Tab) => { setTabState(x); setParams((p) => { p.set("tab", x); return p; }, { replace: true }); };
   return (
     <>
       <PageHeader

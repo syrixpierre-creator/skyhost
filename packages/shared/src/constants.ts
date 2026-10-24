@@ -60,6 +60,7 @@ export const EVENT_TYPES = [
   "referral.reward",
   "domain.verified",
   "screenshot.captured",
+  "security.new_login",
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 

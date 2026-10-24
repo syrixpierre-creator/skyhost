@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import * as sharedNode from "@skyhost/shared/node";
 import { and, eq } from "drizzle-orm";
-import { abuseReports, creditTransactions, plans, deployments, getDb, invoices, metricSamples, serviceInstances, teams, usageRecords, users } from "@skyhost/db";
+import { abuseReports, creditTransactions, notifications, plans, deployments, getDb, invoices, metricSamples, serviceInstances, teams, usageRecords, users } from "@skyhost/db";
 import { closeUsagePeriod, EMAIL_BY_DEFAULT, getQueue, getSetting, githubAppJwt, notify, QUEUES, resetServerConfig, setSetting } from "@skyhost/core";
 import { Client, newUser, PASSWORD, setPlan } from "./helpers";
 import { TEST_ENV } from "./env";
@@ -225,7 +225,8 @@ describe("deployment page", () => {
     expect(dep.status, dep.raw).toBe(201);
     const r = await u.client.get(`/api/v1/deployments/${dep.body.deployment.id}`);
     expect(r.status).toBe(200);
-    expect(r.body.url).toMatch(new RegExp(`^https?://web-[a-z0-9]+\\.${TEST_ENV.SKYHOST_BASE_DOMAIN!.replace(/\./g, "\\.")}$`));
+    // Pretty production hostname derived from the service name: web.<base> (or web-N when the label is taken).
+    expect(r.body.url).toMatch(new RegExp(`^https?://web(-\\d+)?\\.${TEST_ENV.SKYHOST_BASE_DOMAIN!.replace(/\./g, "\\.")}$`));
   });
 });
 
@@ -531,5 +532,81 @@ describe("in-dashboard code editor", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+describe("pretty subdomains", () => {
+  it("derives the production hostname from the repo/name, adds a suffix when taken, and skips workers", async () => {
+    const u = await newUser();
+    await setPlan(u.teamId, "pro"); // room for several services
+    const base = TEST_ENV.SKYHOST_BASE_DOMAIN!;
+    const p = await u.client.post("/api/v1/projects", { teamId: u.teamId, name: "Queen" });
+    const projectId = p.body.project.id;
+    const mk = async (name: string, type = "web", source: Record<string, unknown> = { kind: "image", image: "nginx:alpine" }) =>
+      u.client.post(`/api/v1/projects/${projectId}/services`, { name, type, source, config: { port: 80 }, deploy: false });
+
+    // First service named "queen-akuma" → queen-akuma.<base>
+    const a = await mk("queen-akuma");
+    expect(a.status, a.raw).toBe(201);
+    const ga = await u.client.get(`/api/v1/services/${a.body.service.id}`);
+    const prod = ga.body.environments.find((e: { name: string }) => e.name === "production");
+    expect(prod.generatedDomain).toBe(`queen-akuma.${base}`);
+
+    // A second service wanting the same label gets a numeric suffix, never a collision.
+    const b = await mk("queen-akuma");
+    const gb = await u.client.get(`/api/v1/services/${b.body.service.id}`);
+    const prodB = gb.body.environments.find((e: { name: string }) => e.name === "production");
+    expect(prodB.generatedDomain).toBe(`queen-akuma-2.${base}`);
+
+    // Reserved labels are never handed out.
+    const api = await mk("api");
+    const gapi = await u.client.get(`/api/v1/services/${api.body.service.id}`);
+    const prodApi = gapi.body.environments.find((e: { name: string }) => e.name === "production");
+    expect(prodApi.generatedDomain).not.toBe(`api.${base}`);
+
+    // Workers have no public URL, so they get no pretty label.
+    const w = await mk("backend", "worker");
+    const gw = await u.client.get(`/api/v1/services/${w.body.service.id}`);
+    const prodW = gw.body.environments.find((e: { name: string }) => e.name === "production");
+    expect(prodW.generatedDomain).toBeNull();
+  });
+});
+
+describe("account security: connected accounts and new-login alerts", () => {
+  it("lists and disconnects OAuth sign-in accounts, but never the last way to sign in", async () => {
+    const u = await newUser(); // has a password
+    const db = getDb();
+    const { oauthAccounts } = await import("@skyhost/db");
+    await db.insert(oauthAccounts).values({ userId: u.user.id, provider: "github", providerUserId: `gh-${Date.now()}`, username: "octocat" });
+
+    const list = await u.client.get("/api/v1/account/connected-accounts");
+    expect(list.status, list.raw).toBe(200);
+    expect(list.body.accounts).toEqual([{ provider: "github", username: "octocat", canDisconnect: true }]);
+
+    expect((await u.client.del("/api/v1/account/connected-accounts/github")).status).toBe(200);
+    expect((await u.client.get("/api/v1/account/connected-accounts")).body.accounts).toEqual([]);
+
+    // A password-less user with a single OAuth account cannot remove it (would lock themselves out).
+    const pwless = await newUser();
+    await db.update(users).set({ passwordHash: null }).where(eq(users.id, pwless.user.id));
+    await db.insert(oauthAccounts).values({ userId: pwless.user.id, provider: "google", providerUserId: `g-${Date.now()}`, username: "a@b.co" });
+    const blocked = await pwless.client.del("/api/v1/account/connected-accounts/google");
+    expect(blocked.status).toBe(400);
+    expect(blocked.body.error.message).toContain("Set a password first");
+  });
+
+  it("emails a security alert when a sign-in comes from an unseen device/IP", async () => {
+    const u = await newUser();
+    const queue = getQueue(QUEUES.notify);
+    const before = new Set((await queue.getJobs(["waiting", "delayed", "prioritized"])).map((j) => j.id));
+    // Signing in right after signup has no session older than the dedup window, so it counts as a new context.
+    const login = await new Client().post("/api/v1/auth/login", { email: u.email, password: PASSWORD });
+    expect(login.status, login.raw).toBe(200);
+    const jobs = (await queue.getJobs(["waiting", "delayed", "prioritized"])).filter((j) => !before.has(j.id) && (j.data as { email?: string }).email === u.email);
+    expect(jobs.length).toBeGreaterThanOrEqual(1);
+    expect((jobs[0]!.data as { subject: string }).subject).toContain("New sign-in");
+    for (const j of jobs) await j.remove();
+    const notes = await getDb().select().from(notifications).where(and(eq(notifications.userId, u.user.id), eq(notifications.type, "security.new_login")));
+    expect(notes.length).toBeGreaterThanOrEqual(1);
   });
 });

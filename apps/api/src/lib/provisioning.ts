@@ -15,6 +15,27 @@ export async function uniqueSubdomain(): Promise<string> {
   }
 }
 
+// Labels that must not become an app's production subdomain (they are, or may be, used by the platform itself).
+const RESERVED_LABELS = new Set(["www", "api", "app", "apps", "admin", "dashboard", "mail", "smtp", "email", "status", "static", "cdn", "assets", "internal", "control", "ns1", "ns2", "ftp", "webmail", "blog", "docs", "help", "support"]);
+
+/**
+ * A pretty, globally-unique production hostname label derived from a name or repo (e.g. "queen-akuma", then
+ * "queen-akuma-2" if taken). Falls back to a random label when nothing usable can be derived.
+ */
+export async function uniqueDomainLabel(preferred: string): Promise<string> {
+  let base = slugify(preferred, 40).replace(/^-+|-+$/g, "");
+  if (base.length < 2 || !/[a-z]/.test(base)) base = `app-${randomId(5)}`;
+  const db = getDb();
+  for (let i = 1; ; i++) {
+    const candidate = i === 1 ? base : `${base}-${i}`;
+    if (!RESERVED_LABELS.has(candidate)) {
+      const [x] = await db.select({ id: services.id }).from(services).where(eq(services.domainLabel, candidate));
+      if (!x) return candidate;
+    }
+    if (i > 50) return `${base}-${randomId(5)}`;
+  }
+}
+
 export async function uniqueServiceSlug(projectId: string, name: string): Promise<string> {
   const base = slugify(name, 30);
   const taken = new Set(
@@ -81,6 +102,10 @@ export async function createService(input: NewServiceInput) {
   }
   if (config.protection.mode !== "none") await assertFeature(input.teamId, "accessProtection");
   if (config.waf.enabled) await assertFeature(input.teamId, "waf");
+  // Pretty production hostname: from the repo name when deploying from Git ("org/queen-akuma" -> "queen-akuma"),
+  // otherwise from the service name. Services that host a public site get one; workers/cron (no web URL) do not.
+  const repo = typeof input.source.repo === "string" ? input.source.repo.split("/").pop() : undefined;
+  const domainLabel = ["web", "static", "docker"].includes(input.type) ? await uniqueDomainLabel(repo || input.name) : null;
   const [svc] = await db
     .insert(services)
     .values({
@@ -92,6 +117,7 @@ export async function createService(input: NewServiceInput) {
       config,
       analysis: input.analysis ?? null,
       subdomain: await uniqueSubdomain(),
+      domainLabel,
       createdBy: input.createdBy,
     })
     .returning();

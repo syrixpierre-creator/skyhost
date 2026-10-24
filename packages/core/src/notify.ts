@@ -35,6 +35,7 @@ export const EMAIL_BY_DEFAULT: readonly string[] = [
   "spend.threshold",
   "quota.near_limit",
   "invitation.received",
+  "security.new_login",
 ];
 
 interface UserPrefs {

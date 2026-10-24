@@ -56,6 +56,7 @@ const EVENTS: Record<string, string> = {
   "referral.reward": "Referral reward",
   "domain.verified": "Domain verified",
   "screenshot.captured": "Screenshot captured",
+  "security.new_login": "New sign-in to your account",
 };
 
 export const eventLabel = (k: string) => t(EVENTS[k] ?? k);

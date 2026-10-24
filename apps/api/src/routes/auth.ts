@@ -1,11 +1,11 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { and, count, eq, gt, isNull } from "drizzle-orm";
+import { and, count, eq, gt, isNull, lt, or } from "drizzle-orm";
 import { z } from "zod";
 import { authenticator } from "otplib";
-import { apiKeys, cliAuthRequests, emailTokens, getDb, oauthAccounts, plans, recoveryCodes, sessions, teamMembers, teams, users } from "@skyhost/db";
+import { apiKeys, cliAuthRequests, emailTokens, getDb, notifications, oauthAccounts, plans, recoveryCodes, sessions, teamMembers, teams, users } from "@skyhost/db";
 import { emailSchema, loginSchema, passwordSchema, signupSchema, slugify } from "@skyhost/shared";
 import { decrypt, encrypt, randomId, randomToken, sha256 } from "@skyhost/shared/node";
-import { attachReferral, audit, badRequest, conflict, forbidden, getSetting, redis, renderEmail, sendMail, serverConfig, tooMany, unauthorized, capabilities } from "@skyhost/core";
+import { attachReferral, audit, badRequest, conflict, enqueue, forbidden, getSetting, publish, redis, renderEmail, sendMail, serverConfig, tooMany, unauthorized, capabilities } from "@skyhost/core";
 import { actorOf, clearSessionCookies, clientIp, createSession, generateApiKey, secureCookies, type User } from "../lib/auth";
 import { route } from "../lib/http";
 import { hashPassword, verifyPassword } from "../lib/password";
@@ -101,8 +101,40 @@ export { publicUser };
 // While the dashboard is closed for maintenance, everyone can still sign in and sign up: the session works, but every
 // other API call of a non-administrator answers 503 (see lib/auth.ts) and the dashboard shows the maintenance page.
 
+/** Short human label from a User-Agent string, for the security alert ("Chrome on Android"). */
+function deviceLabel(ua: string | undefined): string {
+  if (!ua) return "an unknown device";
+  const browser = /Edg/.test(ua) ? "Edge" : /OPR|Opera/.test(ua) ? "Opera" : /Chrome/.test(ua) ? "Chrome" : /Firefox/.test(ua) ? "Firefox" : /Safari/.test(ua) ? "Safari" : "a browser";
+  const os = /Android/.test(ua) ? "Android" : /iPhone|iPad|iOS/.test(ua) ? "iOS" : /Windows/.test(ua) ? "Windows" : /Mac OS/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : "an unknown system";
+  return `${browser} on ${os}`;
+}
+
+/** Emails and notifies the user when a sign-in comes from a device/IP never seen before on their account. */
+async function alertNewLogin(user: User, req: FastifyRequest, method: string, deviceId?: string | null) {
+  const db = getDb();
+  const ip = clientIp(req);
+  const ua = req.headers["user-agent"] as string | undefined;
+  // "Known" if any earlier session used this device or this IP (the brand-new session is excluded by time).
+  const since = new Date(Date.now() - 2 * 60_000);
+  const prior = await db
+    .select({ id: sessions.id })
+    .from(sessions)
+    .where(and(eq(sessions.userId, user.id), lt(sessions.createdAt, since), or(deviceId ? eq(sessions.deviceId, deviceId) : undefined, eq(sessions.ip, ip))))
+    .limit(1);
+  if (prior.length) return;
+  const when = new Date().toUTCString();
+  const title = "New sign-in to your SKYHOST account";
+  const body = `A new sign-in to your account was detected.\nDevice: ${deviceLabel(ua)}\nIP address: ${ip}\nMethod: ${method}\nTime: ${when}\n\nIf this was you, no action is needed. If you do not recognise it, change your password immediately and review your active sessions.`;
+  await db.insert(notifications).values({ userId: user.id, type: "security.new_login", title, body: `New sign-in from ${deviceLabel(ua)} (${ip}).`, link: "/account?tab=security" }).catch(() => {});
+  const { text, html } = renderEmail(title, body.split("\n\n"), { label: "Review your sessions", url: `${serverConfig().SKYHOST_DASHBOARD_URL}/account?tab=security` });
+  await enqueue("notify", { email: user.email, subject: `[SKYHOST] ${title}`, text, html }).catch(() => {});
+  await publish(`user:${user.id}`, { type: "notification", notification: { userId: user.id, type: "security.new_login", title } } as never).catch(() => {});
+}
+
 async function finishLogin(req: FastifyRequest, reply: FastifyReply, user: User, method: string, deviceId?: string | null) {
   await getDb().update(users).set({ failedLoginCount: 0, lockedUntil: null, lastLoginAt: new Date() }).where(eq(users.id, user.id));
+  // Security alert before the new session is created, so the just-signed-in device does not count as "known".
+  await alertNewLogin(user, req, method, deviceId);
   await createSession(req, reply, user, { deviceId });
   await audit({ userId: user.id, ip: clientIp(req), userAgent: req.headers["user-agent"] }, null, "auth.login", { type: "user", id: user.id }, { method });
   return { user: publicUser(user) };

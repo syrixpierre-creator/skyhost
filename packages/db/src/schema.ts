@@ -448,6 +448,9 @@ export const services = pgTable(
     analysis: jsonb("analysis").$type<Record<string, unknown>>(),
     /** Stable random part of the generated hostname: <slug>-<subdomainId>.<base domain>. */
     subdomain: text("subdomain").notNull().unique(),
+    /** Pretty production hostname label derived from the repo/name (e.g. "queen-akuma"); null keeps the legacy
+     * <slug>-<subdomain> form so existing services' URLs never change. Globally unique. */
+    domainLabel: text("domain_label").unique(),
     createdBy: uuid("created_by"),
     deletedAt: ts("deleted_at"),
     createdAt: createdAt(),

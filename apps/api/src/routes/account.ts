@@ -104,6 +104,26 @@ export default async function accountRoutes(app: FastifyInstance) {
   });
 
   // ---------------------------------------------------------------------------------- Sessions / devices
+  /** Sign-in accounts linked to this user (Google, GitHub…). */
+  route(app, { method: "GET", url: "/account/connected-accounts", tags: ["account"] }, async (req) => {
+    const u = req.auth.user!;
+    const rows = await getDb().select({ provider: oauthAccounts.provider, username: oauthAccounts.username }).from(oauthAccounts).where(eq(oauthAccounts.userId, u.id));
+    // A sign-in method can be removed only if another way to sign in would remain (a password, or another account).
+    return { accounts: rows.map((r) => ({ ...r, canDisconnect: !!u.passwordHash || rows.length > 1 })), hasPassword: !!u.passwordHash };
+  });
+
+  route(app, { method: "DELETE", url: "/account/connected-accounts/:provider", tags: ["account"], params: z.object({ provider: z.enum(["google", "github", "gitlab"]) }) }, async (req, _r, { params }) => {
+    const db = getDb();
+    const u = req.auth.user!;
+    const rows = await db.select().from(oauthAccounts).where(eq(oauthAccounts.userId, u.id));
+    if (!rows.some((r) => r.provider === params.provider)) throw notFound("Connected account");
+    // Never let the user remove their last way to sign in.
+    if (!u.passwordHash && rows.length <= 1) throw badRequest("Set a password first: this is the only way to sign in to your account.");
+    await db.delete(oauthAccounts).where(and(eq(oauthAccounts.userId, u.id), eq(oauthAccounts.provider, params.provider)));
+    await audit(actorOf(req), null, "account.oauth_disconnected", { type: "user", id: u.id }, { provider: params.provider });
+    return { ok: true };
+  });
+
   route(app, { method: "GET", url: "/account/sessions", tags: ["account"] }, async (req) => {
     const rows = await getDb().select().from(sessions).where(and(eq(sessions.userId, req.auth.user!.id), isNull(sessions.revokedAt))).orderBy(desc(sessions.lastSeenAt));
     return {

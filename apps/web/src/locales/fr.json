@@ -1198,5 +1198,18 @@
   "prepaid credits": "crédits prépayés",
   "Start free. Upgrade when your project grows.": "Commencez gratuitement. Passez à un plan supérieur quand votre projet grandit.",
   "Pay with {{methods}}.": "Paiement par {{methods}}.",
-  "credits": "crédits"
+  "credits": "crédits",
+  "tabs.code": "Code",
+  "Open in editor": "Ouvrir dans l'éditeur",
+  "Commit & deploy": "Valider et déployer",
+  "Describe your change…": "Décrivez votre modification…",
+  "No unsaved changes": "Aucune modification non enregistrée",
+  "Pick a file to edit": "Choisissez un fichier à éditer",
+  "Browse the repository on the left and open any file.": "Parcourez le dépôt à gauche et ouvrez n'importe quel fichier.",
+  "Browse files": "Parcourir les fichiers",
+  "Files": "Fichiers",
+  "Revert": "Annuler les modifications",
+  "Committed {{n}} file(s) · {{sha}}. The service is redeploying.": "{{n}} fichier(s) validé(s) · {{sha}}. Le service se redéploie.",
+  "Unsaved changes": "Modifications non enregistrées",
+  "File": "Fichier"
 }

@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Camera, ExternalLink, GitCommit, Play, RotateCcw, Square, Terminal, Upload } from "lucide-react";
+import { Camera, Code2, ExternalLink, GitCommit, Play, RotateCcw, Square, Terminal, Upload } from "lucide-react";
 import { formatBytes } from "@skyhost/shared";
 import { api, del, download, get, patch, post, put, realtime, wsUrl } from "../lib/api";
 import { useRealtimeInvalidate } from "../lib/session";
@@ -12,6 +12,7 @@ import { MetricChart, bytesFmt } from "../components/Charts";
 import { Alert, Badge, Button, Card, CodeField, ConfirmDialog, EmptyState, ErrorState, Field, Input, LoadingRows, Modal, PageHeader, Select, StatusBadge, Tabs, Textarea, Toggle, timeAgo, useToast } from "../components/ui";
 import { t } from "../lib/i18n";
 import { ProjectCrumb } from "../components/ProjectCrumb";
+const CodeEditor = lazy(() => import("../components/CodeEditor").then((m) => ({ default: m.CodeEditor })));
 
 interface ServiceDetail {
   service: { id: string; projectId: string; name: string; slug: string; type: string; source: Record<string, string>; config: any; analysis: any; createdAt: string }; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -40,7 +41,7 @@ interface Deployment {
   image: string | null;
 }
 
-type Tab = "overview" | "deployments" | "logs" | "variables" | "settings" | "domains" | "metrics" | "screenshots" | "shell" | "jobs" | "volumes";
+type Tab = "overview" | "deployments" | "code" | "logs" | "variables" | "settings" | "domains" | "metrics" | "screenshots" | "shell" | "jobs" | "volumes";
 
 function DeploymentsTab({ s, envId }: { s: ServiceDetail; envId: string }) {
   const toast = useToast();
@@ -618,6 +619,7 @@ export default function Service() {
   const tabs: Array<{ id: Tab; label: string }> = [
     { id: "overview", label: t("tabs.overview") },
     { id: "deployments", label: t("tabs.deployments") },
+    ...(["github", "gitlab", "bitbucket"].includes(s.service.source.kind!) ? [{ id: "code" as Tab, label: t("tabs.code") }] : []),
     { id: "logs", label: t("tabs.logs") },
     { id: "variables", label: t("tabs.variables") },
     { id: "metrics", label: t("tabs.metrics") },
@@ -677,6 +679,7 @@ export default function Service() {
         </div>
       )}
       {tab === "deployments" && <DeploymentsTab s={s} envId={envId} />}
+      {tab === "code" && ["github", "gitlab", "bitbucket"].includes(s.service.source.kind!) && <Suspense fallback={<LoadingRows rows={6} />}><CodeEditor serviceId={s.service.id} canEdit={can("service:update")} /></Suspense>}
       {tab === "logs" && <RuntimeLogs serviceId={s.service.id} envId={envId} />}
       {tab === "variables" && envId && <VariablesEditor environmentId={envId} serviceId={s.service.id} onRedeploy={() => action(`/services/${s.service.id}/redeploy`, "Redeploying with the new variables")} />}
       {tab === "settings" && <SettingsTab s={s} onSaved={() => q.refetch()} />}

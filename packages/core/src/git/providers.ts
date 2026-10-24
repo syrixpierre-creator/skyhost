@@ -25,6 +25,12 @@ export interface FileChange {
   content: string;
 }
 
+export interface TreeEntry {
+  path: string;
+  type: "file" | "dir";
+  size?: number;
+}
+
 export interface GitProviderClient {
   provider: "github" | "gitlab" | "bitbucket";
   listRepos(query?: string): Promise<RepoInfo[]>;
@@ -35,6 +41,10 @@ export interface GitProviderClient {
   /** "success" when every check/status passed, "pending" while running, "failure" otherwise. */
   commitStatus(repo: string, sha: string): Promise<"success" | "pending" | "failure" | "none">;
   readFile(repo: string, ref: string, path: string): Promise<string | null>;
+  /** Flat list of the files in the repository at a ref (for the in-dashboard code editor). */
+  listTree(repo: string, ref: string): Promise<TreeEntry[]>;
+  /** Commits changes straight to an existing branch and returns the new commit SHA. */
+  commitToBranch(repo: string, branch: string, changes: FileChange[], message: string): Promise<{ sha: string }>;
   createFixPullRequest(repo: string, base: string, branch: string, changes: FileChange[], title: string, body: string): Promise<{ url: string; number: number }>;
   /** Registers the SKYHOST push/PR webhook on the repository (GitHub Apps receive events without it). */
   ensureWebhook(repo: string, url: string): Promise<void>;
@@ -150,6 +160,27 @@ class GitHubClient implements GitProviderClient {
       return null;
     }
   }
+  async listTree(repo: string, ref: string) {
+    const r = repoPath(repo);
+    const t = await this.api<{ tree: Array<{ path: string; type: string; size?: number }>; truncated: boolean }>(`/repos/${r}/git/trees/${encodeURIComponent(ref)}?recursive=1`);
+    return t.tree.filter((e) => e.type === "blob" || e.type === "tree").map((e) => ({ path: e.path, type: e.type === "tree" ? ("dir" as const) : ("file" as const), size: e.size }));
+  }
+  async commitToBranch(repo: string, branch: string, changes: FileChange[], message: string) {
+    const r = repoPath(repo);
+    // One atomic commit on the existing branch, through the git data API (blobs -> tree -> commit -> ref).
+    const ref = await this.api<{ object: { sha: string } }>(`/repos/${r}/git/ref/heads/${encodeURIComponent(branch)}`);
+    const headSha = ref.object.sha;
+    const head = await this.api<{ tree: { sha: string } }>(`/repos/${r}/git/commits/${headSha}`);
+    const tree = [];
+    for (const ch of changes) {
+      const blob = await this.api<{ sha: string }>(`/repos/${r}/git/blobs`, { method: "POST", body: JSON.stringify({ content: Buffer.from(ch.content).toString("base64"), encoding: "base64" }) });
+      tree.push({ path: ch.path, mode: "100644", type: "blob", sha: blob.sha });
+    }
+    const newTree = await this.api<{ sha: string }>(`/repos/${r}/git/trees`, { method: "POST", body: JSON.stringify({ base_tree: head.tree.sha, tree }) });
+    const commit = await this.api<{ sha: string }>(`/repos/${r}/git/commits`, { method: "POST", body: JSON.stringify({ message, tree: newTree.sha, parents: [headSha] }) });
+    await this.api(`/repos/${r}/git/refs/heads/${encodeURIComponent(branch)}`, { method: "PATCH", body: JSON.stringify({ sha: commit.sha }) });
+    return { sha: commit.sha };
+  }
   async createFixPullRequest(repo: string, base: string, branch: string, changes: FileChange[], title: string, body: string) {
     const r = repoPath(repo);
     const baseRef = await this.api<{ object: { sha: string } }>(`/repos/${r}/git/ref/heads/${encodeURIComponent(base)}`);
@@ -240,6 +271,12 @@ class GitLabClient implements GitProviderClient {
       return null;
     }
   }
+  async listTree(): Promise<TreeEntry[]> {
+    throw new Error("The in-dashboard code editor currently supports GitHub repositories only");
+  }
+  async commitToBranch(): Promise<{ sha: string }> {
+    throw new Error("The in-dashboard code editor currently supports GitHub repositories only");
+  }
   async createFixPullRequest(repo: string, base: string, branch: string, changes: FileChange[], title: string, body: string) {
     await this.api(`/projects/${this.id(repo)}/repository/commits`, {
       method: "POST",
@@ -299,6 +336,12 @@ class BitbucketClient implements GitProviderClient {
     } catch {
       return null;
     }
+  }
+  async listTree(): Promise<TreeEntry[]> {
+    throw new Error("The in-dashboard code editor currently supports GitHub repositories only");
+  }
+  async commitToBranch(): Promise<{ sha: string }> {
+    throw new Error("The in-dashboard code editor currently supports GitHub repositories only");
   }
   async createFixPullRequest(repo: string, base: string, branch: string, changes: FileChange[], title: string, body: string) {
     const form = new FormData();

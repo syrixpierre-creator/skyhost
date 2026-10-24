@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Circle, ExternalLink, Loader2, Minus, Wrench, X } from "lucide-react";
+import { Check, Circle, Code2, ExternalLink, Loader2, Minus, Wrench, X } from "lucide-react";
 import { DEPLOYMENT_PHASES } from "@skyhost/shared";
 import { download, get, post, realtime } from "../lib/api";
 import { LogViewer, type LogLine } from "../components/LogViewer";
@@ -25,7 +25,7 @@ export default function Deployment() {
   const { projectId, deploymentId } = useParams();
   const toast = useToast();
   const qc = useQueryClient();
-  const q = useQuery({ queryKey: ["deployment", deploymentId], queryFn: () => get<{ deployment: any; url: string | null; service: { id: string; name: string } }>(`/deployments/${deploymentId}`) }); // eslint-disable-line @typescript-eslint/no-explicit-any
+  const q = useQuery({ queryKey: ["deployment", deploymentId], queryFn: () => get<{ deployment: any; url: string | null; service: { id: string; name: string; repo?: string | null } }>(`/deployments/${deploymentId}`) }); // eslint-disable-line @typescript-eslint/no-explicit-any
   const [lines, setLines] = useState<LogLine[]>([]);
   const diag = useQuery({ queryKey: ["diagnosis", deploymentId], queryFn: () => get<{ diagnoses: Diagnosis[] }>(`/deployments/${deploymentId}/diagnosis`), enabled: q.data?.deployment.status === "failed" });
   const comments = useQuery({ queryKey: ["comments", deploymentId], queryFn: () => get<{ comments: Array<{ id: string; author: string; body: string; createdAt: string }> }>(`/deployments/${deploymentId}/comments`) });
@@ -65,6 +65,7 @@ export default function Deployment() {
   if (q.isLoading) return <LoadingRows rows={5} />;
   if (q.error) return <ErrorState error={q.error} />;
   const d = q.data!.deployment;
+  const repo = q.data!.service.repo;
   const phases = d.phases ?? {};
   const currentIdx = DEPLOYMENT_PHASES.indexOf(d.phase);
   return (
@@ -120,10 +121,20 @@ export default function Deployment() {
         <div className="mb-6 space-y-3">
           <Alert kind="error"><strong>{t("Deployment failed:")}</strong> {d.error}{t(". The previous version stays live.")}</Alert>
           {diag.data?.diagnoses.map((x, i) => (
-            <Card key={x.id} title={<span className="flex items-center gap-2"><Wrench className="size-4 text-brand" /> {x.problem} <Badge>{x.confidence} {t("confidence")}</Badge></span>} actions={x.autoFix && <Button size="sm" variant="primary" onClick={() => { setFix({ d: x, index: i }); setFixValue(""); }}>{t("Auto Fix")}</Button>}>
+            <Card
+              key={x.id}
+              title={<span className="flex items-center gap-2"><Wrench className="size-4 text-brand" /> {x.problem} <Badge>{x.confidence} {t("confidence")}</Badge></span>}
+              actions={
+                <div className="flex items-center gap-2">
+                  {x.autoFix?.file && repo && <Link to={`/projects/${projectId}/services/${q.data!.service.id}?tab=code&file=${encodeURIComponent(x.autoFix.file)}`}><Button size="sm"><Code2 className="size-4" /> {t("Open in editor")}</Button></Link>}
+                  {x.autoFix && <Button size="sm" variant="primary" onClick={() => { setFix({ d: x, index: i }); setFixValue(""); }}>{t("Auto Fix")}</Button>}
+                </div>
+              }
+            >
               <dl className="space-y-2 text-sm">
                 <div><dt className="text-xs text-muted">{t("Cause")}</dt><dd>{x.cause}</dd></div>
                 <div><dt className="text-xs text-muted">{t("Suggested fix")}</dt><dd>{x.suggestedFix}</dd></div>
+                {x.autoFix?.file && <div><dt className="text-xs text-muted">{t("File")}</dt><dd className="font-mono text-xs">{x.autoFix.file}</dd></div>}
                 <div><dt className="text-xs text-muted">{t("Evidence")}</dt><dd><code className="block whitespace-pre-wrap rounded bg-panel-2 p-2 font-mono text-xs">{x.evidence}</code></dd></div>
               </dl>
             </Card>

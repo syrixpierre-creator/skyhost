@@ -481,3 +481,55 @@ describe("plan provider ids", () => {
     }
   });
 });
+
+describe("in-dashboard code editor", () => {
+  it("refuses services without a Git repo, and commits edits to the deploy branch through the provider", async () => {
+    const u = await newUser();
+    const other = await newUser();
+    const s = await imageService(u); // image source: no repo
+
+    // An image-sourced service has no repository, so the editor is unavailable (not a 500).
+    const noRepo = await u.client.get(`/api/v1/services/${s.serviceId}/code/tree`);
+    expect(noRepo.status).toBe(400);
+    expect(noRepo.body.error.message).toContain("not connected to a Git repository");
+
+    // Build a GitHub-sourced service directly (service creation would call the GitHub API).
+    const db = getDb();
+    const { gitInstallations, services } = await import("@skyhost/db");
+    const [inst] = await db.insert(gitInstallations).values({ teamId: u.teamId, provider: "github", externalId: `ext-${Date.now()}`, accountLogin: "acme" }).returning();
+    await db.update(services).set({ source: { kind: "github", repo: "acme/app", branch: "main", installationId: inst!.id } }).where(eq(services.id, s.serviceId));
+
+    const core = await import("@skyhost/core");
+    const fake = {
+      provider: "github" as const,
+      getRepo: async () => ({ fullName: "acme/app", defaultBranch: "main", private: true, url: "" }),
+      listTree: async () => [{ path: "src", type: "dir" as const }, { path: "src/index.js", type: "file" as const, size: 12 }],
+      readFile: async () => "console.log(1)\n",
+      commitToBranch: async (_repo: string, branch: string, changes: Array<{ path: string }>, msg: string) => { commits.push({ branch, paths: changes.map((c) => c.path), msg }); return { sha: "newsha123" }; },
+    };
+    const commits: Array<{ branch: string; paths: string[]; msg: string }> = [];
+    const spy = vi.spyOn(core, "providerClient").mockReturnValue(fake as never);
+    try {
+      const tree = await u.client.get(`/api/v1/services/${s.serviceId}/code/tree`);
+      expect(tree.status, tree.raw).toBe(200);
+      expect(tree.body.branch).toBe("main");
+      expect(tree.body.tree.map((e: { path: string }) => e.path)).toContain("src/index.js");
+
+      const file = await u.client.get(`/api/v1/services/${s.serviceId}/code/file?path=src/index.js`);
+      expect(file.body.content).toBe("console.log(1)\n");
+
+      // Path traversal is rejected.
+      expect((await u.client.get(`/api/v1/services/${s.serviceId}/code/file?path=../../etc/passwd`)).status).toBe(400);
+
+      // A non-member cannot reach the repo at all.
+      expect((await other.client.get(`/api/v1/services/${s.serviceId}/code/tree`)).status).toBe(404);
+
+      const commit = await u.client.post(`/api/v1/services/${s.serviceId}/code/commit`, { message: "fix port", changes: [{ path: "src/index.js", content: "console.log(process.env.PORT)\n" }] });
+      expect(commit.status, commit.raw).toBe(200);
+      expect(commit.body).toMatchObject({ sha: "newsha123", branch: "main", files: 1 });
+      expect(commits).toEqual([{ branch: "main", paths: ["src/index.js"], msg: "fix port" }]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});

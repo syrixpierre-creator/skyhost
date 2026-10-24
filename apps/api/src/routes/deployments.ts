@@ -84,7 +84,9 @@ export default async function deploymentRoutes(app: FastifyInstance) {
       const [env] = await getDb().select().from(environments).where(eq(environments.id, a.deployment.environmentId));
       if (env) url = publicUrl(serviceHostname(a.service, env));
     }
-    return { deployment: a.deployment, url, service: { id: a.service.id, name: a.service.name, projectId: a.service.projectId, type: a.service.type } };
+    const src = a.service.source as { kind?: string; repo?: string };
+    const repo = ["github", "gitlab", "bitbucket"].includes(src.kind ?? "") ? (src.repo ?? null) : null;
+    return { deployment: a.deployment, url, service: { id: a.service.id, name: a.service.name, projectId: a.service.projectId, type: a.service.type, repo } };
   });
 
   route(

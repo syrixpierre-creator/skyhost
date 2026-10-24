@@ -111,5 +111,18 @@
   "vars.secret": "Secret",
   "vars.sealed": "Sealed",
   "theme.toggle": "Toggle theme",
-  "lang.toggle": "Français"
+  "lang.toggle": "Français",
+  "tabs.code": "Code",
+  "Open in editor": "Open in editor",
+  "Commit & deploy": "Commit & deploy",
+  "Describe your change…": "Describe your change…",
+  "No unsaved changes": "No unsaved changes",
+  "Pick a file to edit": "Pick a file to edit",
+  "Browse the repository on the left and open any file.": "Browse the repository on the left and open any file.",
+  "Browse files": "Browse files",
+  "Files": "Files",
+  "Revert": "Revert",
+  "Committed {{n}} file(s) · {{sha}}. The service is redeploying.": "Committed {{n}} file(s) · {{sha}}. The service is redeploying.",
+  "Unsaved changes": "Unsaved changes",
+  "File": "File"
 }

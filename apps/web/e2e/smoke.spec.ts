@@ -221,20 +221,19 @@ test("maintenance closes the site to users while administrators keep working", a
   }
 });
 
-test("on a phone, every page section is a visible button, Settings included", async ({ browser }) => {
+test("on a phone, page sections are a clean underlined tab row that scrolls, every tab reachable", async ({ browser }) => {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await ctx.newPage();
   await login(page);
   await page.goto("/account");
+  // No dropdown and no wrapped pills: a single underlined row (same look as desktop).
   await expect(page.getByRole("combobox", { name: "Section" })).toHaveCount(0);
   await page.getByRole("tab", { name: "Appearance" }).click();
   await expect(page.getByRole("radio", { name: /Dark/ })).toBeVisible();
+  // A far tab (Settings) is reachable even when the row overflows: clicking scrolls it into view.
   await page.goto("/settings");
-  for (const tab of await page.getByRole("tab").all()) {
-    await expect(tab).toBeInViewport();
-    const box = (await tab.boundingBox())!;
-    expect(box.x + box.width).toBeLessThanOrEqual(390);
-  }
+  await page.getByRole("tab", { name: "Members" }).click();
+  await expect(page.getByRole("tab", { name: "Members" })).toBeInViewport();
   await ctx.close();
 });
 

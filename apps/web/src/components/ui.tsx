@@ -108,24 +108,34 @@ export function PageHeader({ title, subtitle, actions, breadcrumbs }: { title: R
 }
 
 export function Tabs<T extends string>({ tabs, value, onChange }: { tabs: Array<{ id: T; label: ReactNode }>; value: T; onChange: (v: T) => void }) {
-  // Every tab stays visible: buttons that wrap on phones, an underlined row that wraps on wider screens.
-  // (A dropdown hid where Settings was, and a sideways-scrolling row pushed the last tabs off-screen.)
+  // One clean underlined row, the same on desktop and phones. On narrow screens it scrolls sideways; the active
+  // tab is always scrolled into view so nothing stays hidden, and a soft right-edge fade hints there is more.
+  const row = useRef<HTMLDivElement>(null);
+  const active = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    active.current?.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [value]);
   return (
-    <div className="mb-5 flex flex-wrap gap-2 sm:gap-x-1 sm:gap-y-0 sm:border-b sm:border-line" role="tablist">
-      {tabs.map((x) => (
-        <button
-          key={x.id}
-          role="tab"
-          aria-selected={value === x.id}
-          onClick={() => onChange(x.id)}
-          className={cx(
-            "whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition-colors sm:-mb-px sm:rounded-none sm:border-0 sm:border-b-2 sm:py-2",
-            value === x.id ? "border-fg bg-fg font-medium text-bg sm:border-accent sm:bg-transparent sm:text-fg" : "border-line text-muted hover:text-fg sm:border-transparent",
-          )}
-        >
-          {x.label}
-        </button>
-      ))}
+    <div className="relative mb-5">
+      <div ref={row} className="flex gap-1 overflow-x-auto border-b border-line [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist">
+        {tabs.map((x) => (
+          <button
+            key={x.id}
+            ref={value === x.id ? active : undefined}
+            role="tab"
+            aria-selected={value === x.id}
+            onClick={() => onChange(x.id)}
+            className={cx(
+              "-mb-px shrink-0 whitespace-nowrap border-b-2 px-3 py-2 text-sm transition-colors",
+              value === x.id ? "border-accent font-medium text-fg" : "border-transparent text-muted hover:text-fg",
+            )}
+          >
+            {x.label}
+          </button>
+        ))}
+      </div>
+      {/* Fade the right edge so it is obvious the row keeps going when it overflows. */}
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-bg to-transparent sm:hidden" aria-hidden />
     </div>
   );
 }

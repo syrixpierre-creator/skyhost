@@ -33,6 +33,10 @@ case "$cmd" in
     dc build
     # Migrations run when the API starts; workers wait for a healthy API.
     dc up -d
+    # Each update leaves gigabytes of Docker build cache behind (customer builds use their own BuildKit cache,
+    # pruned by the scheduler): keep only the last day's, and drop images replaced by this update.
+    docker builder prune -af --filter until=24h >/dev/null 2>&1 || true
+    docker image prune -f >/dev/null 2>&1 || true
     info "Update complete"
     ;;
 

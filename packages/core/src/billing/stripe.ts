@@ -29,8 +29,17 @@ export function verifyStripeWebhook(rawBody: Buffer | string, signature: string 
 }
 
 export async function ensureStripeCustomer(team: { id: string; name: string; billingEmail: string | null; stripeCustomerId: string | null }, email: string) {
-  if (team.stripeCustomerId) return team.stripeCustomerId;
-  const customer = await stripe().customers.create({ name: team.name, email: team.billingEmail ?? email, metadata: { teamId: team.id } }, { idempotencyKey: `customer-${team.id}` });
+  if (team.stripeCustomerId) {
+    // A customer created with the test keys does not exist once the live keys are in place (and vice versa),
+    // and a customer may have been deleted in Stripe: create a new one instead of failing every checkout.
+    const existing = await stripe().customers.retrieve(team.stripeCustomerId).catch((e: { code?: string }) => {
+      if (e?.code === "resource_missing") return null;
+      throw e;
+    });
+    if (existing && !existing.deleted) return team.stripeCustomerId;
+  }
+  const key = team.stripeCustomerId ? `customer-${team.id}-replaces-${team.stripeCustomerId}` : `customer-${team.id}`;
+  const customer = await stripe().customers.create({ name: team.name, email: team.billingEmail ?? email, metadata: { teamId: team.id } }, { idempotencyKey: key });
   return customer.id;
 }
 

@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import * as sharedNode from "@skyhost/shared/node";
 import { and, eq } from "drizzle-orm";
 import { abuseReports, creditTransactions, plans, deployments, getDb, invoices, metricSamples, serviceInstances, teams, usageRecords, users } from "@skyhost/db";
 import { closeUsagePeriod, EMAIL_BY_DEFAULT, getQueue, getSetting, githubAppJwt, notify, QUEUES, resetServerConfig, setSetting } from "@skyhost/core";
@@ -340,14 +341,17 @@ describe("Telegram and WhatsApp channels", () => {
 
     const { processNotify } = await import("../../worker/src/processors/ops");
     const calls: Array<{ url: string; body?: string }> = [];
-    const realFetch = globalThis.fetch;
-    globalThis.fetch = (async (url: string, init?: RequestInit) => { calls.push({ url: String(url), body: init?.body as string | undefined }); return new Response("{}", { status: 200 }); }) as typeof fetch;
+    // Notifications go out through safeFetch (validates + pins the IP); capture the calls instead of hitting the network.
+    const spy = vi.spyOn(sharedNode, "safeFetch").mockImplementation(async (url, init) => {
+      calls.push({ url: String(url), body: typeof init?.body === "string" ? init.body : undefined });
+      return { ok: true, status: 200, headers: {}, text: () => "{}" };
+    });
     try {
       const payload = { title: "web crashed", body: "The process exited.", link: "https://skyhost.tech/x" };
       await processNotify({ channelId: tg.body.channel.id, event: "service.crashed", payload });
       await processNotify({ channelId: wa.body.channel.id, event: "service.crashed", payload });
     } finally {
-      globalThis.fetch = realFetch;
+      spy.mockRestore();
     }
     expect(calls[0]!.url).toBe("https://api.telegram.org/bot123456789:AAH_abcdefghijklmnopqrstuvwxyz012345/sendMessage");
     expect(JSON.parse(calls[0]!.body!)).toMatchObject({ chat_id: "-1001234567890", text: "web crashed\nThe process exited.\nhttps://skyhost.tech/x" });

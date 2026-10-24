@@ -4,7 +4,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import {
   buckets, databaseConnections, databases, deployHooks, deploymentLogs, deployments, domains, environments, getDb, jobRuns, notificationChannels, outgoingWebhooks, screenshots, serviceInstances, services, volumes, volumeSnapshots, webhookDeliveries,
 } from "@skyhost/db";
-import { assertPublicUrl, decrypt, Redactor } from "@skyhost/shared/node";
+import { assertPublicUrl, decrypt, Redactor, safeFetch } from "@skyhost/shared/node";
 import type { ServiceConfig } from "@skyhost/shared";
 import {
   deleteBucket, ensureImage, getDocker, getObjectStore, LABEL, listManagedContainers, names, provisionBucket, removeContainer, runJob, setBucketVisibility, startContainer, stopContainer,
@@ -67,9 +67,8 @@ export async function processJob(data: { jobRunId: string }) {
 
 // ------------------------------------------------------------------------------------------- Notifications
 async function postJson(url: string, body: unknown, headers: Record<string, string> = {}, allowHosts?: string[]) {
-  await assertPublicUrl(url, { protocols: ["https:"], allowHosts });
-  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "User-Agent": "SKYHOST-Webhook/1.0", ...headers }, body: JSON.stringify(body), signal: AbortSignal.timeout(10_000), redirect: "manual" });
-  return res;
+  // safeFetch validates the URL and pins the connection to the validated public IP (no DNS rebinding).
+  return safeFetch(url, { method: "POST", headers: { "Content-Type": "application/json", "User-Agent": "SKYHOST-Webhook/1.0", ...headers }, body: JSON.stringify(body), protocols: ["https:"], allowHosts, timeoutMs: 10_000 });
 }
 
 export async function processNotify(data: { channelId?: string; event?: string; payload?: Record<string, unknown>; email?: string; subject?: string; text?: string; html?: string }) {
@@ -90,7 +89,7 @@ export async function processNotify(data: { channelId?: string; event?: string; 
   }
   if (c.kind === "whatsapp") {
     const url = `https://api.callmebot.com/whatsapp.php?${new URLSearchParams({ phone: cfg.phone!, text: plain, apikey: cfg.apiKey! })}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(15_000), redirect: "manual" });
+    const res = await safeFetch(url, { protocols: ["https:"], timeoutMs: 15_000 });
     if (!res.ok) throw new Error(`whatsapp (CallMeBot) responded ${res.status}`);
     return;
   }
@@ -113,8 +112,7 @@ export async function processWebhook(data: { deliveryId: string }) {
   let code: number | null = null;
   let error: string | null = null;
   try {
-    await assertPublicUrl(hook.url, { protocols: ["https:"] });
-    const res = await fetch(hook.url, { method: "POST", headers: { "Content-Type": "application/json", "User-Agent": "SKYHOST-Webhook/1.0", "X-Skyhost-Event": d.event, "X-Skyhost-Delivery": d.id, "X-Skyhost-Signature": sig }, body, signal: AbortSignal.timeout(10_000), redirect: "manual" });
+    const res = await safeFetch(hook.url, { method: "POST", headers: { "Content-Type": "application/json", "User-Agent": "SKYHOST-Webhook/1.0", "X-Skyhost-Event": d.event, "X-Skyhost-Delivery": d.id, "X-Skyhost-Signature": sig }, body, protocols: ["https:"], timeoutMs: 10_000 });
     code = res.status;
     if (!res.ok) error = `HTTP ${res.status}`;
   } catch (e) {

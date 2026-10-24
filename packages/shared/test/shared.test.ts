@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseDotenv, parseEnvJson, resolveReferences, serializeDotenv, toEnvJson } from "../src/env";
 import { can, permissionsFor, scopeAllows } from "../src/rbac";
 import { decrypt, decryptBuffer, encrypt, encryptBuffer, generateMasterKey, parseKeyring, reencrypt } from "../src/node/crypto";
-import { isPrivateAddress, assertPublicUrl } from "../src/node/ssrf";
+import { isPrivateAddress, assertPublicUrl, safeFetch } from "../src/node/ssrf";
 import { redact, REDACTED } from "../src/node/redact";
 import { slugify } from "../src/format";
 
@@ -138,6 +138,34 @@ describe("ssrf", () => {
     await expect(assertPublicUrl("file:///etc/passwd")).rejects.toThrow();
     await expect(assertPublicUrl("http://user:pass@8.8.8.8/")).rejects.toThrow();
     await expect(assertPublicUrl("http://8.8.8.8/")).resolves.toBeTruthy();
+  });
+
+  it("safeFetch blocks private targets, never follows redirects, and reads the body", async () => {
+    const { createServer } = await import("node:http");
+    const server = createServer((req, res) => {
+      if (req.url === "/redirect") {
+        res.writeHead(302, { Location: "http://169.254.169.254/latest/meta-data" });
+        return res.end();
+      }
+      res.writeHead(200, { "content-type": "text/plain" });
+      res.end("hello");
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    const port = (server.address() as { port: number }).port;
+    try {
+      // A user-supplied URL pointing at a private address is refused outright.
+      await expect(safeFetch(`http://127.0.0.1:${port}/`)).rejects.toThrow();
+      // allowHosts reaches a known host (here the loopback test server); the body is returned.
+      const ok = await safeFetch(`http://localhost:${port}/`, { allowHosts: ["localhost"] });
+      expect(ok.status).toBe(200);
+      expect(ok.text()).toBe("hello");
+      // A redirect to an internal address is returned as-is, not followed.
+      const red = await safeFetch(`http://localhost:${port}/redirect`, { allowHosts: ["localhost"] });
+      expect(red.status).toBe(302);
+      expect(red.ok).toBe(false);
+    } finally {
+      server.close();
+    }
   });
 });
 

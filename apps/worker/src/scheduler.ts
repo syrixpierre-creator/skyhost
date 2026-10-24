@@ -6,7 +6,7 @@ import {
   screenshots, serviceInstances, services, teams, uptimeChecks, uptimeResults, usageRecords,
 } from "@skyhost/db";
 import type { PlanLimitKey, ServiceConfig } from "@skyhost/shared";
-import { assertPublicUrl } from "@skyhost/shared/node";
+import { safeFetch } from "@skyhost/shared/node";
 import { attachEdgeToAllNetworks, containerStats, databaseStats, getDocker, getObjectStore, LABEL, listManagedContainers, stopContainer, tailLogs } from "@skyhost/engine";
 import { analyzeErrors } from "@skyhost/analyzer";
 import {
@@ -216,8 +216,7 @@ async function runUptimeChecks() {
     let status: number | null = null;
     let error: string | null = null;
     try {
-      await assertPublicUrl(c.url);
-      const res = await fetch(c.url, { redirect: "manual", signal: AbortSignal.timeout(10_000), headers: { "User-Agent": "SKYHOST-Uptime/1.0" } });
+      const res = await safeFetch(c.url, { headers: { "User-Agent": "SKYHOST-Uptime/1.0" }, timeoutMs: 10_000 });
       status = res.status;
       up = res.status === c.expectedStatus || (c.expectedStatus === 200 && res.status < 400);
     } catch (e) {

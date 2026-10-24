@@ -1,4 +1,6 @@
 import { lookup } from "node:dns/promises";
+import { request as httpsRequest } from "node:https";
+import { request as httpRequest } from "node:http";
 import { isIP } from "node:net";
 
 function ipv4ToInt(ip: string): number {
@@ -71,4 +73,68 @@ export async function assertPublicUrl(raw: string, opts: { allowHosts?: string[]
     if (isPrivateAddress(a)) throw new SsrfError("Target resolves to a private or reserved address");
   }
   return { url, addresses };
+}
+
+export interface SafeFetchResult {
+  ok: boolean;
+  status: number;
+  headers: Record<string, string | string[] | undefined>;
+  text: () => string;
+}
+
+/**
+ * fetch for untrusted, user-supplied URLs (outgoing webhooks, notification channels, uptime checks). It validates
+ * the URL with assertPublicUrl AND pins the TCP connection to the validated public address, so DNS cannot rebind to
+ * a private one between the check and the request. The Host header and the TLS server name stay the original
+ * hostname, so HTTPS certificate validation is unaffected. Redirects are never followed.
+ */
+export async function safeFetch(
+  raw: string,
+  init: { method?: string; headers?: Record<string, string>; body?: string | Buffer; timeoutMs?: number; maxBytes?: number; allowHosts?: string[]; protocols?: string[] } = {},
+): Promise<SafeFetchResult> {
+  const { method = "GET", headers = {}, body, timeoutMs = 10_000, maxBytes = 2 * 1024 * 1024, allowHosts, protocols } = init;
+  const { url, addresses } = await assertPublicUrl(raw, { allowHosts, protocols });
+  // addresses is empty only for an allowHosts bypass (a fixed, trusted host like api.telegram.org): there we let the
+  // resolver run normally; otherwise we connect only to an address we just validated as public.
+  const pinned = addresses[0];
+  const pinnedFamily = pinned ? isIP(pinned) : 0;
+  const customLookup = pinned
+    ? (_host: string, options: { all?: boolean } | ((err: Error | null, addr: string, family: number) => void), cb?: (err: Error | null, addr: string | Array<{ address: string; family: number }>, family?: number) => void) => {
+        const callback = (typeof options === "function" ? options : cb) as (err: Error | null, addr: string | Array<{ address: string; family: number }>, family?: number) => void;
+        const all = typeof options === "object" && options.all;
+        if (all) return callback(null, [{ address: pinned, family: pinnedFamily }]);
+        return callback(null, pinned, pinnedFamily);
+      }
+    : undefined;
+
+  const transport = url.protocol === "https:" ? httpsRequest : httpRequest;
+  return new Promise<SafeFetchResult>((resolve, reject) => {
+    const req = transport(
+      url,
+      // lookup is passed through to net.connect; pinning it to a validated address prevents DNS rebinding.
+      { method, headers, timeout: timeoutMs, lookup: customLookup },
+      (res) => {
+        const chunks: Buffer[] = [];
+        let total = 0;
+        res.on("data", (c: Buffer) => {
+          total += c.length;
+          if (total <= maxBytes) chunks.push(c);
+          else res.destroy();
+        });
+        res.on("end", () =>
+          resolve({
+            ok: (res.statusCode ?? 0) >= 200 && (res.statusCode ?? 0) < 300,
+            status: res.statusCode ?? 0,
+            headers: res.headers,
+            text: () => Buffer.concat(chunks).toString("utf8"),
+          }),
+        );
+        res.on("error", reject);
+      },
+    );
+    req.on("error", reject);
+    req.on("timeout", () => req.destroy(new SsrfError("Request timed out")));
+    if (body != null) req.write(body);
+    req.end();
+  });
 }

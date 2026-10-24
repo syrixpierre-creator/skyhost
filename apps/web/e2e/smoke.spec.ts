@@ -86,9 +86,9 @@ test("account, billing, team settings, templates and referrals pages load real d
   await expect(page.getByText("Starter", { exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "Usage" }).click();
   await expect(page.getByText("Plan limits")).toBeVisible();
-  // Payment providers are not configured here: they are shown as not available, not as errors.
+  // Payment providers are not configured here: only prepaid credits are offered.
   await page.getByRole("tab", { name: "Payment methods" }).click();
-  await expect(page.getByText("Not available yet").first()).toBeVisible();
+  await expect(page.getByText("Prepaid credits", { exact: true })).toBeVisible();
 
   await page.goto("/account");
   await page.getByRole("tab", { name: "Security" }).click();
@@ -136,7 +136,7 @@ test("the dashboard is fully usable in French", async ({ page }) => {
   await page.goto("/billing");
   await expect(page.getByText("Facture estimée pour cette période")).toBeVisible();
   await page.getByRole("tab", { name: "Moyens de paiement" }).click();
-  await expect(page.getByText("Pas encore disponible").first()).toBeVisible();
+  await expect(page.getByText("Crédits prépayés", { exact: true }).first()).toBeVisible();
   await page.goto("/account");
   await page.getByRole("tab", { name: "Sécurité" }).click();
   await expect(page.getByRole("button", { name: "Configurer la 2FA" })).toBeVisible();
@@ -300,4 +300,18 @@ test("a phone in Chrome's desktop-site mode still sees every tab, and no sparkle
   await phone.goto("/");
   await expect(phone.getByRole("heading", { name: "SmartDeploy" })).toBeVisible();
   await expect(phone.locator("svg.lucide-sparkles:visible")).toHaveCount(0);
+});
+
+test("payment methods that are not configured are not shown anywhere", async ({ page, browser }) => {
+  // The UI test server has no payment provider configured.
+  const visitor = await (await browser.newContext()).newPage();
+  await visitor.goto("/");
+  await expect(visitor.getByText("Start free. Upgrade when your project grows.")).toBeVisible();
+  await expect(visitor.getByText(/PayPal|Mobile Money|Stripe/)).toHaveCount(0);
+  await login(page);
+  await page.goto("/billing");
+  await page.getByRole("tab", { name: "Payment methods" }).click();
+  await expect(page.getByText("Prepaid credits", { exact: true })).toBeVisible();
+  await expect(page.getByText(/PayPal|Mobile Money|Stripe|Not available yet/)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Add credits" })).toHaveCount(0);
 });

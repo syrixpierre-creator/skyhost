@@ -8,7 +8,7 @@ import { download, get, post, put } from "../lib/api";
 import { useCapabilities } from "../lib/capabilities";
 import { featureLabel, limitLabel, limitValue } from "../lib/labels";
 import { useSession } from "../lib/session";
-import { Alert, Badge, Button, Card, cx, EmptyState, ErrorState, Field, Input, LoadingRows, Meter, Modal, PageHeader, Select, StatusBadge, Tabs, timeAgo, Unavailable, useToast } from "../components/ui";
+import { Alert, Badge, Button, Card, cx, EmptyState, ErrorState, Field, Input, LoadingRows, Meter, Modal, PageHeader, Select, StatusBadge, Tabs, timeAgo, useToast } from "../components/ui";
 import { t } from "../lib/i18n";
 
 interface Plan {
@@ -184,8 +184,8 @@ export default function Billing() {
               <div className="mt-2 text-4xl font-semibold tabular-nums tracking-tight">{u ? formatCents(u.estimate.totalCents, u.plan.currency.toUpperCase()) : "—"}</div>
               {u && <PeriodBar start={u.period.start} end={u.period.end} />}
             </div>
-            <Stat label={t("Prepaid credits")} value={formatCents(o.creditBalanceCents)} hint={t("Use credits to pay for a plan without a card.")} action={canManage && <Button size="sm" disabled={!anyProvider} onClick={() => setCredits(true)}>{t("Add credits")}</Button>} />
-            <Stat label={t("Current plan")} value={o.usage.plan.name} hint={sub ? <span className="inline-flex items-center gap-1.5">{t("via")} {sub.provider} <StatusBadge status={sub.status} /></span> : t("No subscription")} action={<Button size="sm" onClick={() => setTab("plans")}>{t("Change plan")}</Button>} />
+            <Stat label={t("Prepaid credits")} value={formatCents(o.creditBalanceCents)} hint={t("Use credits to pay for a plan without a card.")} action={canManage && anyProvider && <Button size="sm" onClick={() => { setCreditProvider(providers.stripe ? "stripe" : providers.paypal ? "paypal" : "mobile_money"); setCredits(true); }}>{t("Add credits")}</Button>} />
+            <Stat label={t("Current plan")} value={o.usage.plan.name} hint={sub ? <span className="inline-flex items-center gap-1.5">{t("via")} {t(PROVIDER_LABEL[sub.provider] ?? sub.provider)} <StatusBadge status={sub.status} /></span> : t("No subscription")} action={<Button size="sm" onClick={() => setTab("plans")}>{t("Change plan")}</Button>} />
           </section>
 
           <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
@@ -378,13 +378,14 @@ export default function Billing() {
         <div className="space-y-6">
           <Card title={t("Payment providers")} padded={false}>
             <ul className="divide-y divide-line text-sm">
-              <ProviderRow name={t("Card (Stripe)")} description={t("Visa, Mastercard, American Express. Subscriptions renew automatically.")} available={providers.stripe} />
-              <ProviderRow name={t("PayPal")} description={t("Pay a plan or buy credits with your PayPal account.")} available={providers.paypal} />
-              <ProviderRow name={t("Mobile Money (Flutterwave)")} description={t("MTN, Orange, Airtel, M-Pesa: buy prepaid credits from your phone.")} available={providers.mobileMoney} />
-              <ProviderRow name={t("Prepaid credits")} description={t("Always available: pay a month of any plan from your credit balance.")} available />
+              {/* Only the payment methods this installation has configured are shown. */}
+              {providers.stripe && <ProviderRow name={t("Card")} description={t("Visa, Mastercard, American Express. Subscriptions renew automatically.")} />}
+              {providers.paypal && <ProviderRow name={t("PayPal")} description={t("Pay a plan or buy credits with your PayPal account.")} />}
+              {providers.mobileMoney && <ProviderRow name={t("Mobile Money")} description={t("MTN, Orange, Airtel, M-Pesa: buy prepaid credits from your phone.")} />}
+              <ProviderRow name={t("Prepaid credits")} description={t("Always available: pay a month of any plan from your credit balance.")} />
             </ul>
           </Card>
-          <Card title={t("Saved cards")} padded={false}>
+          {(providers.stripe || o.paymentMethods.length > 0) && <Card title={t("Saved cards")} padded={false}>
             {o.paymentMethods.length === 0 ? <EmptyState title={t("No saved payment method")} description={providers.stripe ? t("Cards are saved when you subscribe by card.") : undefined} /> : (
               <ul className="divide-y divide-line text-sm">
                 {o.paymentMethods.map((m) => (
@@ -397,7 +398,7 @@ export default function Billing() {
                 ))}
               </ul>
             )}
-          </Card>
+          </Card>}
         </div>
       )}
 
@@ -408,8 +409,8 @@ export default function Billing() {
               {o.pendingDiscount ? <><s className="text-faint">{formatCents(checkout.priceCents, checkout.currency.toUpperCase())}</s> {formatCents(Math.round((checkout.priceCents * (100 - o.pendingDiscount.percentOff)) / 100), checkout.currency.toUpperCase())}</> : formatCents(checkout.priceCents, checkout.currency.toUpperCase())} {t("per")} {checkout.interval}{t(". Taxes are calculated from your billing country. You can cancel at any time.")}
             </p>
             <div className="grid gap-2">
-              <PayButton available={checkout.providers.stripe && providers.stripe} primary loading={subscribe.isPending} onClick={() => subscribe.mutate({ plan: checkout, provider: "stripe" })}>{t("Pay by card (Stripe)")}</PayButton>
-              <PayButton available={checkout.providers.paypal && providers.paypal} onClick={() => subscribe.mutate({ plan: checkout, provider: "paypal" })}>{t("Pay with PayPal")}</PayButton>
+              {checkout.providers.stripe && providers.stripe && <Button variant="primary" loading={subscribe.isPending} onClick={() => subscribe.mutate({ plan: checkout, provider: "stripe" })}>{t("Pay by card")}</Button>}
+              {checkout.providers.paypal && providers.paypal && <Button loading={subscribe.isPending} onClick={() => subscribe.mutate({ plan: checkout, provider: "paypal" })}>{t("Pay with PayPal")}</Button>}
               <Button disabled={o.creditBalanceCents < checkout.priceCents} onClick={() => subscribe.mutate({ plan: checkout, provider: "credits" })}>{t("Pay one month with credits ({{amount}} available)", { amount: formatCents(o.creditBalanceCents) })}</Button>
             </div>
           </div>
@@ -420,9 +421,9 @@ export default function Billing() {
           <Field label={t("Amount (USD)")} hint={t("Minimum 5 USD")}><Input type="number" min={5} step={1} value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
           <Field label={t("Payment method")}>
             <Select value={creditProvider} onChange={(e) => setCreditProvider(e.target.value as typeof creditProvider)}>
-              <option value="stripe" disabled={!providers.stripe}>{t("Card (Stripe)")}{providers.stripe ? "" : ` · ${t("Not available yet")}`}</option>
-              <option value="paypal" disabled={!providers.paypal}>{t("PayPal")}{providers.paypal ? "" : ` · ${t("Not available yet")}`}</option>
-              <option value="mobile_money" disabled={!providers.mobileMoney}>{t("Mobile Money (Flutterwave)")}{providers.mobileMoney ? "" : ` · ${t("Not available yet")}`}</option>
+              {providers.stripe && <option value="stripe">{t("Card")}</option>}
+              {providers.paypal && <option value="paypal">{t("PayPal")}</option>}
+              {providers.mobileMoney && <option value="mobile_money">{t("Mobile Money")}</option>}
             </Select>
           </Field>
         </div>
@@ -493,24 +494,18 @@ function UsageChart({ data, dataKey, title }: { data: Usage["daily"]; dataKey: "
   );
 }
 
-function ProviderRow({ name, description, available }: { name: string; description: string; available: boolean }) {
+/** How a subscription's provider is named to customers: the payment method, not the processor behind it. */
+const PROVIDER_LABEL: Record<string, string> = { stripe: "card", paypal: "PayPal", credits: "credits", mobile_money: "Mobile Money" };
+
+function ProviderRow({ name, description }: { name: string; description: string }) {
   return (
     <li className="flex items-center gap-4 px-4 py-3">
       <div className="min-w-0 flex-1">
-        <div className={cx("font-medium", !available && "text-muted")}>{name}</div>
+        <div className="font-medium">{name}</div>
         <div className="text-xs text-muted">{description}</div>
       </div>
-      {available ? <StatusBadge status="active" label={t("Available")} /> : <Unavailable />}
+      <StatusBadge status="active" label={t("Available")} />
     </li>
-  );
-}
-
-function PayButton({ available, primary, loading, onClick, children }: { available: boolean; primary?: boolean; loading?: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <Button variant={primary && available ? "primary" : "secondary"} disabled={!available} loading={loading} onClick={onClick} className="justify-between">
-      <span>{children}</span>
-      {!available && <Unavailable />}
-    </Button>
   );
 }
 

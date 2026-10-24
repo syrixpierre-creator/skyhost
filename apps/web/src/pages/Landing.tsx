@@ -31,6 +31,9 @@ const HIGHLIGHT = ["projects", "services", "databases", "memoryMb"];
 /** Public home page for visitors who are not signed in. */
 export default function Landing() {
   const caps = useCapabilities();
+  // Only the payment methods that are actually configured are advertised.
+  const methods = [caps.payments.stripe && t("card"), caps.payments.paypal && t("PayPal"), caps.payments.mobileMoney && t("Mobile Money")].filter(Boolean) as string[];
+  const payWith = methods.length ? [...methods, t("prepaid credits")].join(", ") : "";
   const plans = useQuery({ queryKey: ["plans"], queryFn: () => get<{ plans: PublicPlan[] }>("/plans") });
   const nav = "text-sm text-muted transition-colors hover:text-fg";
   return (
@@ -101,7 +104,7 @@ export default function Landing() {
         <section id="pricing" className="border-t border-line">
           <div className="mx-auto max-w-6xl px-4 py-16">
             <h2 className="text-2xl font-semibold tracking-tight">{t("Simple pricing")}</h2>
-            <p className="mt-2 text-sm text-muted">{t("Start free. Upgrade when your project grows. Pay by card, PayPal, Mobile Money or prepaid credits.")}</p>
+            <p className="mt-2 text-sm text-muted">{t("Start free. Upgrade when your project grows.")}{payWith && ` ${t("Pay with {{methods}}.", { methods: payWith })}`}</p>
             <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {(plans.data?.plans ?? []).filter((p) => !p.isContactSales).slice(0, 4).map((p) => (
                 <div key={p.id} className="flex flex-col rounded-lg border border-line p-5">

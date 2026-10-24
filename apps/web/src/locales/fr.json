@@ -1190,5 +1190,13 @@
   "Contact support": "Contacter le support",
   "Everything you need to deploy and run your apps on SKYHOST.": "Tout ce qu'il faut pour déployer et faire tourner vos apps sur SKYHOST.",
   "Search the documentation": "Rechercher dans la documentation",
-  "No results.": "Aucun résultat."
+  "No results.": "Aucun résultat.",
+  "Card": "Carte",
+  "Mobile Money": "Mobile Money",
+  "Pay by card": "Payer par carte",
+  "card": "carte",
+  "prepaid credits": "crédits prépayés",
+  "Start free. Upgrade when your project grows.": "Commencez gratuitement. Passez à un plan supérieur quand votre projet grandit.",
+  "Pay with {{methods}}.": "Paiement par {{methods}}.",
+  "credits": "crédits"
 }

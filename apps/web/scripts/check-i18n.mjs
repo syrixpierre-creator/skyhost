@@ -24,6 +24,7 @@ const LABEL_SOURCES = [
   ["pages/NewProject.tsx", /const ENGINES[\s\S]*?\n\];/, /hint: "([^"]+)"/g],
   ["pages/Landing.tsx", /const FEATURES[\s\S]*?\] as const;/, /(?:title|text): "([^"]+)"/g],
   ["pages/Landing.tsx", /const STEPS[\s\S]*?\] as const;/, /"([A-Z][^"]+)"/g],
+  ["pages/Billing.tsx", /const PROVIDER_LABEL[^;]*;/, /: "([^"]+)"/g],
   ["pages/Support.tsx", /const CATEGORIES[\s\S]*?\] as const;/, /"([A-Z][^"]+)"/g],
   ["pages/Support.tsx", /const TICKET_STATUS[^;]*;/, /"([A-Z][^"]+)"/g],
 ];

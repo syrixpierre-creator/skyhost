@@ -47,17 +47,12 @@ export default function Landing() {
             <Link to="/docs" className={nav}>{t("Docs")}</Link>
             <Link to="/status" className={nav}>{t("Status")}</Link>
           </nav>
-          <div className="ml-auto flex items-center gap-2">
-            <Link to="/login" className="rounded-md px-3 py-1.5 text-sm hover:bg-panel-2">{t("auth.login")}</Link>
-            <Link to="/signup" className="rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-fg hover:bg-accent-hover">{t("Get started")}</Link>
-          </div>
         </div>
       </header>
 
       <main>
         <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 md:grid-cols-2 md:py-24">
           <div>
-            <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-line px-3 py-1 text-xs text-muted"><span className="size-1.5 rounded-full bg-emerald-500" />{t("Cloud hosting by SYRIX VISION COMPANY")}</p>
             <h1 className="text-4xl font-semibold leading-[1.05] tracking-[-0.035em] sm:text-5xl">{t("Push your code. Get a live URL.")}</h1>
             <p className="mt-5 max-w-lg text-lg text-muted">{t("SKYHOST builds and runs your apps, websites, APIs, bots and databases, with HTTPS, logs and automatic deployments. No server to manage.")}</p>
             <div className="mt-8 flex flex-wrap gap-3">
